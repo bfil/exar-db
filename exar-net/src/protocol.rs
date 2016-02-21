@@ -44,7 +44,7 @@ impl ToString for TcpMessage {
                 }
             },
             TcpMessage::Connected => format!("Connected"),
-            TcpMessage::Publish(Event { ref id, ref data, ref tags, ref timestamp }) => {
+            TcpMessage::Publish(Event { ref data, ref tags, ref timestamp, .. }) => {
                 format!("Publish\t{}\t{}\t{}", tags.join(" "), timestamp, data)
             },
             TcpMessage::Published(ref event_id) => format!("Published\t{}", event_id),

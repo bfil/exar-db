@@ -1,0 +1,13 @@
+[database]
+logs_path = "/Users/bruno.filippone/Downloads"
+num_scanners = 2
+routing_strategy = "RoundRobin"
+# [database.collections.test]
+# logs_path = "/Users/bruno.filippone/Downloads"
+# num_scanners = 3
+# routing_strategy = "Random"
+[server]
+host = "127.0.0.1"
+port = 38580
+username = "admin"
+password = "secret"

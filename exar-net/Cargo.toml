@@ -1,0 +1,7 @@
+[package]
+name = "exar-net"
+version = "0.1.0"
+authors = ["Bruno Filippone <bruno.filippone@b-fil.com>"]
+
+[dependencies]
+exar = { version = "0.1", path = "../exar-core" }

@@ -1,0 +1,10 @@
+[package]
+name = "exar-server"
+version = "0.1.0"
+authors = ["Bruno Filippone <bruno.filippone@b-fil.com>"]
+
+[dependencies]
+exar = { version = "0.1", path = "../exar-core" }
+exar-net = { version = "0.1", path = "../exar-net" }
+toml-config = "0.2"
+rustc-serialize = "0.3"

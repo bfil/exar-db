@@ -1,0 +1,15 @@
+[package]
+name = "exar"
+version = "0.1.0"
+authors = ["Bruno Filippone <bruno.filippone@b-fil.com>"]
+
+[dependencies]
+rand = "0.3"
+time = "0.1"
+rustc-serialize = { optional = true, version = "0.3" }
+serde = { optional = true, version = "0.6" }
+serde_macros = { optional = true, version = "0.6" }
+
+[features]
+default = ["rustc-serialize"]
+serde-serialization = ["serde", "serde_macros"]

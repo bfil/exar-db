@@ -9,7 +9,7 @@ pub struct DatabaseConfig  {
     pub logs_path: String,
     pub num_scanners: u8,
     pub routing_strategy: RoutingStrategy,
-    pub collections: BTreeMap<String, CollectionConfig>
+    pub collections: BTreeMap<String, PartialCollectionConfig>
 }
 
 impl Default for DatabaseConfig {
@@ -26,7 +26,14 @@ impl Default for DatabaseConfig {
 impl DatabaseConfig {
     pub fn get_collection_config(&self, collection_name: &str) -> CollectionConfig {
         match self.collections.get(collection_name) {
-            Some(collection_config) => collection_config.clone(),
+            Some(collection_config) => {
+                let coll = collection_config.clone();
+                CollectionConfig {
+                    logs_path: coll.logs_path.unwrap_or(self.logs_path.clone()),
+                    num_scanners: coll.num_scanners.unwrap_or(self.num_scanners),
+                    routing_strategy: coll.routing_strategy.unwrap_or(self.routing_strategy.clone())
+                }
+            },
             None => CollectionConfig {
                 logs_path: self.logs_path.clone(),
                 num_scanners: self.num_scanners,
@@ -43,4 +50,13 @@ pub struct CollectionConfig {
     pub logs_path: String,
     pub num_scanners: u8,
     pub routing_strategy: RoutingStrategy
+}
+
+#[cfg_attr(feature = "rustc-serialize", derive(RustcEncodable, RustcDecodable))]
+#[cfg_attr(feature = "serde-serialization", derive(Serialize, Deserialize))]
+#[derive(Clone, Debug)]
+pub struct PartialCollectionConfig {
+    pub logs_path: Option<String>,
+    pub num_scanners: Option<u8>,
+    pub routing_strategy: Option<RoutingStrategy>
 }

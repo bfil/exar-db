@@ -4,7 +4,7 @@ use std::sync::mpsc::Receiver;
 
 use time;
 
-#[cfg_attr(feature = "rustc-serialize", derive(RustcEncodable, RustcDecodable))]
+#[cfg_attr(feature = "rustc-serialization", derive(RustcEncodable, RustcDecodable))]
 #[cfg_attr(feature = "serde-serialization", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug, PartialEq)]
 pub struct Event {

@@ -4,13 +4,13 @@ version = "0.1.0"
 authors = ["Bruno Filippone <bruno.filippone@b-fil.com>"]
 
 [dependencies]
-exar = { version = "0.1", path = "../exar-core" }
+exar = { version = "0.1", path = "../exar-core", features = ["rustc-serialization"] }
 exar-net = { version = "0.1", path = "../exar-net" }
 exar-client = { version = "0.1", path = "../exar-client" }
-exar-server = { version = "0.1", path = "../exar-server" }
+exar-server = { version = "0.1", path = "../exar-server", features = ["rustc-serialization"] }
+rustc-serialize = "0.3"
 stopwatch = "0.0.6"
 toml-config = "0.2"
-rustc-serialize = "0.3"
 
 [profile.release]
 debug = true

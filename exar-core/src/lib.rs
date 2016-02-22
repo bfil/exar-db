@@ -1,7 +1,7 @@
 #![cfg_attr(feature = "serde-serialization", feature(custom_derive, plugin))]
 #![cfg_attr(feature = "serde-serialization", plugin(serde_macros))]
 
-#[cfg(feature = "rustc-serialize")] extern crate rustc_serialize;
+#[cfg(feature = "rustc-serialization")] extern crate rustc_serialize;
 #[cfg(feature = "serde-serialization")] extern crate serde;
 
 extern crate rand;

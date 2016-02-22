@@ -2,7 +2,7 @@ use super::*;
 
 use std::collections::BTreeMap;
 
-#[cfg_attr(feature = "rustc-serialize", derive(RustcEncodable, RustcDecodable))]
+#[cfg_attr(feature = "rustc-serialization", derive(RustcEncodable, RustcDecodable))]
 #[cfg_attr(feature = "serde-serialization", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug)]
 pub struct DatabaseConfig  {
@@ -43,7 +43,7 @@ impl DatabaseConfig {
     }
 }
 
-#[cfg_attr(feature = "rustc-serialize", derive(RustcEncodable, RustcDecodable))]
+#[cfg_attr(feature = "rustc-serialization", derive(RustcEncodable, RustcDecodable))]
 #[cfg_attr(feature = "serde-serialization", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug)]
 pub struct CollectionConfig {
@@ -52,7 +52,7 @@ pub struct CollectionConfig {
     pub routing_strategy: RoutingStrategy
 }
 
-#[cfg_attr(feature = "rustc-serialize", derive(RustcEncodable, RustcDecodable))]
+#[cfg_attr(feature = "rustc-serialization", derive(RustcEncodable, RustcDecodable))]
 #[cfg_attr(feature = "serde-serialization", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug)]
 pub struct PartialCollectionConfig {

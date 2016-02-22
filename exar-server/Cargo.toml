@@ -6,5 +6,10 @@ authors = ["Bruno Filippone <bruno.filippone@b-fil.com>"]
 [dependencies]
 exar = { version = "0.1", path = "../exar-core" }
 exar-net = { version = "0.1", path = "../exar-net" }
-toml-config = "0.2"
-rustc-serialize = "0.3"
+rustc-serialize = { optional = true, version = "0.3" }
+serde = { optional = true, version = "0.6" }
+serde_macros = { optional = true, version = "0.6" }
+
+[features]
+rustc-serialization = ["rustc-serialize"]
+serde-serialization = ["serde", "serde_macros"]

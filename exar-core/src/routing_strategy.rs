@@ -1,4 +1,4 @@
-#[cfg(feature = "rustc-serialize")] use rustc_serialize::{Encoder, Encodable, Decoder, Decodable};
+#[cfg(feature = "rustc-serialization")] use rustc_serialize::{Encoder, Encodable, Decoder, Decodable};
 #[cfg(feature = "serde-serialization")] use serde::{Serialize, Serializer, Deserialize, Deserializer};
 #[cfg(feature = "serde-serialization")] use serde::de::{Error, Visitor};
 
@@ -8,7 +8,7 @@ pub enum RoutingStrategy {
     RoundRobin(usize)
 }
 
-#[cfg(feature = "rustc-serialize")]
+#[cfg(feature = "rustc-serialization")]
 impl Encodable for RoutingStrategy {
     fn encode<S: Encoder>(&self, s: &mut S) -> Result<(), S::Error> {
         match *self {
@@ -19,7 +19,7 @@ impl Encodable for RoutingStrategy {
 
 }
 
-#[cfg(feature = "rustc-serialize")]
+#[cfg(feature = "rustc-serialization")]
 impl Decodable for RoutingStrategy {
     fn decode<D: Decoder>(d: &mut D) -> Result<Self, D::Error> {
         d.read_str().map(|s| {

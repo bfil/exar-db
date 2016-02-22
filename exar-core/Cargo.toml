@@ -11,5 +11,5 @@ serde = { optional = true, version = "0.6" }
 serde_macros = { optional = true, version = "0.6" }
 
 [features]
-default = ["rustc-serialize"]
+rustc-serialization = ["rustc-serialize"]
 serde-serialization = ["serde", "serde_macros"]

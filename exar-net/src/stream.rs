@@ -29,7 +29,7 @@ impl Stream {
         match self.reader.read_line(&mut line) {
             Ok(_) => {
                 let trimmed_line = line.trim();
-                match trimmed_line.parse() {
+                match TcpMessage::from_tab_separated_string(&trimmed_line) {
                     Ok(message) => Ok(message),
                     Err(err) => Err(DatabaseError::ParseError(err))
                 }
@@ -39,7 +39,7 @@ impl Stream {
     }
 
     pub fn send_message(&mut self, message: TcpMessage) -> Result<(), DatabaseError> {
-        match self.writer.write_line(&message.to_string()) {
+        match self.writer.write_line(&message.to_tab_separated_string()) {
             Ok(_) => Ok(()),
             Err(err) => Err(DatabaseError::IoError(err))
         }
@@ -73,7 +73,7 @@ impl Iterator for Messages {
     type Item = Result<TcpMessage, DatabaseError>;
     fn next(&mut self) -> Option<Self::Item> {
         match self.lines.next() {
-            Some(Ok(ref message)) => match message.parse() {
+            Some(Ok(ref message)) => match TcpMessage::from_tab_separated_string(message) {
                 Ok(message) => Some(Ok(message)),
                 Err(err) => Some(Err(DatabaseError::ParseError(err)))
             },

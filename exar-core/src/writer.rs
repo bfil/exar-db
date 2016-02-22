@@ -37,7 +37,7 @@ impl Writer {
                 if event.timestamp == 0 {
                     event = event.with_current_timestamp();
                 }
-                let event_string = format!("{}\n", event.to_string());
+                let event_string = format!("{}\n", event.to_tab_separated_string());
                 match file.write_all(event_string.as_bytes()) {
                     Ok(()) => {
                         *offset += 1;

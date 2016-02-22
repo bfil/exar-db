@@ -1,7 +1,6 @@
 use super::*;
 
 use std::collections::HashMap;
-use std::io::Error;
 use std::sync::{Arc, Mutex};
 
 pub struct Database {
@@ -56,17 +55,6 @@ impl Database {
     pub fn contains_collection(&self, collection_name: &str) -> bool {
         self.collections.contains_key(collection_name)
     }
-}
-
-#[derive(Debug)]
-pub enum DatabaseError {
-    AuthenticationError,
-    ConnectionError,
-    EventStreamClosed,
-    IoError(Error),
-    ParseError(ParseError),
-    SubscriptionError,
-    ValidationError(ValidationError)
 }
 
 #[cfg(test)]

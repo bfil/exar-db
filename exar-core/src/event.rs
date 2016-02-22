@@ -1,6 +1,5 @@
 use super::*;
 
-use std::str::FromStr;
 use std::sync::mpsc::Receiver;
 
 use time;
@@ -47,16 +46,14 @@ impl Event {
     }
 }
 
-impl ToString for Event {
-    fn to_string(&self) -> String {
-        let tags_string: String = self.tags.join(" ");
-        format!("{}\t{}\t{}\t{}", self.id, tags_string, self.timestamp, self.data)
+impl ToTabSeparatedString for Event {
+    fn to_tab_separated_string(&self) -> String {
+        tab_separated!(self.id, self.tags.join(" "), self.timestamp, self.data)
     }
 }
 
-impl FromStr for Event {
-    type Err = ParseError;
-    fn from_str(s: &str) -> Result<Event, ParseError> {
+impl FromTabSeparatedString for Event {
+    fn from_tab_separated_string(s: &str) -> Result<Event, ParseError> {
         let mut parser = TabSeparatedParser::new(4, s);
         let id = try!(parser.parse_next());
         let tags: String = try!(parser.parse_next());

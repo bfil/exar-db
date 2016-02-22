@@ -6,7 +6,7 @@
 - Validation (Done)
 - Investigate If Tags Should Be Mandatory (Done)
 - Return Event ID On Publish (Done)
-- Consider Own Trait Over ToString/FromString Traits (Unnecessary)
+- Consider Own Trait Over ToString/FromStr Traits (Done)
 
 ### Config
 

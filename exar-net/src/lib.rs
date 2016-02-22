@@ -1,3 +1,4 @@
+#[macro_use]
 extern crate exar;
 
 mod buf_writer;

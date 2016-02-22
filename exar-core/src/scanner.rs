@@ -68,7 +68,7 @@ impl Scanner {
                 for line in BufReader::new(file).lines().skip(offset) {
                     match line {
                         Ok(line) => {
-                            match line.parse() {
+                            match Event::from_tab_separated_string(&line) {
                                 Ok(event) => {
                                     for subscription in subscriptions.iter_mut() {
                                         if subscription.query.is_active() && subscription.query.matches(&event) {

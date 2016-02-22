@@ -1,6 +1,6 @@
 #![macro_use]
 
-use std::fmt::Debug;
+use std::fmt::{Debug, Display, Formatter, Result as DisplayResult};
 use std::str::{FromStr, SplitN};
 
 #[macro_export]
@@ -25,6 +25,15 @@ pub enum ParseError {
     MissingField(usize)
 }
 
+impl Display for ParseError {
+    fn fmt(&self, f: &mut Formatter) -> DisplayResult {
+        match *self {
+            ParseError::ParseError(ref description) => write!(f, "parsing failure, {}", description),
+            ParseError::MissingField(index) => write!(f, "missing field at index {}", index)
+        }
+    }
+}
+
 pub struct TabSeparatedParser<'a> {
     index: usize,
     parts: SplitN<'a, &'a str>
@@ -38,13 +47,13 @@ impl<'a> TabSeparatedParser<'a> {
         }
     }
 
-    pub fn parse_next<T>(&mut self) -> Result<T, ParseError> where T: FromStr, <T as FromStr>::Err: Debug {
+    pub fn parse_next<T>(&mut self) -> Result<T, ParseError> where T: FromStr, <T as FromStr>::Err: Display + Debug {
         match self.parts.next().map(|x| x.parse())  {
             Some(Ok(value)) => {
                 self.index += 1;
                 Ok(value)
             },
-            Some(Err(err)) => Err(ParseError::ParseError(format!("{:?}", err))),
+            Some(Err(err)) => Err(ParseError::ParseError(format!("{}", err))),
             None => Err(ParseError::MissingField(self.index))
         }
     }

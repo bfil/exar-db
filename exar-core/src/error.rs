@@ -1,6 +1,7 @@
 use super::*;
 
 use std::error::Error;
+use std::fmt::{Display, Formatter, Result as DisplayResult};
 use std::io::{Error as IoError, ErrorKind};
 
 #[derive(Debug)]
@@ -122,6 +123,20 @@ impl FromTabSeparatedString for ErrorKind {
             "Other" => Ok(ErrorKind::Other),
             "UnexpectedEof" => Ok(ErrorKind::UnexpectedEof),
             x => Err(ParseError::ParseError(format!("Unknown error kind: {}", x)))
+        }
+    }
+}
+
+impl Display for DatabaseError {
+    fn fmt(&self, f: &mut Formatter) -> DisplayResult {
+        match *self {
+            DatabaseError::AuthenticationError => write!(f, "authentication failure"),
+            DatabaseError::ConnectionError => write!(f, "connection failure"),
+            DatabaseError::EventStreamClosed => write!(f, "event stream is closed"),
+            DatabaseError::IoError(ref error) => write!(f, "{}", error),
+            DatabaseError::ParseError(ref error) => write!(f, "{}", error),
+            DatabaseError::SubscriptionError => write!(f, "subscription failure"),
+            DatabaseError::ValidationError(ref error) => write!(f, "{}", error)
         }
     }
 }

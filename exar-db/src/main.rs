@@ -60,11 +60,11 @@ fn perf_test(num_scanners: u8, num_subscribers: usize, num_events: usize) {
     for i in 0..num_events {
         match conn.publish(Event::new(PAYLOAD, vec!["tag1"])) {
             Ok(_) => i,
-            Err(err) => panic!("Unable to append to the database: {:?}", err)
+            Err(err) => panic!("Unable to append to the database: {}", err)
         };
         match conn.publish(Event::new(PAYLOAD, vec!["tag2"])) {
             Ok(_) => i,
-            Err(err) => panic!("Unable to append to the database: {:?}", err)
+            Err(err) => panic!("Unable to append to the database: {}", err)
         };
     }
     report_performance(sw, num_events * 2, "Writing");

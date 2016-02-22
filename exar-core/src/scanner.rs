@@ -51,7 +51,7 @@ impl Scanner {
                                 Ok(_) => subscriptions.retain(|s| {
                                     s.is_active() && s.query.is_live() && s.query.is_active()
                                 }),
-                                Err(err) => println!("Unable to scan file: {:?}", err)
+                                Err(err) => println!("Unable to scan file: {}", err)
                             }
                         }
                         thread::sleep(Duration::from_millis(10));
@@ -77,7 +77,7 @@ impl Scanner {
                                         }
                                     }
                                 },
-                                Err(err) => println!("Unable to deserialize database line: {:?}", err)
+                                Err(err) => println!("Unable to deserialize database line: {}", err)
                             }
                         },
                         Err(err) => println!("Unable to read database line: {}", err)

@@ -73,7 +73,7 @@ impl Validation<Event> for Event {
     fn validate(self) -> Result<Self, ValidationError> {
         let event = self.without_empty_tags();
         if event.tags.is_empty() {
-            Err(ValidationError::new("Events must contain at least one tag"))
+            Err(ValidationError::new("events must contain at least one tag"))
         } else {
             Ok(event)
         }

@@ -37,7 +37,7 @@ impl Handler {
                     };
                 }
             },
-            Err(err) => println!("Unable to accept client connection: {:?}", err)
+            Err(err) => println!("Unable to accept client connection: {}", err)
         }
     }
 

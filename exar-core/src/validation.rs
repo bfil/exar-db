@@ -1,3 +1,5 @@
+use std::fmt::{Display, Formatter, Result as DisplayResult};
+
 pub trait Validation<T: Sized> {
     fn validate(self) -> Result<T, ValidationError>;
 }
@@ -12,5 +14,11 @@ impl ValidationError {
         ValidationError {
             description: description.to_owned()
         }
+    }
+}
+
+impl Display for ValidationError {
+    fn fmt(&self, f: &mut Formatter) -> DisplayResult {
+        write!(f, "{}", self.description)
     }
 }

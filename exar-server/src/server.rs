@@ -76,7 +76,7 @@ impl Server {
                                 handler.run();
                                 println!("Client disconnected..");
                             },
-                            Err(err) => println!("Unable to accept client connection: {:?}", err)
+                            Err(err) => println!("Unable to accept client connection: {}", err)
                         }
                     });
                 },

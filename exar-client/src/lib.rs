@@ -57,7 +57,7 @@ impl Client {
                             },
                             Ok(TcpMessage::EndOfStream) => (),
                             Ok(TcpMessage::Error(error)) => println!("Received error from TCP stream: {}", error),
-                            Ok(message) => println!("Unexpected TCP message: {:?}", message),
+                            Ok(message) => println!("Unexpected TCP message: {}", message),
                             Err(err) => println!("Unable to read TCP message from stream: {}", err)
                         };
                         break

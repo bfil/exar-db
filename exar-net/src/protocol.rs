@@ -114,12 +114,42 @@ impl FromTabSeparatedString for TcpMessage {
     }
 }
 
+impl Display for TcpMessage {
+    fn fmt(&self, f: &mut Formatter) -> DisplayResult {
+        match *self {
+            TcpMessage::Connect(ref collection_name, ref username, ref password) => {
+                match (username, password) {
+                    (&Some(ref username), &Some(ref password)) => {
+                        write!(f, "Connect({}, {}, {})", collection_name, username, password)
+                    },
+                    _ => write!(f, "Connect({})", collection_name)
+                }
+            },
+            TcpMessage::Connected => write!(f, "Connected"),
+            TcpMessage::Publish(ref event) => write!(f, "Publish({})", event),
+            TcpMessage::Published(ref event_id) => write!(f, "Published({})", event_id),
+            TcpMessage::Subscribe(ref live, ref offset, ref limit, ref tag) => {
+                match (limit, tag) {
+                    (&Some(ref limit), &Some(ref tag)) => write!(f, "Subscribe({}, {}, {}, {})", live, offset, limit, tag),
+                    (&Some(ref limit), &None) => write!(f, "Subscribe({}, {}, {})", live, offset, limit),
+                    (&None, &Some(ref tag)) => write!(f, "Subscribe({}, {}, {}, {})", live, offset, 0, tag),
+                    _ => write!(f, "Subscribe({}, {})", live, offset)
+                }
+            },
+            TcpMessage::Subscribed => write!(f, "Subscribed"),
+            TcpMessage::Event(ref event) => write!(f, "Event({})", event),
+            TcpMessage::EndOfStream => write!(f, "EndOfStream"),
+            TcpMessage::Error(ref error) => write!(f, "Error({})", error)
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct UnexpectedTcpMessage;
 
 impl Display for UnexpectedTcpMessage {
-    fn fmt(&self, fmt: &mut Formatter) -> DisplayResult {
-        write!(fmt, "Unexpected TCP Message")
+    fn fmt(&self, f: &mut Formatter) -> DisplayResult {
+        write!(f, "Unexpected TCP Message")
     }
 }
 

@@ -1,5 +1,6 @@
 use super::*;
 
+use std::fmt::{Display, Formatter, Result as DisplayResult};
 use std::sync::mpsc::Receiver;
 
 use time;
@@ -43,6 +44,12 @@ impl Event {
     pub fn without_empty_tags(mut self) -> Self {
         self.tags = self.tags.iter().filter(|t| !t.is_empty()).map(|x| x.to_string()).collect();
         self
+    }
+}
+
+impl Display for Event {
+    fn fmt(&self, f: &mut Formatter) -> DisplayResult {
+        write!(f, "Event({}, {}, [{}], {})", self.id, self.timestamp, self.tags.join(", "), self.data)
     }
 }
 

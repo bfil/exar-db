@@ -28,7 +28,7 @@ pub enum ParseError {
 impl Display for ParseError {
     fn fmt(&self, f: &mut Formatter) -> DisplayResult {
         match *self {
-            ParseError::ParseError(ref description) => write!(f, "parsing failure, {}", description),
+            ParseError::ParseError(ref description) => write!(f, "{}", description),
             ParseError::MissingField(index) => write!(f, "missing field at index {}", index)
         }
     }

@@ -83,4 +83,4 @@
 - Implement Display For Relevant Structs/Enums (-)
 - Write Tests (-)
 - Write Docs (-)
-- Split Core/Server/Client Into Separate Crates (-)
+- Split Core/Server/Client Into Separate Crates (Done)

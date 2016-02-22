@@ -1,7 +1,7 @@
 use std::fs::*;
 use std::io::{BufRead, BufReader, Result, Write};
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Log {
     path: String,
     name: String

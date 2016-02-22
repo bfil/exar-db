@@ -1,6 +1,7 @@
 use std::io::prelude::*;
 use std::io::Result;
 
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BufWriter<T: Write> {
     inner: T
 }

@@ -4,6 +4,7 @@ use std::fs::File;
 use std::io::Write;
 use std::sync::Mutex;
 
+#[derive(Debug)]
 pub struct Writer {
     file: Mutex<File>,
     offset: Mutex<usize>

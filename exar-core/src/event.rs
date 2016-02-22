@@ -6,7 +6,7 @@ use time;
 
 #[cfg_attr(feature = "rustc-serialization", derive(RustcEncodable, RustcDecodable))]
 #[cfg_attr(feature = "serde-serialization", derive(Serialize, Deserialize))]
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Event {
     pub id: usize,
     pub data: String,

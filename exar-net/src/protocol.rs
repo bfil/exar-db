@@ -114,7 +114,7 @@ impl FromTabSeparatedString for TcpMessage {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct UnexpectedTcpMessage;
 
 impl Display for UnexpectedTcpMessage {

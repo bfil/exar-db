@@ -2,7 +2,7 @@ use super::*;
 
 use std::sync::{Arc, Mutex};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Connection {
     collection: Arc<Mutex<Collection>>
 }

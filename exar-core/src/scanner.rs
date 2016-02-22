@@ -8,6 +8,7 @@ use std::thread;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
+#[derive(Clone, Debug)]
 pub struct Scanner {
     log: Log,
     send: Arc<Mutex<Sender<Subscription>>>,

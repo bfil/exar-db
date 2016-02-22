@@ -19,7 +19,7 @@ pub trait FromTabSeparatedString {
     fn from_tab_separated_string(s: &str) -> Result<Self, ParseError> where Self: Sized;
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ParseError {
     ParseError(String),
     MissingField(usize)

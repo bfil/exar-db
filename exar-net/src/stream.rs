@@ -5,6 +5,7 @@ use std::io::prelude::*;
 use std::io::{BufReader, Lines};
 use std::net::TcpStream;
 
+#[derive(Debug)]
 pub struct Stream {
     reader: BufReader<TcpStream>,
     writer: BufWriter<TcpStream>

@@ -6,6 +6,7 @@ use std::net::{ToSocketAddrs, TcpListener};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
+#[derive(Debug)]
 pub struct Server {
     config: ServerConfig,
     db: Arc<Mutex<Database>>,

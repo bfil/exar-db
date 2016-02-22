@@ -78,8 +78,8 @@
 
 ### General
 
-- Rename Components If Necessary (-)
-- Derive Relevant Traits For All Structs/Enums (-)
+- Rename Components If Necessary (Done)
+- Derive Relevant Traits For All Structs/Enums (Done)
 - Implement Display For Relevant Structs/Enums (-)
 - Write Tests (-)
 - Write Docs (-)

@@ -2,7 +2,7 @@ use exar::*;
 use exar_server::*;
 
 #[derive(RustcEncodable, RustcDecodable)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Config  {
     pub database: DatabaseConfig,
     pub server: ServerConfig

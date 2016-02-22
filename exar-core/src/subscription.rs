@@ -2,6 +2,7 @@ use super::*;
 
 use std::sync::mpsc::Sender;
 
+#[derive(Clone, Debug)]
 pub struct Subscription {
     active: bool,
     pub send: Sender<Event>,

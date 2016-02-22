@@ -2,7 +2,7 @@
 #[cfg(feature = "serde-serialization")] use serde::{Serialize, Serializer, Deserialize, Deserializer};
 #[cfg(feature = "serde-serialization")] use serde::de::{Error, Visitor};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RoutingStrategy {
     Random,
     RoundRobin(usize)

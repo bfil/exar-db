@@ -4,6 +4,7 @@ use rand;
 use rand::Rng;
 use std::sync::mpsc::channel;
 
+#[derive(Debug)]
 pub struct Collection {
     log: Log,
     scanners: Vec<Scanner>,

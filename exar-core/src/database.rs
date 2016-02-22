@@ -3,6 +3,7 @@ use super::*;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
+#[derive(Clone, Debug)]
 pub struct Database {
     config: DatabaseConfig,
     collections: HashMap<String, Arc<Mutex<Collection>>>

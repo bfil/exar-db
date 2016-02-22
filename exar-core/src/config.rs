@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 #[cfg_attr(feature = "rustc-serialization", derive(RustcEncodable, RustcDecodable))]
 #[cfg_attr(feature = "serde-serialization", derive(Serialize, Deserialize))]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DatabaseConfig  {
     pub logs_path: String,
     pub num_scanners: u8,
@@ -45,7 +45,7 @@ impl DatabaseConfig {
 
 #[cfg_attr(feature = "rustc-serialization", derive(RustcEncodable, RustcDecodable))]
 #[cfg_attr(feature = "serde-serialization", derive(Serialize, Deserialize))]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CollectionConfig {
     pub logs_path: String,
     pub num_scanners: u8,
@@ -54,7 +54,7 @@ pub struct CollectionConfig {
 
 #[cfg_attr(feature = "rustc-serialization", derive(RustcEncodable, RustcDecodable))]
 #[cfg_attr(feature = "serde-serialization", derive(Serialize, Deserialize))]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PartialCollectionConfig {
     pub logs_path: Option<String>,
     pub num_scanners: Option<u8>,

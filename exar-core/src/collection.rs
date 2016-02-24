@@ -97,4 +97,10 @@ mod tests {
 
         assert!(collection.drop().is_ok());
     }
+
+    #[test]
+    fn test_constructor_failure() {
+        let ref collection_name = "missing-directory/error";
+        assert!(Collection::new(collection_name, CollectionConfig::default()).is_err());
+    }
 }

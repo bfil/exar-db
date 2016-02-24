@@ -4,7 +4,7 @@ use std::error::Error;
 use std::fmt::{Display, Formatter, Result as DisplayResult};
 use std::io::ErrorKind;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum DatabaseError {
     AuthenticationError,
     ConnectionError,

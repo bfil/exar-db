@@ -57,3 +57,55 @@ impl Database {
         self.collections.contains_key(collection_name)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::*;
+
+    #[test]
+    fn test_constructor() {
+        let db = Database::new(DatabaseConfig::default());
+
+        assert_eq!(db.config, DatabaseConfig::default());
+        assert_eq!(db.collections.len(), 0);
+    }
+
+    #[test]
+    fn test_connect() {
+        let mut db = Database::new(DatabaseConfig::default());
+
+        let collection_name = "test-connect";
+        assert!(db.connect(collection_name).is_ok());
+        assert!(db.contains_collection(collection_name));
+        assert!(db.drop_collection(collection_name).is_ok());
+    }
+
+    #[test]
+    fn test_connection_failure() {
+        let mut db = Database::new(DatabaseConfig::default());
+
+        let collection_name = "missing-directory/error";
+        assert!(db.connect(collection_name).is_err());
+        assert!(!db.contains_collection(collection_name));
+        assert!(db.drop_collection(collection_name).is_err());
+    }
+
+    #[test]
+    fn test_collection_management() {
+        let mut db = Database::new(DatabaseConfig::default());
+
+        let collection_name = "test-collection";
+        assert!(!db.contains_collection(collection_name));
+        assert!(db.get_collection(collection_name).is_ok());
+        assert!(db.contains_collection(collection_name));
+        assert_eq!(db.collections.len(), 1);
+
+        assert!(db.get_collection(collection_name).is_ok());
+        assert!(db.contains_collection(collection_name));
+        assert_eq!(db.collections.len(), 1);
+
+        assert!(db.drop_collection(collection_name).is_ok());
+        assert!(!db.contains_collection(collection_name));
+        assert_eq!(db.collections.len(), 0);
+    }
+}

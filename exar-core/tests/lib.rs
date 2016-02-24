@@ -3,14 +3,11 @@ extern crate exar;
 use exar::*;
 
 #[test]
-fn test_connection() {
+fn integration_test() {
     let mut db = Database::new(DatabaseConfig::default());
 
-    let collection_name = "test-connection";
-
-    let collection = db.get_collection(collection_name).expect("Unable to get collection");
-
-    let conn = Connection::new(collection);
+    let collection_name = "integration-test";
+    let conn = db.connect(collection_name).expect("Unable to connect");
 
     let test_event = Event::new("data", vec!["tag1", "tag2"]);
     assert!(conn.publish(test_event.clone()).is_ok());

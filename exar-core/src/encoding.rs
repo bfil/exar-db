@@ -58,3 +58,63 @@ impl<'a> TabSeparatedParser<'a> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::*;
+
+    #[test]
+    fn test_tab_separated_macro() {
+        let tab_separated_value = tab_separated!("hello", "world", "!");
+        assert_eq!(tab_separated_value, "hello\tworld\t!");
+    }
+
+    #[test]
+    fn test_tab_separated_parser() {
+        let tab_separated_value = tab_separated!("hello", "world", "!");
+        let mut parser = TabSeparatedParser::new(3, &tab_separated_value);
+
+        let hello: String = parser.parse_next().expect("Unable to parse value");
+        let world: String = parser.parse_next().expect("Unable to parse value");
+        let exclamation_mark: String = parser.parse_next().expect("Unable to parse value");
+
+        assert_eq!(hello, "hello".to_owned());
+        assert_eq!(world, "world".to_owned());
+        assert_eq!(exclamation_mark, "!".to_owned());
+
+        let tab_separated_value = tab_separated!(1, 2);
+        let mut parser = TabSeparatedParser::new(2, &tab_separated_value);
+
+        let one: u8 = parser.parse_next().expect("Unable to parse value");
+        let two: u8 = parser.parse_next().expect("Unable to parse value");
+
+        assert_eq!(one, 1);
+        assert_eq!(two, 2);
+    }
+
+    #[test]
+    fn test_parse_error() {
+        let tab_separated_value = tab_separated!("hello", "world");
+        let mut parser = TabSeparatedParser::new(2, &tab_separated_value);
+
+        let hello: Result<u8, ParseError> = parser.parse_next();
+        let parse_error = hello.err().expect("Unable to extract error");
+
+        assert_eq!(parse_error, ParseError::ParseError("invalid digit found in string".to_owned()));
+    }
+
+    #[test]
+    fn test_missing_field_error() {
+        let tab_separated_value = tab_separated!("hello", "world");
+        let mut parser = TabSeparatedParser::new(3, &tab_separated_value);
+
+        let hello: String = parser.parse_next().expect("Unable to parse value");
+        let world: String = parser.parse_next().expect("Unable to parse value");
+        let exclamation_mark: Result<String, ParseError> = parser.parse_next();
+        let parse_error = exclamation_mark.err().expect("Unable to extract error");
+
+        assert_eq!(hello, "hello".to_owned());
+        assert_eq!(world, "world".to_owned());
+        assert_eq!(parse_error, ParseError::MissingField(2));
+    }
+}

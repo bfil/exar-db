@@ -36,27 +36,21 @@ impl Collection {
 
     pub fn subscribe(&mut self, query: Query) -> Result<EventStream, DatabaseError> {
         let (send, recv) = channel();
-        self.apply_strategy(Subscription::new(send, query)).and_then(|updated_strategy| {
+        self.apply_routing_strategy(Subscription::new(send, query)).and_then(|updated_strategy| {
             self.routing_strategy = updated_strategy;
             Ok(EventStream::new(recv))
         })
     }
 
-    pub fn drop(&self) -> Result<(), DatabaseError> {
-        self.drop_scanners();
+    pub fn drop(&mut self) -> Result<(), DatabaseError> {
+        self.scanners.truncate(0);
         match self.log.remove() {
             Ok(()) => Ok(()),
             Err(err) => Err(DatabaseError::IoError(err))
         }
     }
 
-    fn drop_scanners(&self) {
-        for scanner in &self.scanners {
-            drop(scanner);
-        }
-    }
-
-    fn apply_strategy(&mut self, subscription: Subscription) -> Result<RoutingStrategy, DatabaseError> {
+    fn apply_routing_strategy(&mut self, subscription: Subscription) -> Result<RoutingStrategy, DatabaseError> {
         match self.routing_strategy {
             RoutingStrategy::Random => match rand::thread_rng().choose(&self.scanners) {
                 Some(random_scanner) => {
@@ -86,10 +80,13 @@ impl Collection {
 mod tests {
     use super::super::*;
 
+    use std::sync::mpsc::channel;
+
     #[test]
     fn test_constructor() {
         let ref collection_name = testkit::gen_collection_name();
-        let collection = Collection::new(collection_name, CollectionConfig::default()).expect("Unable to create collection");
+        let config = CollectionConfig::default();
+        let mut collection = Collection::new(collection_name, config).expect("Unable to create collection");
 
         assert_eq!(collection.log, Log::new("", collection_name));
         assert_eq!(collection.scanners.len(), 2);
@@ -99,8 +96,69 @@ mod tests {
     }
 
     #[test]
-    fn test_constructor_failure() {
+    fn test_constructor_error() {
         let ref collection_name = "missing-directory/error";
         assert!(Collection::new(collection_name, CollectionConfig::default()).is_err());
+    }
+
+    #[test]
+    fn test_publish_and_subscribe() {
+        let ref collection_name = testkit::gen_collection_name();
+        let config = CollectionConfig::default();
+        let mut collection = Collection::new(collection_name, config).expect("Unable to create collection");
+
+        let test_event = Event::new("data", vec!["tag1", "tag2"]);
+        assert!(collection.publish(test_event.clone()).is_ok());
+
+        let query = Query::current();
+        let retrieved_events: Vec<_> = collection.subscribe(query).unwrap().map(|e| e.unwrap()).take(1).collect();
+        let expected_event = test_event.clone().with_id(1).with_timestamp(retrieved_events[0].timestamp);
+        assert_eq!(retrieved_events, vec![expected_event]);
+
+        assert!(collection.drop().is_ok());
+    }
+
+    #[test]
+    fn test_drop() {
+        let ref collection_name = testkit::gen_collection_name();
+        let config = CollectionConfig::default();
+        let mut collection = Collection::new(collection_name, config).expect("Unable to create collection");
+
+        assert_eq!(collection.scanners.len(), 2);
+
+        assert!(collection.drop().is_ok());
+
+        assert_eq!(collection.scanners.len(), 0);
+    }
+
+    #[test]
+    fn test_apply_round_robin_routing_strategy() {
+        let ref collection_name = testkit::gen_collection_name();
+        let config = CollectionConfig::default();
+        let mut collection = Collection::new(collection_name, config)
+                                        .expect("Unable to create collection");
+
+        let (send, _) = channel();
+        let subscription = Subscription::new(send, Query::current());
+
+        collection.routing_strategy = RoutingStrategy::RoundRobin(0);
+
+        assert_eq!(collection.scanners.len(), 2);
+
+        let updated_strategy = collection.apply_routing_strategy(subscription.clone())
+                                         .expect("Unable to apply routing strategy");
+
+        assert_eq!(updated_strategy, RoutingStrategy::RoundRobin(1));
+
+        collection.routing_strategy = updated_strategy;
+
+        let updated_strategy = collection.apply_routing_strategy(subscription)
+                                         .expect("Unable to apply routing strategy");
+
+        assert_eq!(updated_strategy, RoutingStrategy::RoundRobin(0));
+
+        assert!(collection.drop().is_ok());
+
+        assert_eq!(collection.scanners.len(), 0);
     }
 }

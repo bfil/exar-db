@@ -70,3 +70,31 @@ pub struct PartialCollectionConfig {
     pub num_scanners: Option<u8>,
     pub routing_strategy: Option<RoutingStrategy>
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::*;
+
+    #[test]
+    fn test_get_collection_config() {
+        let mut db_config = DatabaseConfig::default();
+
+        let collection_config = db_config.get_collection_config("test");
+
+        assert_eq!(collection_config.logs_path, db_config.logs_path);
+        assert_eq!(collection_config.num_scanners, db_config.num_scanners);
+        assert_eq!(collection_config.routing_strategy, db_config.routing_strategy);
+
+        db_config.collections.insert("test".to_owned(), PartialCollectionConfig {
+            logs_path: Some("test".to_owned()),
+            num_scanners: Some(10),
+            routing_strategy: Some(RoutingStrategy::Random)
+        });
+
+        let collection_config = db_config.get_collection_config("test");
+
+        assert_eq!(collection_config.logs_path, "test".to_owned());
+        assert_eq!(collection_config.num_scanners, 10);
+        assert_eq!(collection_config.routing_strategy, RoutingStrategy::Random);
+    }
+}

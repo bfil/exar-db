@@ -7,8 +7,12 @@ fn basic_test() {
     let config = DatabaseConfig::default();
 
     let mut db = Database::new(config);
+
     db.drop_collection("test").expect("Unable to drop collection");
+    assert!(!db.contains_collection("test"));
+
     db.create_collection("test").expect("Unable to create collection");
+    assert!(db.contains_collection("test"));
 
     let test_event = Event::new("1 2 3 4 5 6 7 8", vec!["tag1", "tag2"]);
 
@@ -21,4 +25,5 @@ fn basic_test() {
     assert_eq!(retrieved_events, expected_events);
 
     assert!(db.drop_collection("test").is_ok());
+    assert!(!db.contains_collection("test"));
 }

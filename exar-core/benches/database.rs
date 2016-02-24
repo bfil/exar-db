@@ -7,24 +7,18 @@ extern crate exar;
 
 use exar::*;
 
-const COLLECTION_NAME: &'static str = "bench";
-const PAYLOAD: &'static str = "1 2 3 4 \t 5 6 7 8 \\n 9 10";
-
-fn setup() -> (Database, Connection) {
+#[bench]
+fn bench_publish(b: &mut Bencher) {
+    let collection_name = "bench-write";
     let config = DatabaseConfig::default();
     let mut db = Database::new(config);
-    (db.clone(), db.connect(COLLECTION_NAME).unwrap())
-}
-
-#[bench]
-fn write_bench(b: &mut Bencher) {
-    let (mut db, conn) = setup();
+    let conn = db.connect(collection_name).unwrap();
     let num_events = 1000;
     b.iter(|| {
         for _ in 0..num_events {
-            let _ = conn.publish(Event::new(PAYLOAD, vec!["tag1"]));
+            let _ = conn.publish(Event::new("data", vec!["tag1"]));
         }
     });
-    let _ = db.drop_collection(COLLECTION_NAME);
+    assert!(db.drop_collection(collection_name).is_ok());
     conn.close();
 }

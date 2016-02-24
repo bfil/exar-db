@@ -3,27 +3,32 @@ extern crate exar;
 use exar::*;
 
 #[test]
-fn basic_test() {
-    let config = DatabaseConfig::default();
+fn test_connect() {
+    let mut db = Database::new(DatabaseConfig::default());
 
-    let mut db = Database::new(config);
+    let collection_name = "test-connect";
+    assert!(db.connect(collection_name).is_ok());
+    assert!(db.contains_collection(collection_name));
+    assert!(db.drop_collection(collection_name).is_ok());
 
-    db.drop_collection("test").expect("Unable to drop collection");
-    assert!(!db.contains_collection("test"));
+    let collection_name = "missing-directory/error";
+    assert!(db.connect(collection_name).is_err());
+    assert!(!db.contains_collection(collection_name));
+    assert!(db.drop_collection(collection_name).is_err());
+}
 
-    db.create_collection("test").expect("Unable to create collection");
-    assert!(db.contains_collection("test"));
+#[test]
+fn test_collection_management() {
+    let mut db = Database::new(DatabaseConfig::default());
 
-    let test_event = Event::new("1 2 3 4 5 6 7 8", vec!["tag1", "tag2"]);
+    let collection_name = "test-get-collection";
+    assert!(!db.contains_collection(collection_name));
+    assert!(db.get_collection(collection_name).is_ok());
+    assert!(db.contains_collection(collection_name));
 
-    let conn = db.connect("test").unwrap();
-    assert!(conn.publish(test_event.clone()).is_ok());
+    assert!(db.get_collection(collection_name).is_ok());
+    assert!(db.contains_collection(collection_name));
 
-    let query = Query::current();
-    let retrieved_events: Vec<_> = conn.subscribe(query).unwrap().map(|e| e.unwrap()).take(1).collect();
-    let expected_events: Vec<_> = vec![test_event.clone().with_id(1).with_timestamp(retrieved_events[0].timestamp)];
-    assert_eq!(retrieved_events, expected_events);
-
-    assert!(db.drop_collection("test").is_ok());
-    assert!(!db.contains_collection("test"));
+    assert!(db.drop_collection(collection_name).is_ok());
+    assert!(!db.contains_collection(collection_name));
 }

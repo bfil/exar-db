@@ -43,7 +43,7 @@ fn perf_test(num_scanners: u8, num_subscribers: usize, num_events: usize) {
 
     let mut db = Database::new(config.database);
 
-    let conn = db.connect(collection_name).unwrap();
+    let connection = db.connect(collection_name).unwrap();
 
     let query = Query::live().offset(0).limit(num_events * 2).by_tag("tag1");
 
@@ -52,17 +52,17 @@ fn perf_test(num_scanners: u8, num_subscribers: usize, num_events: usize) {
 
     // Subscribing - No Data
     for _ in 0..num_subscribers {
-        let _ = conn.subscribe(query.clone());
+        let _ = connection.subscribe(query.clone());
     }
 
     // Writing
     let sw = Stopwatch::start_new();
     for i in 0..num_events {
-        match conn.publish(Event::new(PAYLOAD, vec!["tag1"])) {
+        match connection.publish(Event::new(PAYLOAD, vec!["tag1"])) {
             Ok(_) => i,
             Err(err) => panic!("Unable to append to the database: {}", err)
         };
-        match conn.publish(Event::new(PAYLOAD, vec!["tag2"])) {
+        match connection.publish(Event::new(PAYLOAD, vec!["tag2"])) {
             Ok(_) => i,
             Err(err) => panic!("Unable to append to the database: {}", err)
         };
@@ -71,18 +71,18 @@ fn perf_test(num_scanners: u8, num_subscribers: usize, num_events: usize) {
 
     // Reading
     let sw = Stopwatch::start_new();
-    let _: Vec<_> = conn.subscribe(query.clone()).unwrap().take(num_events).collect();
+    let _: Vec<_> = connection.subscribe(query.clone()).unwrap().take(num_events).collect();
     report_performance(sw, num_events, "Reading");
 
     // Reading Again
     let sw = Stopwatch::start_new();
-    let _: Vec<_> = conn.subscribe(query.clone()).unwrap().take(num_events).collect();
+    let _: Vec<_> = connection.subscribe(query.clone()).unwrap().take(num_events).collect();
     report_performance(sw, num_events, "Reading again");
 
     // Subscribing - With Data & No Scanners Running
     let sw = Stopwatch::start_new();
     for _ in 0..num_subscribers {
-        let _ = conn.subscribe(query.clone());
+        let _ = connection.subscribe(query.clone());
     }
     println!("Subscribing {} times with {} events took {}ms..", num_subscribers, num_events, sw.elapsed_ms());
 
@@ -91,23 +91,23 @@ fn perf_test(num_scanners: u8, num_subscribers: usize, num_events: usize) {
     // Subscribing Again - With Data & Scanners Running
     let sw = Stopwatch::start_new();
     for _ in 0..num_subscribers {
-        let _ = conn.subscribe(query.clone());
+        let _ = connection.subscribe(query.clone());
     }
     println!("Subscribing again {} times with {} events took {}ms..", num_subscribers, num_events, sw.elapsed_ms());
 
     // Reading Yet Again
     let sw = Stopwatch::start_new();
-    let _: Vec<_> = conn.subscribe(query.clone()).unwrap().take(num_events).collect();
+    let _: Vec<_> = connection.subscribe(query.clone()).unwrap().take(num_events).collect();
     report_performance(sw, num_events, "Reading yet again");
 
     // Dropping Collection - While Scanning
-    let _ = conn.subscribe(query.clone());
+    let _ = connection.subscribe(query.clone());
     thread::sleep(Duration::from_millis(100));
     let sw = Stopwatch::start_new();
     let _ = db.drop_collection(collection_name);
     println!("Dropping collection took {}ms..", sw.elapsed_ms());
 
-    conn.close();
+    connection.close();
 }
 
 fn server_test(num_clients: usize, num_events: usize) {

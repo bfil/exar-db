@@ -81,3 +81,20 @@ impl Collection {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::*;
+
+    #[test]
+    fn test_constructor() {
+        let ref collection_name = testkit::gen_collection_name();
+        let collection = Collection::new(collection_name, CollectionConfig::default()).expect("Unable to create collection");
+
+        assert_eq!(collection.log, Log::new("", collection_name));
+        assert_eq!(collection.scanners.len(), 2);
+        assert_eq!(collection.routing_strategy, RoutingStrategy::default());
+
+        assert!(collection.drop().is_ok());
+    }
+}

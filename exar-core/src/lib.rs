@@ -36,3 +36,6 @@ pub use self::scanner::*;
 pub use self::subscription::*;
 pub use self::validation::*;
 pub use self::writer::*;
+
+#[cfg(test)]
+pub mod testkit;

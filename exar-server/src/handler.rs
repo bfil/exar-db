@@ -62,8 +62,8 @@ impl Handler {
             (TcpMessage::Connect(collection_name, given_username, given_password), State::Idle(db)) => {
                 if self.verify_authentication(given_username, given_password) {
                     match db.lock().unwrap().connect(&collection_name) {
-                        Ok(conn) => {
-                            self.update_state(State::Connected(conn));
+                        Ok(connection) => {
+                            self.update_state(State::Connected(connection));
                             Ok(ActionResult::Connected)
                         },
                         Err(err) => Err(err)
@@ -72,13 +72,13 @@ impl Handler {
                     Err(DatabaseError::AuthenticationError)
                 }
             },
-            (TcpMessage::Publish(event), State::Connected(conn)) => {
-                conn.publish(event).and_then(|event_id| {
+            (TcpMessage::Publish(event), State::Connected(connection)) => {
+                connection.publish(event).and_then(|event_id| {
                     Ok(ActionResult::Published(event_id))
                 })
             },
-            (TcpMessage::Subscribe(live, offset, limit, tag), State::Connected(conn)) => {
-                conn.subscribe(Query::new(live, offset, limit, tag)).and_then(|event_stream| {
+            (TcpMessage::Subscribe(live, offset, limit, tag), State::Connected(connection)) => {
+                connection.subscribe(Query::new(live, offset, limit, tag)).and_then(|event_stream| {
                      Ok(ActionResult::EventStream(event_stream))
                 })
             },

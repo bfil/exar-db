@@ -27,11 +27,11 @@ impl DatabaseConfig {
     pub fn get_collection_config(&self, collection_name: &str) -> CollectionConfig {
         match self.collections.get(collection_name) {
             Some(collection_config) => {
-                let coll = collection_config.clone();
+                let config = collection_config.clone();
                 CollectionConfig {
-                    logs_path: coll.logs_path.unwrap_or(self.logs_path.clone()),
-                    num_scanners: coll.num_scanners.unwrap_or(self.num_scanners),
-                    routing_strategy: coll.routing_strategy.unwrap_or(self.routing_strategy.clone())
+                    logs_path: config.logs_path.unwrap_or(self.logs_path.clone()),
+                    num_scanners: config.num_scanners.unwrap_or(self.num_scanners),
+                    routing_strategy: config.routing_strategy.unwrap_or(self.routing_strategy.clone())
                 }
             },
             None => CollectionConfig {
@@ -50,6 +50,16 @@ pub struct CollectionConfig {
     pub logs_path: String,
     pub num_scanners: u8,
     pub routing_strategy: RoutingStrategy
+}
+
+impl Default for CollectionConfig {
+    fn default() -> CollectionConfig {
+        CollectionConfig {
+            logs_path: "".to_owned(),
+            num_scanners: 2,
+            routing_strategy: RoutingStrategy::default()
+        }
+    }
 }
 
 #[cfg_attr(feature = "rustc-serialization", derive(RustcEncodable, RustcDecodable))]

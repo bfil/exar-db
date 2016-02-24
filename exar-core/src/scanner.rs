@@ -58,7 +58,7 @@ impl Scanner {
                     };
                 }))
             },
-            Err(err) => Err(DatabaseError::IoError(err))
+            Err(err) => Err(DatabaseError::IoError(err.kind(), format!("{}", err)))
         }
     }
 
@@ -85,7 +85,7 @@ impl Scanner {
                 }
                 Ok(())
             },
-            Err(err) => Err(DatabaseError::IoError(err))
+            Err(err) => Err(DatabaseError::IoError(err.kind(), format!("{}", err)))
         }
     }
 

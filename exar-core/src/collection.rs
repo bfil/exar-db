@@ -46,7 +46,7 @@ impl Collection {
         self.scanners.truncate(0);
         match self.log.remove() {
             Ok(()) => Ok(()),
-            Err(err) => Err(DatabaseError::IoError(err))
+            Err(err) => Err(DatabaseError::IoError(err.kind(), format!("{}", err)))
         }
     }
 

@@ -2,14 +2,14 @@ use super::*;
 
 use std::error::Error;
 use std::fmt::{Display, Formatter, Result as DisplayResult};
-use std::io::{Error as IoError, ErrorKind};
+use std::io::ErrorKind;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum DatabaseError {
     AuthenticationError,
     ConnectionError,
     EventStreamClosed,
-    IoError(IoError),
+    IoError(ErrorKind, String),
     ParseError(ParseError),
     SubscriptionError,
     ValidationError(ValidationError)
@@ -21,7 +21,9 @@ impl ToTabSeparatedString for DatabaseError {
             DatabaseError::AuthenticationError => tab_separated!("AuthenticationError"),
             DatabaseError::ConnectionError => tab_separated!("ConnectionError"),
             DatabaseError::EventStreamClosed => tab_separated!("EventStreamClosed"),
-            DatabaseError::IoError(ref error) => tab_separated!("IoError", error.kind().to_tab_separated_string(), error),
+            DatabaseError::IoError(ref error_kind, ref description) => {
+                tab_separated!("IoError", error_kind.to_tab_separated_string(), description)
+            },
             DatabaseError::ParseError(ref error) => match error {
                 &ParseError::ParseError(ref description) => tab_separated!("ParseError", "ParseError", description),
                 &ParseError::MissingField(index) => tab_separated!("ParseError", "MissingField", index)
@@ -46,14 +48,13 @@ impl FromTabSeparatedString for DatabaseError {
                 let error_kind: String = try!(parser.parse_next());
                 let error_kind = try!(ErrorKind::from_tab_separated_string(&error_kind));
                 let error_description: String = try!(parser.parse_next());
-                let io_error = IoError::new(error_kind, error_description);
-                Ok(DatabaseError::IoError(io_error))
+                Ok(DatabaseError::IoError(error_kind, error_description))
             },
             "ParseError" => {
                 let message_data: String = try!(parser.parse_next());
                 let mut parser = TabSeparatedParser::new(2, &message_data);
                 let error_type: String = try!(parser.parse_next());
-                match &error_type.to_uppercase()[..] {
+                match &error_type[..] {
                     "ParseError" => {
                         let error = ParseError::ParseError(try!(parser.parse_next()));
                         Ok(DatabaseError::ParseError(error))
@@ -133,10 +134,69 @@ impl Display for DatabaseError {
             DatabaseError::AuthenticationError => write!(f, "authentication failure"),
             DatabaseError::ConnectionError => write!(f, "connection failure"),
             DatabaseError::EventStreamClosed => write!(f, "event stream is closed"),
-            DatabaseError::IoError(ref error) => write!(f, "{}", error),
+            DatabaseError::IoError(_, ref error) => write!(f, "{}", error),
             DatabaseError::ParseError(ref error) => write!(f, "{}", error),
             DatabaseError::SubscriptionError => write!(f, "subscription failure"),
             DatabaseError::ValidationError(ref error) => write!(f, "{}", error)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::*;
+
+    use std::io::ErrorKind;
+
+    macro_rules! assert_encoded_eq {
+        ($left:expr, $right:expr) => ( assert_eq!($left.to_tab_separated_string(), $right) )
+    }
+
+    #[test]
+    fn test_database_error_tab_separator_encoding() {
+        let authentication_error = DatabaseError::AuthenticationError;
+        let connection_error = DatabaseError::ConnectionError;
+        let event_stream_closed = DatabaseError::EventStreamClosed;
+        let io_error = DatabaseError::IoError(ErrorKind::Other, "error".to_owned());
+        let parse_error = DatabaseError::ParseError(ParseError::ParseError("error".to_owned()));
+        let missig_field = DatabaseError::ParseError(ParseError::MissingField(1));
+        let subscription_error = DatabaseError::SubscriptionError;
+        let validation_error = DatabaseError::ValidationError(ValidationError { description: "error".to_owned() });
+
+        assert_encoded_eq!(authentication_error, "AuthenticationError");
+        assert_encoded_eq!(connection_error, "ConnectionError");
+        assert_encoded_eq!(event_stream_closed, "EventStreamClosed");
+        assert_encoded_eq!(io_error, "IoError\tOther\terror");
+        assert_encoded_eq!(parse_error, "ParseError\tParseError\terror");
+        assert_encoded_eq!(missig_field, "ParseError\tMissingField\t1");
+        assert_encoded_eq!(subscription_error, "SubscriptionError");
+        assert_encoded_eq!(validation_error, "ValidationError\terror");
+    }
+
+    macro_rules! assert_decoded_eq {
+        ($left:expr, $right:expr) => (
+            assert_eq!(FromTabSeparatedString::from_tab_separated_string($left), $right)
+        )
+    }
+
+    #[test]
+    fn test_database_error_tab_separator_decoding() {
+        let authentication_error = DatabaseError::AuthenticationError;
+        let connection_error = DatabaseError::ConnectionError;
+        let event_stream_closed = DatabaseError::EventStreamClosed;
+        let io_error = DatabaseError::IoError(ErrorKind::Other, "error".to_owned());
+        let parse_error = DatabaseError::ParseError(ParseError::ParseError("error".to_owned()));
+        let missig_field = DatabaseError::ParseError(ParseError::MissingField(1));
+        let subscription_error = DatabaseError::SubscriptionError;
+        let validation_error = DatabaseError::ValidationError(ValidationError { description: "error".to_owned() });
+
+        assert_decoded_eq!("AuthenticationError", Ok(authentication_error));
+        assert_decoded_eq!("ConnectionError", Ok(connection_error));
+        assert_decoded_eq!("EventStreamClosed", Ok(event_stream_closed));
+        assert_decoded_eq!("IoError\tOther\terror", Ok(io_error));
+        assert_decoded_eq!("ParseError\tParseError\terror", Ok(parse_error));
+        assert_decoded_eq!("ParseError\tMissingField\t1", Ok(missig_field));
+        assert_decoded_eq!("SubscriptionError", Ok(subscription_error));
+        assert_decoded_eq!("ValidationError\terror", Ok(validation_error));
     }
 }

@@ -149,12 +149,12 @@ pub struct UnexpectedTcpMessage;
 
 impl Display for UnexpectedTcpMessage {
     fn fmt(&self, f: &mut Formatter) -> DisplayResult {
-        write!(f, "Unexpected TCP Message")
+        write!(f, "unexpected TCP message")
     }
 }
 
 impl Error for UnexpectedTcpMessage {
     fn description(&self) -> &str {
-        "Unexpected TCP Message"
+        "unexpected TCP message"
     }
 }

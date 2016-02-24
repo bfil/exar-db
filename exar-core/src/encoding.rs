@@ -67,6 +67,9 @@ mod tests {
     fn test_tab_separated_macro() {
         let tab_separated_value = tab_separated!("hello", "world", "!");
         assert_eq!(tab_separated_value, "hello\tworld\t!");
+
+        let tab_separated_value = tab_separated!(1, 2);
+        assert_eq!(tab_separated_value, "1\t2");
     }
 
     #[test]

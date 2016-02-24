@@ -29,7 +29,7 @@ impl Client {
                     Err(err) => Err(err)
                 }
             },
-            Err(err) => Err(DatabaseError::IoError(err))
+            Err(err) => Err(DatabaseError::IoError(err.kind(), format!("{}", err)))
         }
     }
 

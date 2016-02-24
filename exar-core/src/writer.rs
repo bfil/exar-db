@@ -21,10 +21,10 @@ impl Writer {
                             offset: Mutex::new(lines_count + 1)
                         })
                     },
-                    Err(err) => Err(DatabaseError::IoError(err))
+                    Err(err) => Err(DatabaseError::IoError(err.kind(), format!("{}", err)))
                 }
             },
-            Err(err) => Err(DatabaseError::IoError(err))
+            Err(err) => Err(DatabaseError::IoError(err.kind(), format!("{}", err)))
         }
     }
 
@@ -44,7 +44,7 @@ impl Writer {
                         *offset += 1;
                         Ok(event_id)
                     },
-                    Err(err) => Err(DatabaseError::IoError(err))
+                    Err(err) => Err(DatabaseError::IoError(err.kind(), format!("{}", err)))
                 }
             },
             Err(err) => Err(DatabaseError::ValidationError(err))

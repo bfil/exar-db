@@ -1,6 +1,8 @@
 extern crate exar;
 extern crate rand;
 
+use exar::*;
+
 mod testkit {
     use rand;
     use rand::Rng;
@@ -11,8 +13,6 @@ mod testkit {
             .collect::<String>()
     }
 }
-
-use exar::*;
 
 #[test]
 fn integration_test() {

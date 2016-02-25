@@ -1,11 +1,22 @@
 #![feature(test)]
 
-extern crate test;
-use test::Bencher;
-
 extern crate exar;
+extern crate rand;
+extern crate test;
 
 use exar::*;
+use test::Bencher;
+
+mod testkit {
+    use rand;
+    use rand::Rng;
+    pub fn gen_collection_name() -> String {
+        rand::thread_rng()
+            .gen_ascii_chars()
+            .take(10)
+            .collect::<String>()
+    }
+}
 
 #[bench]
 fn bench_publish(b: &mut Bencher) {

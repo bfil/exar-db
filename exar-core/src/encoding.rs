@@ -100,10 +100,7 @@ mod tests {
         let tab_separated_value = tab_separated!("hello", "world");
         let mut parser = TabSeparatedParser::new(2, &tab_separated_value);
 
-        let hello: Result<u8, ParseError> = parser.parse_next();
-        let parse_error = hello.err().expect("Unable to extract error");
-
-        assert_eq!(parse_error, ParseError::ParseError("invalid digit found in string".to_owned()));
+        assert_eq!(parser.parse_next::<u8>(), Err(ParseError::ParseError("invalid digit found in string".to_owned())));
     }
 
     #[test]
@@ -113,11 +110,10 @@ mod tests {
 
         let hello: String = parser.parse_next().expect("Unable to parse value");
         let world: String = parser.parse_next().expect("Unable to parse value");
-        let exclamation_mark: Result<String, ParseError> = parser.parse_next();
-        let parse_error = exclamation_mark.err().expect("Unable to extract error");
 
         assert_eq!(hello, "hello".to_owned());
         assert_eq!(world, "world".to_owned());
-        assert_eq!(parse_error, ParseError::MissingField(2));
+        
+        assert_eq!(parser.parse_next::<String>(), Err(ParseError::MissingField(2)));
     }
 }

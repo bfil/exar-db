@@ -177,8 +177,7 @@ mod tests {
     #[test]
     fn test_event_validation() {
         let event = Event::new("data", vec![""]);
-        let validation_error = event.validate().err().expect("Unable to extract validation error");
-        assert_eq!(validation_error, ValidationError::new("event must contain at least one tag"));
+        assert_eq!(event.validate(), Err(ValidationError::new("event must contain at least one tag")));
     }
 
     #[test]

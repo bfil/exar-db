@@ -33,3 +33,29 @@ impl Subscription {
         self.active
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::*;
+
+    use std::sync::mpsc::channel;
+
+    #[test]
+    fn test_subscription() {
+        let (send, recv) = channel();
+        let event = Event::new("data", vec!["tag1", "tag2"]).with_id(1);
+
+        let mut subscription = Subscription::new(send, Query::current());
+
+        assert!(subscription.emit(event.clone()).is_ok());
+        assert_eq!(recv.recv(), Ok(event.clone()));
+        assert_eq!(subscription.query.position, 1);
+        assert!(subscription.is_active());
+
+        drop(recv);
+
+        assert!(subscription.emit(event.clone()).is_err());
+        assert_eq!(subscription.query.position, 1);
+        assert!(!subscription.is_active());
+    }
+}

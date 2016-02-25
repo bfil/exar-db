@@ -1,6 +1,5 @@
 use super::*;
 
-use std::str::FromStr;
 use std::fmt::{Display, Formatter, Result as DisplayResult};
 use std::sync::mpsc::{Receiver, TryRecvError};
 
@@ -130,26 +129,6 @@ impl Iterator for EventStream {
 pub enum EventStreamError {
     Empty,
     Closed
-}
-
-impl ToString for EventStreamError {
-    fn to_string(&self) -> String {
-        match *self {
-            EventStreamError::Empty => "Empty".to_owned(),
-            EventStreamError::Closed => "Closed".to_owned()
-        }
-    }
-}
-
-impl FromStr for EventStreamError {
-    type Err = ParseError;
-    fn from_str(s: &str) -> Result<EventStreamError, ParseError> {
-        match s {
-            "Empty" => Ok(EventStreamError::Empty),
-            "Closed" => Ok(EventStreamError::Closed),
-            _ => Err(ParseError::ParseError("unexpected event stream error".to_owned()))
-        }
-    }
 }
 
 #[cfg(test)]

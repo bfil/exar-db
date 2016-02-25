@@ -27,7 +27,10 @@ impl ToTabSeparatedString for DatabaseError {
             DatabaseError::AuthenticationError => tab_separated!("AuthenticationError"),
             DatabaseError::ConnectionError => tab_separated!("ConnectionError"),
             DatabaseError::EventStreamError(ref error) => {
-                tab_separated!("EventStreamError", error.to_string())
+                tab_separated!("EventStreamError", match *error {
+                    EventStreamError::Empty => "Empty",
+                    EventStreamError::Closed => "Closed"
+                })
             },
             DatabaseError::IoError(ref error_kind, ref description) => {
                 tab_separated!("IoError", error_kind.to_tab_separated_string(), description)
@@ -50,8 +53,12 @@ impl FromTabSeparatedString for DatabaseError {
             "AuthenticationError" => Ok(DatabaseError::AuthenticationError),
             "ConnectionError" => Ok(DatabaseError::ConnectionError),
             "EventStreamError" => {
-                let error: EventStreamError = try!(parser.parse_next());
-                Ok(DatabaseError::EventStreamError(error))
+                let error: String = try!(parser.parse_next());
+                match &error[..] {
+                    "Empty" => Ok(DatabaseError::EventStreamError(EventStreamError::Empty)),
+                    "Closed" => Ok(DatabaseError::EventStreamError(EventStreamError::Closed)),
+                    x => Err(ParseError::ParseError(format!("unknown event stream error: {}", x)))
+                }
             },
             "IoError" => {
                 let message_data: String = try!(parser.parse_next());
@@ -74,7 +81,7 @@ impl FromTabSeparatedString for DatabaseError {
                         let error = ParseError::MissingField(try!(parser.parse_next()));
                         Ok(DatabaseError::ParseError(error))
                     },
-                    x => Err(ParseError::ParseError(format!("Unknown parse error: {}", x)))
+                    x => Err(ParseError::ParseError(format!("unknown parse error: {}", x)))
                 }
             },
             "SubscriptionError" => Ok(DatabaseError::SubscriptionError),
@@ -82,7 +89,7 @@ impl FromTabSeparatedString for DatabaseError {
                 let description: String = try!(parser.parse_next());
                 Ok(DatabaseError::ValidationError(ValidationError::new(&description)))
             },
-            x => Err(ParseError::ParseError(format!("Unknown database error: {}", x)))
+            x => Err(ParseError::ParseError(format!("unknown database error: {}", x)))
         }
     }
 }
@@ -134,7 +141,7 @@ impl FromTabSeparatedString for ErrorKind {
             "Interrupted" => Ok(ErrorKind::Interrupted),
             "Other" => Ok(ErrorKind::Other),
             "UnexpectedEof" => Ok(ErrorKind::UnexpectedEof),
-            x => Err(ParseError::ParseError(format!("Unknown error kind: {}", x)))
+            x => Err(ParseError::ParseError(format!("unknown error kind: {}", x)))
         }
     }
 }

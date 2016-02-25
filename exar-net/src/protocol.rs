@@ -108,7 +108,7 @@ impl FromTabSeparatedString for TcpMessage {
                 let message_data: String = try!(parser.parse_next());
                 DatabaseError::from_tab_separated_string(&message_data).and_then(|error| Ok(TcpMessage::Error(error)))
             },
-            x => Err(ParseError::ParseError(format!("Unknown TCP message: {}", x)))
+            x => Err(ParseError::ParseError(format!("unknown TCP message: {}", x)))
         }
     }
 }

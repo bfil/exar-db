@@ -91,16 +91,11 @@ impl Handler {
             ActionResult::Connected => self.stream.send_message(TcpMessage::Connected),
             ActionResult::Published(event_id) => self.stream.send_message(TcpMessage::Published(event_id)),
             ActionResult::EventStream(event_stream) => {
-                let mut last_result = Ok(());
                 for event in event_stream {
-                    last_result = self.stream.send_message(TcpMessage::Event(event));
-                    if last_result.is_err() { break }
+                    let send_result = self.stream.send_message(TcpMessage::Event(event));
+                    if send_result.is_err() { return send_result }
                 }
-                if last_result.is_err() {
-                    last_result
-                } else {
-                    self.stream.send_message(TcpMessage::EndOfEventStream)
-                }
+                self.stream.send_message(TcpMessage::EndOfEventStream)
             }
         }
     }

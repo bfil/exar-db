@@ -13,16 +13,18 @@ pub struct Scanner {
     log: Log,
     send: Arc<Mutex<Sender<Subscription>>>,
     running: Arc<Mutex<bool>>,
+    sleep_duration: Duration,
     subscriptions: Arc<Mutex<Vec<Subscription>>>
 }
 
 impl Scanner {
-    pub fn new(log: Log) -> Result<Scanner, DatabaseError> {
+    pub fn new(log: Log, sleep_duration: Duration) -> Result<Scanner, DatabaseError> {
         let (send, recv) = channel();
         let scanner = Scanner {
             log: log,
             send: Arc::new(Mutex::new(send)),
             running: Arc::new(Mutex::new(true)),
+            sleep_duration: sleep_duration,
             subscriptions: Arc::new(Mutex::new(vec![]))
         };
         scanner.run_thread(recv).and_then(|_| Ok(scanner))
@@ -38,6 +40,7 @@ impl Scanner {
     fn run_thread(&self, recv: Receiver<Subscription>) -> Result<JoinHandle<()>, DatabaseError> {
         let running = self.running.clone();
         let subscriptions = self.subscriptions.clone();
+        let sleep_duration = self.sleep_duration.clone();
         match self.log.open_reader() {
             Ok(mut file) => {
                 Ok(thread::spawn(move || {
@@ -54,7 +57,7 @@ impl Scanner {
                                 Err(err) => println!("Unable to scan file: {}", err)
                             }
                         }
-                        thread::sleep(Duration::from_millis(10));
+                        thread::sleep(sleep_duration);
                     };
                 }))
             },

@@ -36,10 +36,10 @@ fn setup() -> (Config, &'static str) {
     (config, "test")
 }
 
-fn perf_test(num_scanners: u8, num_subscribers: usize, num_events: usize) {
+fn perf_test(scanners: u8, num_subscribers: usize, num_events: usize) {
 
     let (mut config, collection_name) = setup();
-    config.database.num_scanners = num_scanners;
+    config.database.scanners = scanners;
 
     let mut db = Database::new(config.database);
 
@@ -48,7 +48,7 @@ fn perf_test(num_scanners: u8, num_subscribers: usize, num_events: usize) {
     let query = Query::live().offset(0).limit(num_events * 2).by_tag("tag1");
 
     println!("---------------------------------------------------------------");
-    println!("Performance test with {} scanners, {} subscriptions and {} events", num_scanners, num_subscribers, num_events);
+    println!("Performance test with {} scanners, {} subscriptions and {} events", scanners, num_subscribers, num_events);
 
     // Subscribing - No Data
     for _ in 0..num_subscribers {

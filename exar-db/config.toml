@@ -1,10 +1,12 @@
 [database]
 logs_path = "/Users/bruno.filippone/Downloads"
-num_scanners = 2
+scanners = 2
 routing_strategy = "Random"
+scanners_sleep_ms = 10
 [database.collections.test]
-num_scanners = 3
+scanners = 3
 routing_strategy = "RoundRobin"
+scanners_sleep_ms = 5
 [server]
 host = "127.0.0.1"
 port = 38580

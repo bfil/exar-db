@@ -3,6 +3,7 @@ use super::*;
 use rand;
 use rand::Rng;
 use std::sync::mpsc::channel;
+use std::time::Duration;
 
 #[derive(Debug)]
 pub struct Collection {
@@ -17,8 +18,9 @@ impl Collection {
         let log = Log::new(&config.logs_path, collection_name);
         Writer::new(log.clone()).and_then(|writer| {
             let mut scanners = vec![];
-            for _ in 0..config.num_scanners {
-                let scanner = try!(Scanner::new(log.clone()));
+            let scanners_sleep_duration = Duration::from_millis(config.scanners_sleep_ms as u64);
+            for _ in 0..config.scanners {
+                let scanner = try!(Scanner::new(log.clone(), scanners_sleep_duration));
                 scanners.push(scanner);
             }
             Ok(Collection {

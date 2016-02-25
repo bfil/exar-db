@@ -15,8 +15,8 @@ pub trait ToTabSeparatedString {
     fn to_tab_separated_string(&self) -> String;
 }
 
-pub trait FromTabSeparatedString {
-    fn from_tab_separated_string(s: &str) -> Result<Self, ParseError> where Self: Sized;
+pub trait FromTabSeparatedStr {
+    fn from_tab_separated_str(s: &str) -> Result<Self, ParseError> where Self: Sized;
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

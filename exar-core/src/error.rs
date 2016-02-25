@@ -45,8 +45,8 @@ impl ToTabSeparatedString for DatabaseError {
     }
 }
 
-impl FromTabSeparatedString for DatabaseError {
-    fn from_tab_separated_string(s: &str) -> Result<DatabaseError, ParseError> {
+impl FromTabSeparatedStr for DatabaseError {
+    fn from_tab_separated_str(s: &str) -> Result<DatabaseError, ParseError> {
         let mut parser = TabSeparatedParser::new(2, s);
         let message_type: String = try!(parser.parse_next());
         match &message_type[..] {
@@ -64,7 +64,7 @@ impl FromTabSeparatedString for DatabaseError {
                 let message_data: String = try!(parser.parse_next());
                 let mut parser = TabSeparatedParser::new(2, &message_data);
                 let error_kind: String = try!(parser.parse_next());
-                let error_kind = try!(ErrorKind::from_tab_separated_string(&error_kind));
+                let error_kind = try!(ErrorKind::from_tab_separated_str(&error_kind));
                 let error_description: String = try!(parser.parse_next());
                 Ok(DatabaseError::IoError(error_kind, error_description))
             },
@@ -120,8 +120,8 @@ impl ToTabSeparatedString for ErrorKind {
     }
 }
 
-impl FromTabSeparatedString for ErrorKind {
-    fn from_tab_separated_string(s: &str) -> Result<ErrorKind, ParseError> {
+impl FromTabSeparatedStr for ErrorKind {
+    fn from_tab_separated_str(s: &str) -> Result<ErrorKind, ParseError> {
         match &s[..] {
             "NotFound" => Ok(ErrorKind::NotFound),
             "PermissionDenied" => Ok(ErrorKind::PermissionDenied),

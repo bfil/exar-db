@@ -30,7 +30,7 @@ impl Stream {
         match self.reader.read_line(&mut line) {
             Ok(_) => {
                 let trimmed_line = line.trim();
-                match TcpMessage::from_tab_separated_string(&trimmed_line) {
+                match TcpMessage::from_tab_separated_str(&trimmed_line) {
                     Ok(message) => Ok(message),
                     Err(err) => Err(DatabaseError::ParseError(err))
                 }
@@ -74,7 +74,7 @@ impl Iterator for Messages {
     type Item = Result<TcpMessage, DatabaseError>;
     fn next(&mut self) -> Option<Self::Item> {
         match self.lines.next() {
-            Some(Ok(ref message)) => match TcpMessage::from_tab_separated_string(message) {
+            Some(Ok(ref message)) => match TcpMessage::from_tab_separated_str(message) {
                 Ok(message) => Some(Ok(message)),
                 Err(err) => Some(Err(DatabaseError::ParseError(err)))
             },

@@ -61,8 +61,8 @@ impl ToTabSeparatedString for TcpMessage {
     }
 }
 
-impl FromTabSeparatedString for TcpMessage {
-    fn from_tab_separated_string(s: &str) -> Result<Self, ParseError> {
+impl FromTabSeparatedStr for TcpMessage {
+    fn from_tab_separated_str(s: &str) -> Result<Self, ParseError> {
         let mut parser = TabSeparatedParser::new(2, s);
         let message_type: String = try!(parser.parse_next());
         match &message_type[..] {
@@ -101,12 +101,12 @@ impl FromTabSeparatedString for TcpMessage {
             "Subscribed" => Ok(TcpMessage::Subscribed),
             "Event" => {
                 let message_data: String = try!(parser.parse_next());
-                Event::from_tab_separated_string(&message_data).and_then(|event| Ok(TcpMessage::Event(event)))
+                Event::from_tab_separated_str(&message_data).and_then(|event| Ok(TcpMessage::Event(event)))
             },
             "EndOfEventStream" => Ok(TcpMessage::EndOfEventStream),
             "Error" => {
                 let message_data: String = try!(parser.parse_next());
-                DatabaseError::from_tab_separated_string(&message_data).and_then(|error| Ok(TcpMessage::Error(error)))
+                DatabaseError::from_tab_separated_str(&message_data).and_then(|error| Ok(TcpMessage::Error(error)))
             },
             x => Err(ParseError::ParseError(format!("unknown TCP message: {}", x)))
         }

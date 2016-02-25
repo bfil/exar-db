@@ -63,8 +63,8 @@ impl ToTabSeparatedString for Event {
     }
 }
 
-impl FromTabSeparatedString for Event {
-    fn from_tab_separated_string(s: &str) -> Result<Event, ParseError> {
+impl FromTabSeparatedStr for Event {
+    fn from_tab_separated_str(s: &str) -> Result<Event, ParseError> {
         let mut parser = TabSeparatedParser::new(4, s);
         let id = try!(parser.parse_next());
         let timestamp = try!(parser.parse_next());

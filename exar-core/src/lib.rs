@@ -7,6 +7,9 @@
 extern crate rand;
 extern crate time;
 
+#[cfg(test)]
+pub mod testkit;
+
 mod config;
 mod collection;
 mod connection;
@@ -36,6 +39,3 @@ pub use self::scanner::*;
 pub use self::subscription::*;
 pub use self::validation::*;
 pub use self::writer::*;
-
-#[cfg(test)]
-pub mod testkit;

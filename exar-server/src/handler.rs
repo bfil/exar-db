@@ -3,7 +3,7 @@ use super::*;
 use exar::*;
 use exar_net::*;
 
-use std::io::{Error as IoError, ErrorKind};
+use std::io::ErrorKind;
 use std::net::TcpStream;
 use std::sync::{Arc, Mutex};
 
@@ -82,7 +82,7 @@ impl Handler {
                      Ok(ActionResult::EventStream(event_stream))
                 })
             },
-            _ => Err(DatabaseError::IoError(IoError::new(ErrorKind::InvalidData, UnexpectedTcpMessage)))
+            _ => Err(DatabaseError::IoError(ErrorKind::InvalidData, format!("{}", UnexpectedTcpMessage)))
         }
     }
 

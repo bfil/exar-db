@@ -148,10 +148,6 @@ mod tests {
 
     use std::io::ErrorKind;
 
-    macro_rules! assert_encoded_eq {
-        ($left:expr, $right:expr) => ( assert_eq!($left.to_tab_separated_string(), $right) )
-    }
-
     #[test]
     fn test_database_error_tab_separator_encoding() {
         let authentication_error = DatabaseError::AuthenticationError;
@@ -171,12 +167,6 @@ mod tests {
         assert_encoded_eq!(missig_field, "ParseError\tMissingField\t1");
         assert_encoded_eq!(subscription_error, "SubscriptionError");
         assert_encoded_eq!(validation_error, "ValidationError\terror");
-    }
-
-    macro_rules! assert_decoded_eq {
-        ($left:expr, $right:expr) => (
-            assert_eq!(FromTabSeparatedString::from_tab_separated_string($left), $right)
-        )
     }
 
     #[test]

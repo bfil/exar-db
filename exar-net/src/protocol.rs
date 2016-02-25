@@ -17,7 +17,7 @@ use std::fmt::{Display, Formatter, Result as DisplayResult};
 ///
 /// Error           type            [subtype]       description
 
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TcpMessage {
     Connect(String, Option<String>, Option<String>),
     Connected,

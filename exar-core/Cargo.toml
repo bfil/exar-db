@@ -13,3 +13,6 @@ serde_macros = { optional = true, version = "0.6" }
 [features]
 rustc-serialization = ["rustc-serialize"]
 serde-serialization = ["serde", "serde_macros"]
+
+[dev-dependencies]
+serde_json = "0.6"

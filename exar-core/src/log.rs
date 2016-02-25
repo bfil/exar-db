@@ -48,3 +48,39 @@ impl Log {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::*;
+
+    use std::io::Write;
+
+    #[test]
+    fn test_get_path() {
+        let ref collection_name = testkit::gen_collection_name();
+        let log = Log::new("", collection_name);
+        assert_eq!(log.get_path(), format!("{}.log", collection_name));
+        let log = Log::new("path/to/log", collection_name);
+        assert_eq!(log.get_path(), format!("path/to/log/{}.log", collection_name));
+    }
+
+    #[test]
+    fn test_log() {
+        let ref collection_name = testkit::gen_collection_name();
+        let log = Log::new("", collection_name);
+
+        assert!(log.open_writer().is_ok());
+        assert!(log.open_reader().is_ok());
+
+        assert_eq!(log.count_lines().unwrap(), 0);
+
+        let mut file_writer = log.open_writer().expect("Unable to open file writer");
+
+        assert!(file_writer.write_all(format!("data\n").as_bytes()).is_ok());
+        assert_eq!(log.count_lines().unwrap(), 1);
+
+        assert!(log.remove().is_ok());
+
+        assert!(log.open_reader().is_err());
+    }
+}

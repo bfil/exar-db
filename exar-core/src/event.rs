@@ -178,6 +178,9 @@ mod tests {
     fn test_event_validation() {
         let event = Event::new("data", vec![""]);
         assert_eq!(event.validate(), Err(ValidationError::new("event must contain at least one tag")));
+
+        let event = Event::new("data", vec!["tag1", "tag2"]);
+        assert_eq!(event.clone().validate(), Ok(event));
     }
 
     #[test]

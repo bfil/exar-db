@@ -191,13 +191,14 @@ mod tests {
 
         assert!(send.send(event.clone()).is_ok());
 
-        let received_event = event_stream.next().expect("Unable to receive event");
+        assert_eq!(event_stream.next(), Some(event));
+        assert_eq!(event_stream.try_recv(), Err(EventStreamError::Empty));
 
-        assert_eq!(received_event, event);
+        drop(send);
 
-        let error = event_stream.try_recv().err().expect("Unable to extract error");
-
-        assert_eq!(error, EventStreamError::Empty);
+        assert_eq!(event_stream.next(), None);
+        assert_eq!(event_stream.try_recv(), Err(EventStreamError::Closed));
+        assert_eq!(event_stream.recv(), Err(EventStreamError::Closed));
 
     }
 }

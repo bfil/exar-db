@@ -80,7 +80,7 @@ impl FromTabSeparatedStr for Event {
     }
 }
 
-impl Validation<Event> for Event {
+impl Validation for Event {
     fn validate(self) -> Result<Self, ValidationError> {
         let event = self.without_empty_tags();
         if event.tags.is_empty() {

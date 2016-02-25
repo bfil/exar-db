@@ -29,8 +29,8 @@ impl Handler {
             Ok(stream) => {
                 for message in stream.messages() {
                     let _ = match message {
-                        Ok(message) => match self.receive(message) {
-                            Ok(result) => self.respond(result),
+                        Ok(message) => match self.recv(message) {
+                            Ok(result) => self.send(result),
                             Err(err) => self.fail(err)
                         },
                         Err(err) => self.fail(err)
@@ -57,7 +57,7 @@ impl Handler {
         } else { true }
     }
 
-    fn receive(&mut self, message: TcpMessage) -> Result<ActionResult, DatabaseError> {
+    fn recv(&mut self, message: TcpMessage) -> Result<ActionResult, DatabaseError> {
         match (message, self.state.clone()) {
             (TcpMessage::Connect(collection_name, given_username, given_password), State::Idle(db)) => {
                 if self.verify_authentication(given_username, given_password) {
@@ -82,11 +82,11 @@ impl Handler {
                      Ok(ActionResult::EventStream(event_stream))
                 })
             },
-            _ => Err(DatabaseError::IoError(ErrorKind::InvalidData, format!("{}", UnexpectedTcpMessage)))
+            _ => Err(DatabaseError::IoError(ErrorKind::InvalidData, "unexpected TCP message".to_owned()))
         }
     }
 
-    fn respond(&mut self, result: ActionResult) -> Result<(), DatabaseError> {
+    fn send(&mut self, result: ActionResult) -> Result<(), DatabaseError> {
         match result {
             ActionResult::Connected => self.stream.send_message(TcpMessage::Connected),
             ActionResult::Published(event_id) => self.stream.send_message(TcpMessage::Published(event_id)),

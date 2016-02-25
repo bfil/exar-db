@@ -29,7 +29,7 @@ impl Client {
                     Err(err) => Err(err)
                 }
             },
-            Err(err) => Err(DatabaseError::IoError(err.kind(), format!("{}", err)))
+            Err(err) => Err(DatabaseError::io_error(err))
         }
     }
 
@@ -38,7 +38,7 @@ impl Client {
         match self.stream.receive_message() {
             Ok(TcpMessage::Published(event_id)) => Ok(event_id),
             Ok(TcpMessage::Error(error)) => Err(error),
-            Ok(_) => Err(DatabaseError::IoError(ErrorKind::InvalidData, format!("{}", UnexpectedTcpMessage))),
+            Ok(_) => Err(DatabaseError::IoError(ErrorKind::InvalidData, "unexpected TCP message".to_owned())),
             Err(err) => Err(err)
         }
     }

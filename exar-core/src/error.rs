@@ -2,7 +2,7 @@ use super::*;
 
 use std::error::Error;
 use std::fmt::{Display, Formatter, Result as DisplayResult};
-use std::io::ErrorKind;
+use std::io::{Error as IoError, ErrorKind};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum DatabaseError {
@@ -13,6 +13,12 @@ pub enum DatabaseError {
     ParseError(ParseError),
     SubscriptionError,
     ValidationError(ValidationError)
+}
+
+impl DatabaseError {
+    pub fn io_error(err: IoError) -> DatabaseError {
+        DatabaseError::IoError(err.kind(), format!("{}", err))
+    }
 }
 
 impl ToTabSeparatedString for DatabaseError {

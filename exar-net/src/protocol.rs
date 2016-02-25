@@ -1,6 +1,5 @@
 use exar::*;
 
-use std::error::Error;
 use std::fmt::{Display, Formatter, Result as DisplayResult};
 
 /// Connect         database        [admin]         [secret]
@@ -141,20 +140,5 @@ impl Display for TcpMessage {
             TcpMessage::EndOfEventStream => write!(f, "EndOfEventStream"),
             TcpMessage::Error(ref error) => write!(f, "Error({})", error)
         }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct UnexpectedTcpMessage;
-
-impl Display for UnexpectedTcpMessage {
-    fn fmt(&self, f: &mut Formatter) -> DisplayResult {
-        write!(f, "unexpected TCP message")
-    }
-}
-
-impl Error for UnexpectedTcpMessage {
-    fn description(&self) -> &str {
-        "unexpected TCP message"
     }
 }

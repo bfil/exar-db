@@ -16,7 +16,7 @@ pub enum DatabaseError {
 }
 
 impl DatabaseError {
-    pub fn io_error(err: IoError) -> DatabaseError {
+    pub fn new_io_error(err: IoError) -> DatabaseError {
         DatabaseError::IoError(err.kind(), format!("{}", err))
     }
 }

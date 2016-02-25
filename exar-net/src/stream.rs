@@ -21,7 +21,7 @@ impl Stream {
                     writer: BufWriter::new(stream)
                 })
             },
-            Err(err) => Err(DatabaseError::io_error(err))
+            Err(err) => Err(DatabaseError::new_io_error(err))
         }
     }
 
@@ -35,14 +35,14 @@ impl Stream {
                     Err(err) => Err(DatabaseError::ParseError(err))
                 }
             },
-            Err(err) => Err(DatabaseError::io_error(err))
+            Err(err) => Err(DatabaseError::new_io_error(err))
         }
     }
 
     pub fn send_message(&mut self, message: TcpMessage) -> Result<(), DatabaseError> {
         match self.writer.write_line(&message.to_tab_separated_string()) {
             Ok(_) => Ok(()),
-            Err(err) => Err(DatabaseError::io_error(err))
+            Err(err) => Err(DatabaseError::new_io_error(err))
         }
     }
 
@@ -53,7 +53,7 @@ impl Stream {
     pub fn try_clone(&self) -> Result<Self, DatabaseError> {
         match self.writer.get_ref().try_clone() {
             Ok(cloned_stream) => Stream::new(cloned_stream),
-            Err(err) => Err(DatabaseError::io_error(err))
+            Err(err) => Err(DatabaseError::new_io_error(err))
         }
     }
 }
@@ -78,7 +78,7 @@ impl Iterator for Messages {
                 Ok(message) => Some(Ok(message)),
                 Err(err) => Some(Err(DatabaseError::ParseError(err)))
             },
-            Some(Err(err)) => Some(Err(DatabaseError::io_error(err))),
+            Some(Err(err)) => Some(Err(DatabaseError::new_io_error(err))),
             None => None
         }
     }

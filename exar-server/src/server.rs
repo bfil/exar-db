@@ -22,7 +22,7 @@ impl Server {
                 db: db,
                 listener: listener
             }),
-            Err(err) => Err(DatabaseError::io_error(err))
+            Err(err) => Err(DatabaseError::new_io_error(err))
         }
     }
 
@@ -49,10 +49,10 @@ impl Server {
                         }
 
                     },
-                    Err(err) => Err(DatabaseError::io_error(err))
+                    Err(err) => Err(DatabaseError::new_io_error(err))
                 }
             },
-            Err(err) => Err(DatabaseError::io_error(err))
+            Err(err) => Err(DatabaseError::new_io_error(err))
         }
     }
 

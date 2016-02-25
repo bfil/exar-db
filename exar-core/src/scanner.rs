@@ -31,7 +31,7 @@ impl Scanner {
     pub fn handle_subscription(&self, subscription: Subscription) -> Result<(), DatabaseError> {
         match self.send.lock().unwrap().send(subscription) {
             Ok(()) => Ok(()),
-            Err(_) => Err(DatabaseError::EventStreamClosed)
+            Err(_) => Err(DatabaseError::EventStreamError(EventStreamError::Closed))
         }
     }
 

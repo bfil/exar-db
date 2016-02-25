@@ -44,7 +44,7 @@ mod tests {
         assert!(connection.publish(test_event.clone()).is_ok());
 
         let query = Query::current();
-        let retrieved_events: Vec<_> = connection.subscribe(query).unwrap().map(|e| e.unwrap()).take(1).collect();
+        let retrieved_events: Vec<_> = connection.subscribe(query).unwrap().take(1).collect();
         let expected_event = test_event.clone().with_id(1).with_timestamp(retrieved_events[0].timestamp);
         assert_eq!(retrieved_events, vec![expected_event]);
 

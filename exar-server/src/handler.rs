@@ -93,18 +93,14 @@ impl Handler {
             ActionResult::EventStream(event_stream) => {
                 let mut last_result = Ok(());
                 for event in event_stream {
-                    match event {
-                        Ok(event) => {
-                            last_result = self.stream.send_message(TcpMessage::Event(event));
-                            if last_result.is_err() { break }
-                        },
-                        Err(_) => {
-                            last_result = self.stream.send_message(TcpMessage::EndOfStream);
-                            break
-                        }
-                    }
+                    last_result = self.stream.send_message(TcpMessage::Event(event));
+                    if last_result.is_err() { break }
                 }
-                last_result
+                if last_result.is_err() {
+                    last_result
+                } else {
+                    self.stream.send_message(TcpMessage::EndOfEventStream)
+                }
             }
         }
     }

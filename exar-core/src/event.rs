@@ -1,7 +1,8 @@
 use super::*;
 
+use std::str::FromStr;
 use std::fmt::{Display, Formatter, Result as DisplayResult};
-use std::sync::mpsc::Receiver;
+use std::sync::mpsc::{Receiver, TryRecvError};
 
 use time;
 
@@ -59,7 +60,7 @@ impl Display for Event {
 
 impl ToTabSeparatedString for Event {
     fn to_tab_separated_string(&self) -> String {
-        tab_separated!(self.id, self.tags.join(" "), self.timestamp, self.data)
+        tab_separated!(self.id, self.timestamp, self.tags.join(" "), self.data)
     }
 }
 
@@ -67,8 +68,8 @@ impl FromTabSeparatedString for Event {
     fn from_tab_separated_string(s: &str) -> Result<Event, ParseError> {
         let mut parser = TabSeparatedParser::new(4, s);
         let id = try!(parser.parse_next());
-        let tags: String = try!(parser.parse_next());
         let timestamp = try!(parser.parse_next());
+        let tags: String = try!(parser.parse_next());
         let data: String = try!(parser.parse_next());
         let tags: Vec<_> = tags.split(" ").map(|x| x.to_owned()).collect();
         Ok(Event {
@@ -84,7 +85,7 @@ impl Validation<Event> for Event {
     fn validate(self) -> Result<Self, ValidationError> {
         let event = self.without_empty_tags();
         if event.tags.is_empty() {
-            Err(ValidationError::new("events must contain at least one tag"))
+            Err(ValidationError::new("event must contain at least one tag"))
         } else {
             Ok(event)
         }
@@ -101,14 +102,52 @@ impl EventStream {
             recv: recv
         }
     }
+    pub fn recv(&self) -> Result<Event, EventStreamError> {
+        match self.recv.recv() {
+            Ok(event) => Ok(event),
+            Err(_) => Err(EventStreamError::Closed)
+        }
+    }
+    pub fn try_recv(&self) -> Result<Event, EventStreamError> {
+        match self.recv.try_recv() {
+            Ok(event) => Ok(event),
+            Err(err) => match err {
+                TryRecvError::Empty => Err(EventStreamError::Empty),
+                TryRecvError::Disconnected => Err(EventStreamError::Closed)
+            }
+        }
+    }
 }
 
 impl Iterator for EventStream {
-    type Item = Result<Event, DatabaseError>;
+    type Item = Event;
     fn next(&mut self) -> Option<Self::Item> {
-        match self.recv.recv() {
-            Ok(event) => Some(Ok(event)),
-            Err(_) => Some(Err(DatabaseError::EventStreamClosed))
+        self.recv().ok()
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum EventStreamError {
+    Empty,
+    Closed
+}
+
+impl ToString for EventStreamError {
+    fn to_string(&self) -> String {
+        match *self {
+            EventStreamError::Empty => "Empty".to_owned(),
+            EventStreamError::Closed => "Closed".to_owned()
+        }
+    }
+}
+
+impl FromStr for EventStreamError {
+    type Err = ParseError;
+    fn from_str(s: &str) -> Result<EventStreamError, ParseError> {
+        match s {
+            "Empty" => Ok(EventStreamError::Empty),
+            "Closed" => Ok(EventStreamError::Closed),
+            _ => Err(ParseError::ParseError("unexpected event stream error".to_owned()))
         }
     }
 }
@@ -116,6 +155,8 @@ impl Iterator for EventStream {
 #[cfg(test)]
 mod tests {
     use super::super::*;
+
+    use std::sync::mpsc::channel;
 
     #[test]
     fn test_event() {
@@ -140,5 +181,44 @@ mod tests {
 
         let event = event.without_empty_tags();
         assert_eq!(event.tags, vec!["tag1".to_owned(), "tag2".to_owned()]);
+    }
+
+    #[test]
+    fn test_event_encoding() {
+        let event = Event::new("data", vec!["tag1", "tag2"]).with_id(1).with_timestamp(1234567890);
+        assert_encoded_eq!(event, "1\t1234567890\ttag1 tag2\tdata");
+    }
+
+    #[test]
+    fn test_event_decoding() {
+        let event = Event::new("data", vec!["tag1", "tag2"]).with_id(1).with_timestamp(1234567890);
+        assert_decoded_eq!("1\t1234567890\ttag1 tag2\tdata", event);
+    }
+
+    #[test]
+    fn test_event_validation() {
+        let event = Event::new("data", vec![""]);
+        let validation_error = event.validate().err().expect("Unable to extract validation error");
+        assert_eq!(validation_error, ValidationError::new("event must contain at least one tag"));
+    }
+
+    #[test]
+    fn test_event_stream() {
+        let event = Event::new("data", vec![""]);
+
+        let (send, recv) = channel();
+
+        let mut event_stream = EventStream::new(recv);
+
+        assert!(send.send(event.clone()).is_ok());
+
+        let received_event = event_stream.next().expect("Unable to receive event");
+
+        assert_eq!(received_event, event);
+
+        let error = event_stream.try_recv().err().expect("Unable to extract error");
+
+        assert_eq!(error, EventStreamError::Empty);
+
     }
 }

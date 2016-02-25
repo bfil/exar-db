@@ -4,7 +4,7 @@ extern crate exar_net;
 use exar::*;
 use exar_net::*;
 
-use std::io::{Error as IoError, ErrorKind};
+use std::io::ErrorKind;
 use std::net::TcpStream;
 use std::sync::mpsc::channel;
 use std::thread;
@@ -38,7 +38,7 @@ impl Client {
         match self.stream.receive_message() {
             Ok(TcpMessage::Published(event_id)) => Ok(event_id),
             Ok(TcpMessage::Error(error)) => Err(error),
-            Ok(_) => Err(DatabaseError::IoError(IoError::new(ErrorKind::InvalidData, UnexpectedTcpMessage))),
+            Ok(_) => Err(DatabaseError::IoError(ErrorKind::InvalidData, format!("{}", UnexpectedTcpMessage))),
             Err(err) => Err(err)
         }
     }
@@ -55,7 +55,7 @@ impl Client {
                                 Ok(_) => continue,
                                 Err(err) => println!("Unable to send event to the event stream: {}", err)
                             },
-                            Ok(TcpMessage::EndOfStream) => (),
+                            Ok(TcpMessage::EndOfEventStream) => (),
                             Ok(TcpMessage::Error(error)) => println!("Received error from TCP stream: {}", error),
                             Ok(message) => println!("Unexpected TCP message: {}", message),
                             Err(err) => println!("Unable to read TCP message from stream: {}", err)

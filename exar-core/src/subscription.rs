@@ -24,7 +24,7 @@ impl Subscription {
             Ok(_) => Ok(self.query.update(event_id)),
             Err(_) => {
                 self.active = false;
-                Err(DatabaseError::EventStreamClosed)
+                Err(DatabaseError::EventStreamError(EventStreamError::Closed))
             }
         }
     }

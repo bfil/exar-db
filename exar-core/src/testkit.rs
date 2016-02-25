@@ -18,6 +18,6 @@ macro_rules! assert_encoded_eq {
 #[macro_export]
 macro_rules! assert_decoded_eq {
     ($left:expr, $right:expr) => (
-        assert_eq!(FromTabSeparatedString::from_tab_separated_string($left), $right)
+        assert_eq!(FromTabSeparatedString::from_tab_separated_string($left), Ok($right))
     )
 }

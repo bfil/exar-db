@@ -13,7 +13,7 @@ use std::fmt::{Display, Formatter, Result as DisplayResult};
 /// Subscribed
 ///
 /// Event           event_id        tag1 tag2       timestamp       event_data
-/// EndOfStream
+/// EndOfEventStream
 ///
 /// Error           type            [subtype]       description
 
@@ -26,7 +26,7 @@ pub enum TcpMessage {
     Subscribe(bool, usize, Option<usize>, Option<String>),
     Subscribed,
     Event(Event),
-    EndOfStream,
+    EndOfEventStream,
     Error(DatabaseError)
 }
 
@@ -56,7 +56,7 @@ impl ToTabSeparatedString for TcpMessage {
             },
             TcpMessage::Subscribed => tab_separated!("Subscribed"),
             TcpMessage::Event(ref event) => tab_separated!("Event", event.to_tab_separated_string()),
-            TcpMessage::EndOfStream => tab_separated!("EndOfStream"),
+            TcpMessage::EndOfEventStream => tab_separated!("EndOfEventStream"),
             TcpMessage::Error(ref error) => tab_separated!("Error", error.to_tab_separated_string())
         }
     }
@@ -104,7 +104,7 @@ impl FromTabSeparatedString for TcpMessage {
                 let message_data: String = try!(parser.parse_next());
                 Event::from_tab_separated_string(&message_data).and_then(|event| Ok(TcpMessage::Event(event)))
             },
-            "EndOfStream" => Ok(TcpMessage::EndOfStream),
+            "EndOfEventStream" => Ok(TcpMessage::EndOfEventStream),
             "Error" => {
                 let message_data: String = try!(parser.parse_next());
                 DatabaseError::from_tab_separated_string(&message_data).and_then(|error| Ok(TcpMessage::Error(error)))
@@ -138,7 +138,7 @@ impl Display for TcpMessage {
             },
             TcpMessage::Subscribed => write!(f, "Subscribed"),
             TcpMessage::Event(ref event) => write!(f, "Event({})", event),
-            TcpMessage::EndOfStream => write!(f, "EndOfStream"),
+            TcpMessage::EndOfEventStream => write!(f, "EndOfEventStream"),
             TcpMessage::Error(ref error) => write!(f, "Error({})", error)
         }
     }

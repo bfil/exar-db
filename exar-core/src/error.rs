@@ -8,7 +8,7 @@ use std::io::ErrorKind;
 pub enum DatabaseError {
     AuthenticationError,
     ConnectionError,
-    EventStreamClosed,
+    EventStreamError(EventStreamError),
     IoError(ErrorKind, String),
     ParseError(ParseError),
     SubscriptionError,
@@ -20,7 +20,9 @@ impl ToTabSeparatedString for DatabaseError {
         match *self {
             DatabaseError::AuthenticationError => tab_separated!("AuthenticationError"),
             DatabaseError::ConnectionError => tab_separated!("ConnectionError"),
-            DatabaseError::EventStreamClosed => tab_separated!("EventStreamClosed"),
+            DatabaseError::EventStreamError(ref error) => {
+                tab_separated!("EventStreamError", error.to_string())
+            },
             DatabaseError::IoError(ref error_kind, ref description) => {
                 tab_separated!("IoError", error_kind.to_tab_separated_string(), description)
             },
@@ -41,7 +43,10 @@ impl FromTabSeparatedString for DatabaseError {
         match &message_type[..] {
             "AuthenticationError" => Ok(DatabaseError::AuthenticationError),
             "ConnectionError" => Ok(DatabaseError::ConnectionError),
-            "EventStreamClosed" => Ok(DatabaseError::EventStreamClosed),
+            "EventStreamError" => {
+                let error: EventStreamError = try!(parser.parse_next());
+                Ok(DatabaseError::EventStreamError(error))
+            },
             "IoError" => {
                 let message_data: String = try!(parser.parse_next());
                 let mut parser = TabSeparatedParser::new(2, &message_data);
@@ -133,7 +138,8 @@ impl Display for DatabaseError {
         match *self {
             DatabaseError::AuthenticationError => write!(f, "authentication failure"),
             DatabaseError::ConnectionError => write!(f, "connection failure"),
-            DatabaseError::EventStreamClosed => write!(f, "event stream is closed"),
+            DatabaseError::EventStreamError(EventStreamError::Closed) => write!(f, "event stream is closed"),
+            DatabaseError::EventStreamError(EventStreamError::Empty) => write!(f, "event stream is empty"),
             DatabaseError::IoError(_, ref error) => write!(f, "{}", error),
             DatabaseError::ParseError(ref error) => write!(f, "{}", error),
             DatabaseError::SubscriptionError => write!(f, "subscription failure"),
@@ -152,7 +158,8 @@ mod tests {
     fn test_database_error_tab_separator_encoding() {
         let authentication_error = DatabaseError::AuthenticationError;
         let connection_error = DatabaseError::ConnectionError;
-        let event_stream_closed = DatabaseError::EventStreamClosed;
+        let event_stream_closed = DatabaseError::EventStreamError(EventStreamError::Closed);
+        let event_stream_empty = DatabaseError::EventStreamError(EventStreamError::Empty);
         let io_error = DatabaseError::IoError(ErrorKind::Other, "error".to_owned());
         let parse_error = DatabaseError::ParseError(ParseError::ParseError("error".to_owned()));
         let missig_field = DatabaseError::ParseError(ParseError::MissingField(1));
@@ -161,7 +168,8 @@ mod tests {
 
         assert_encoded_eq!(authentication_error, "AuthenticationError");
         assert_encoded_eq!(connection_error, "ConnectionError");
-        assert_encoded_eq!(event_stream_closed, "EventStreamClosed");
+        assert_encoded_eq!(event_stream_closed, "EventStreamError\tClosed");
+        assert_encoded_eq!(event_stream_empty, "EventStreamError\tEmpty");
         assert_encoded_eq!(io_error, "IoError\tOther\terror");
         assert_encoded_eq!(parse_error, "ParseError\tParseError\terror");
         assert_encoded_eq!(missig_field, "ParseError\tMissingField\t1");
@@ -173,20 +181,22 @@ mod tests {
     fn test_database_error_tab_separator_decoding() {
         let authentication_error = DatabaseError::AuthenticationError;
         let connection_error = DatabaseError::ConnectionError;
-        let event_stream_closed = DatabaseError::EventStreamClosed;
+        let event_stream_closed = DatabaseError::EventStreamError(EventStreamError::Closed);
+        let event_stream_empty = DatabaseError::EventStreamError(EventStreamError::Empty);
         let io_error = DatabaseError::IoError(ErrorKind::Other, "error".to_owned());
         let parse_error = DatabaseError::ParseError(ParseError::ParseError("error".to_owned()));
         let missig_field = DatabaseError::ParseError(ParseError::MissingField(1));
         let subscription_error = DatabaseError::SubscriptionError;
         let validation_error = DatabaseError::ValidationError(ValidationError { description: "error".to_owned() });
 
-        assert_decoded_eq!("AuthenticationError", Ok(authentication_error));
-        assert_decoded_eq!("ConnectionError", Ok(connection_error));
-        assert_decoded_eq!("EventStreamClosed", Ok(event_stream_closed));
-        assert_decoded_eq!("IoError\tOther\terror", Ok(io_error));
-        assert_decoded_eq!("ParseError\tParseError\terror", Ok(parse_error));
-        assert_decoded_eq!("ParseError\tMissingField\t1", Ok(missig_field));
-        assert_decoded_eq!("SubscriptionError", Ok(subscription_error));
-        assert_decoded_eq!("ValidationError\terror", Ok(validation_error));
+        assert_decoded_eq!("AuthenticationError", authentication_error);
+        assert_decoded_eq!("ConnectionError", connection_error);
+        assert_decoded_eq!("EventStreamError\tClosed", event_stream_closed);
+        assert_decoded_eq!("EventStreamError\tEmpty", event_stream_empty);
+        assert_decoded_eq!("IoError\tOther\terror", io_error);
+        assert_decoded_eq!("ParseError\tParseError\terror", parse_error);
+        assert_decoded_eq!("ParseError\tMissingField\t1", missig_field);
+        assert_decoded_eq!("SubscriptionError", subscription_error);
+        assert_decoded_eq!("ValidationError\terror", validation_error);
     }
 }

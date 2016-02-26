@@ -137,6 +137,17 @@ mod tests {
     }
 
     #[test]
+    fn test_constructor_failure() {
+        let ref collection_name = testkit::gen_collection_name();
+        let log = Log::new("", collection_name);
+        let sleep_duration = Duration::from_millis(10);
+
+        assert!(Scanner::new(log.clone(), sleep_duration).is_err());
+
+        assert!(log.remove().is_err());
+    }
+
+    #[test]
     fn test_stop() {
         let log = create_log();
         let sleep_duration = Duration::from_millis(10);

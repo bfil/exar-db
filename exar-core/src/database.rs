@@ -84,7 +84,7 @@ mod tests {
     fn test_connection_failure() {
         let mut db = Database::new(DatabaseConfig::default());
 
-        let ref collection_name = "missing-directory/error";
+        let ref collection_name = testkit::invalid_collection_name();
         assert!(db.connect(collection_name).is_err());
         assert!(!db.contains_collection(collection_name));
         assert!(db.drop_collection(collection_name).is_err());

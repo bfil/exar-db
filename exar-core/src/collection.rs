@@ -99,7 +99,7 @@ mod tests {
 
     #[test]
     fn test_constructor_error() {
-        let ref collection_name = "missing-directory/error";
+        let ref collection_name = testkit::invalid_collection_name();
         assert!(Collection::new(collection_name, CollectionConfig::default()).is_err());
     }
 

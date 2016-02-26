@@ -10,6 +10,10 @@ pub fn gen_collection_name() -> String {
         .collect::<String>()
 }
 
+pub fn invalid_collection_name() -> String {
+    "missing-directory/error".to_owned()
+}
+
 #[macro_export]
 macro_rules! assert_encoded_eq {
     ($left:expr, $right:expr) => ( assert_eq!($left.to_tab_separated_string(), $right) )

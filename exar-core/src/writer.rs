@@ -51,3 +51,86 @@ impl Writer {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::*;
+
+    use std::io::{BufRead, BufReader};
+
+    fn create_log() -> Log {
+        let ref collection_name = testkit::gen_collection_name();
+        Log::new("", collection_name)
+    }
+
+    #[test]
+    fn test_constructor() {
+        let log = create_log();
+        let event = Event::new("data", vec!["tag1", "tag2"]);
+
+        let writer = Writer::new(log.clone()).expect("Unable to create writer");
+
+        assert_eq!(writer.file.lock().unwrap().metadata().unwrap().is_file(), true);
+        assert_eq!(*writer.offset.lock().unwrap(), 1);
+
+        assert_eq!(writer.store(event), Ok(1));
+
+        let writer = Writer::new(log.clone()).expect("Unable to create writer");
+
+        assert_eq!(writer.file.lock().unwrap().metadata().unwrap().is_file(), true);
+        assert_eq!(*writer.offset.lock().unwrap(), 2);
+
+        assert!(log.remove().is_ok());
+    }
+
+    #[test]
+    fn test_constructor_failure() {
+        let ref collection_name = testkit::invalid_collection_name();
+        let log = Log::new("", collection_name);
+
+        assert!(Writer::new(log.clone()).is_err());
+
+        assert!(log.remove().is_err());
+    }
+
+    #[test]
+    fn test_store() {
+        let log = create_log();
+        let event = Event::new("data", vec!["tag1", "tag2"]);
+
+        let writer = Writer::new(log.clone()).expect("Unable to create writer");
+
+        assert_eq!(writer.store(event.clone()), Ok(1));
+        assert_eq!(*writer.offset.lock().unwrap(), 2);
+        assert_eq!(writer.store(event.clone()), Ok(2));
+        assert_eq!(*writer.offset.lock().unwrap(), 3);
+
+        let reader = log.open_reader().expect("Unable to open reader");
+
+        let mut lines = BufReader::new(reader).lines();
+
+        let line = lines.next().expect("Unable to read next line")
+                               .expect("Unable to read next line");
+
+        let event = Event::from_tab_separated_str(&line).expect("Unable to decode event");
+
+        assert_eq!(event.id, 1);
+        assert_eq!(event.data, "data");
+        assert_eq!(event.tags, vec!["tag1", "tag2"]);
+        assert!(event.timestamp > 0);
+
+        let line = lines.next().expect("Unable to read next line")
+                               .expect("Unable to read next line");
+
+        let event = Event::from_tab_separated_str(&line).expect("Unable to decode event");
+
+        assert_eq!(event.id, 2);
+        assert_eq!(event.data, "data");
+        assert_eq!(event.tags, vec!["tag1", "tag2"]);
+        assert!(event.timestamp > 0);
+
+        assert!(lines.next().is_none());
+
+        assert!(log.remove().is_ok());
+    }
+}

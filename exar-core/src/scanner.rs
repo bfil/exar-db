@@ -73,11 +73,11 @@ impl Scanner {
                     match line {
                         Ok(line) => {
                             match Event::from_tab_separated_str(&line) {
-                                Ok(event) => {
-                                    for subscription in subscriptions.iter_mut() {
-                                        if subscription.query.is_active() && subscription.query.matches(&event) {
-                                            let _ = subscription.emit(event.clone());
-                                        }
+                                Ok(ref event) => {
+                                    for subscription in subscriptions.iter_mut().filter(|s| {
+                                        s.is_active() && s.query.is_active() && s.query.matches(event)
+                                    }) {
+                                        let _ = subscription.emit(event.clone());
                                     }
                                 },
                                 Err(err) => println!("Unable to deserialize database line: {}", err)
@@ -149,20 +149,14 @@ mod tests {
         let subscription = Subscription::new(send, Query::live());
 
         assert!(scanner.handle_subscription(subscription).is_ok());
-        thread::sleep(sleep_duration);
+        thread::sleep(sleep_duration * 2);
 
-        let subscriptions_len = {
-            (*scanner.subscriptions.lock().unwrap()).len()
-        };
-
+        let subscriptions_len = scanner.subscriptions.lock().unwrap().len();
         assert_eq!(subscriptions_len, 1);
 
         scanner.stop();
 
-        let subscriptions_len = {
-            (*scanner.subscriptions.lock().unwrap()).len()
-        };
-
+        let subscriptions_len = scanner.subscriptions.lock().unwrap().len();
         assert_eq!(subscriptions_len, 0);
 
         assert_eq!(*scanner.running.lock().unwrap(), false);
@@ -170,5 +164,39 @@ mod tests {
         assert!(log.remove().is_ok());
     }
 
+    #[test]
+    fn test_subscriptions_management() {
+        let log = create_log();
+        let writer = Writer::new(log.clone()).expect("Unable to create writer");
+        let event = Event::new("data", vec!["tag1", "tag2"]);
+        let sleep_duration = Duration::from_millis(10);
 
+        assert!(writer.store(event).is_ok());
+
+        let scanner = Scanner::new(log.clone(), sleep_duration).expect("Unable to run scanner");
+
+        let (send, recv) = channel();
+        let live_subscription = Subscription::new(send, Query::live());
+
+        assert!(scanner.handle_subscription(live_subscription).is_ok());
+        thread::sleep(sleep_duration * 2);
+
+        assert_eq!(recv.try_recv().map(|e| e.id), Ok(1));
+
+        let subscriptions_len = scanner.subscriptions.lock().unwrap().len();
+        assert_eq!(subscriptions_len, 1);
+
+        let (send, recv) = channel();
+        let current_subscription = Subscription::new(send, Query::current());
+
+        assert!(scanner.handle_subscription(current_subscription).is_ok());
+        thread::sleep(sleep_duration * 2);
+
+        let subscriptions_len = scanner.subscriptions.lock().unwrap().len();
+        assert_eq!(subscriptions_len, 1);
+
+        assert_eq!(recv.try_recv().map(|e| e.id), Ok(1));
+
+        assert!(log.remove().is_ok());
+    }
 }

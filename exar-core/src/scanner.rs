@@ -10,7 +10,7 @@ use std::time::Duration;
 
 #[derive(Clone, Debug)]
 pub struct Scanner {
-    send: Arc<Mutex<Sender<Subscription>>>,
+    send: Sender<Subscription>,
     running: Arc<Mutex<bool>>,
     subscriptions: Arc<Mutex<Vec<Subscription>>>
 }
@@ -23,7 +23,7 @@ impl Scanner {
         log.open_reader().and_then(|reader| {
             ScannerThread::run(reader, recv, sleep_duration, running.clone(), subscriptions.clone());
             Ok(Scanner {
-                send: Arc::new(Mutex::new(send)),
+                send: send,
                 running: running,
                 subscriptions: subscriptions
             })
@@ -31,7 +31,7 @@ impl Scanner {
     }
 
     pub fn handle_subscription(&self, subscription: Subscription) -> Result<(), DatabaseError> {
-        match self.send.lock().unwrap().send(subscription) {
+        match self.send.send(subscription) {
             Ok(()) => Ok(()),
             Err(_) => Err(DatabaseError::EventStreamError(EventStreamError::Closed))
         }

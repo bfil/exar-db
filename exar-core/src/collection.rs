@@ -10,13 +10,13 @@ pub struct Collection {
     log: Log,
     scanners: Vec<Scanner>,
     routing_strategy: RoutingStrategy,
-    appender: Appender
+    logger: Logger
 }
 
 impl Collection {
     pub fn new(collection_name: &str, config: CollectionConfig) -> Result<Collection, DatabaseError> {
         let log = Log::new(&config.logs_path, collection_name);
-        Appender::new(log.clone()).and_then(|appender| {
+        Logger::new(log.clone()).and_then(|logger| {
             let mut scanners = vec![];
             let scanners_sleep_duration = Duration::from_millis(config.scanners_sleep_ms as u64);
             for _ in 0..config.scanners {
@@ -27,13 +27,13 @@ impl Collection {
                 log: log,
                 scanners: scanners,
                 routing_strategy: config.routing_strategy.clone(),
-                appender: appender
+                logger: logger
             })
         })
     }
 
     pub fn publish(&mut self, event: Event) -> Result<usize, DatabaseError> {
-        self.appender.append(event)
+        self.logger.log(event)
     }
 
     pub fn subscribe(&mut self, query: Query) -> Result<EventStream, DatabaseError> {

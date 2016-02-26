@@ -10,7 +10,7 @@ extern crate time;
 #[cfg(test)]
 pub mod testkit;
 
-mod appender;
+mod logger;
 mod buf_writer;
 mod config;
 mod collection;
@@ -26,7 +26,7 @@ mod routing_strategy;
 mod subscription;
 mod validation;
 
-pub use self::appender::*;
+pub use self::logger::*;
 pub use self::buf_writer::*;
 pub use self::config::*;
 pub use self::collection::*;

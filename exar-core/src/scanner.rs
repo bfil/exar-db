@@ -175,11 +175,11 @@ mod tests {
     #[test]
     fn test_subscriptions_management() {
         let log = create_log();
-        let mut appender = Appender::new(log.clone()).expect("Unable to create appender");
+        let mut logger = Logger::new(log.clone()).expect("Unable to create logger");
         let event = Event::new("data", vec!["tag1", "tag2"]);
         let sleep_duration = Duration::from_millis(10);
 
-        assert!(appender.append(event).is_ok());
+        assert!(logger.log(event).is_ok());
 
         let scanner = Scanner::new(log.clone(), sleep_duration).expect("Unable to run scanner");
 

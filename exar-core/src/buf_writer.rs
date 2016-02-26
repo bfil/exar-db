@@ -34,7 +34,7 @@ mod tests {
     use std::io::{BufRead, BufReader, Write, Seek, SeekFrom};
 
     #[test]
-    fn test_write_line() {
+    fn test_buf_writer() {
         let file = OpenOptions::new().read(true).write(true).create(true)
                                      .open("buf-writer.log").expect("Unable to create file");
 

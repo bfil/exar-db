@@ -20,7 +20,7 @@
 - Improve Subscribe Method (Done)
 - Subscription Routing Strategy (Done)
 - Support Collection-Specific Config (Done)
-- Improve File Reader & File Appender Methods (Done)
+- Improve File Reader & File Writer Methods (Done)
 
 ### Connection
 
@@ -39,7 +39,7 @@
 - Improve API (Done)
 - Add Current Events Queries (Done)
 
-### Appender
+### Logger
 
 - Error Handling (Done)
 - Change API To Disallow Event ID Changes If Necessary (Unnecessary)

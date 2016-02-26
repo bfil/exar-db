@@ -3,24 +3,24 @@ use super::*;
 use std::fs::File;
 
 #[derive(Debug)]
-pub struct Appender {
+pub struct Logger {
     writer: BufWriter<File>,
     offset: usize
 }
 
-impl Appender {
-    pub fn new(log: Log) -> Result<Appender, DatabaseError> {
+impl Logger {
+    pub fn new(log: Log) -> Result<Logger, DatabaseError> {
         log.open_writer().and_then(|writer| {
             log.count_lines().and_then(|lines_count| {
-                Ok(Appender {
+                Ok(Logger {
                     writer: writer,
-                    offset:lines_count + 1
+                    offset: lines_count + 1
                 })
             })
         })
     }
 
-    pub fn append(&mut self, event: Event) -> Result<usize, DatabaseError> {
+    pub fn log(&mut self, event: Event) -> Result<usize, DatabaseError> {
         match event.validate() {
             Ok(event) => {
                 let event_id = self.offset;
@@ -57,17 +57,17 @@ mod tests {
         let log = create_log();
         let event = Event::new("data", vec!["tag1", "tag2"]);
 
-        let mut appender = Appender::new(log.clone()).expect("Unable to create appender");
+        let mut logger = Logger::new(log.clone()).expect("Unable to create logger");
 
-        assert_eq!(appender.writer.get_ref().metadata().unwrap().is_file(), true);
-        assert_eq!(appender.offset, 1);
+        assert_eq!(logger.writer.get_ref().metadata().unwrap().is_file(), true);
+        assert_eq!(logger.offset, 1);
 
-        assert_eq!(appender.append(event), Ok(1));
+        assert_eq!(logger.log(event), Ok(1));
 
-        let appender = Appender::new(log.clone()).expect("Unable to create appender");
+        let logger = Logger::new(log.clone()).expect("Unable to create logger");
 
-        assert_eq!(appender.writer.get_ref().metadata().unwrap().is_file(), true);
-        assert_eq!(appender.offset, 2);
+        assert_eq!(logger.writer.get_ref().metadata().unwrap().is_file(), true);
+        assert_eq!(logger.offset, 2);
 
         assert!(log.remove().is_ok());
     }
@@ -77,7 +77,7 @@ mod tests {
         let ref collection_name = testkit::invalid_collection_name();
         let log = Log::new("", collection_name);
 
-        assert!(Appender::new(log.clone()).is_err());
+        assert!(Logger::new(log.clone()).is_err());
 
         assert!(log.remove().is_err());
     }
@@ -87,12 +87,12 @@ mod tests {
         let log = create_log();
         let event = Event::new("data", vec!["tag1", "tag2"]);
 
-        let mut appender = Appender::new(log.clone()).expect("Unable to create appender");
+        let mut logger = Logger::new(log.clone()).expect("Unable to create logger");
 
-        assert_eq!(appender.append(event.clone()), Ok(1));
-        assert_eq!(appender.offset, 2);
-        assert_eq!(appender.append(event.clone()), Ok(2));
-        assert_eq!(appender.offset, 3);
+        assert_eq!(logger.log(event.clone()), Ok(1));
+        assert_eq!(logger.offset, 2);
+        assert_eq!(logger.log(event.clone()), Ok(2));
+        assert_eq!(logger.offset, 3);
 
         let reader = log.open_reader().expect("Unable to open reader");
 

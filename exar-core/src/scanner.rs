@@ -105,3 +105,70 @@ impl Drop for Scanner {
         self.stop();
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::*;
+
+    use std::sync::mpsc::channel;
+    use std::thread;
+    use std::time::Duration;
+
+    fn create_log() -> Log {
+        let ref collection_name = testkit::gen_collection_name();
+        let log = Log::new("", collection_name);
+        assert!(log.open_writer().is_ok());
+        log
+    }
+
+    #[test]
+    fn test_constructor() {
+        let log = create_log();
+        let sleep_duration = Duration::from_millis(10);
+
+        let scanner = Scanner::new(log.clone(), sleep_duration).expect("Unable to run scanner");
+
+        assert_eq!(scanner.log, log);
+        assert_eq!(*scanner.running.lock().unwrap(), true);
+        assert_eq!(scanner.sleep_duration, sleep_duration);
+        assert_eq!(scanner.subscriptions.lock().unwrap().len(), 0);
+
+        assert!(log.remove().is_ok());
+    }
+
+    #[test]
+    fn test_stop() {
+        let log = create_log();
+        let sleep_duration = Duration::from_millis(10);
+
+        let scanner = Scanner::new(log.clone(), sleep_duration).expect("Unable to run scanner");
+
+        assert_eq!(*scanner.running.lock().unwrap(), true);
+
+        let (send, _) = channel();
+        let subscription = Subscription::new(send, Query::live());
+
+        assert!(scanner.handle_subscription(subscription).is_ok());
+        thread::sleep(sleep_duration);
+
+        let subscriptions_len = {
+            (*scanner.subscriptions.lock().unwrap()).len()
+        };
+
+        assert_eq!(subscriptions_len, 1);
+
+        scanner.stop();
+
+        let subscriptions_len = {
+            (*scanner.subscriptions.lock().unwrap()).len()
+        };
+
+        assert_eq!(subscriptions_len, 0);
+
+        assert_eq!(*scanner.running.lock().unwrap(), false);
+
+        assert!(log.remove().is_ok());
+    }
+
+
+}

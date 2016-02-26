@@ -42,15 +42,16 @@ impl Scanner {
         let subscriptions = self.subscriptions.clone();
         let sleep_duration = self.sleep_duration.clone();
         match self.log.open_reader() {
-            Ok(mut file) => {
+            Ok(file) => {
                 Ok(thread::spawn(move || {
+                    let mut reader = BufReader::new(file);
                     while *running.lock().unwrap() {
                         let mut subscriptions = subscriptions.lock().unwrap();
                         while let Ok(subscription) = recv.try_recv() {
                             subscriptions.push(subscription);
                         }
                         if subscriptions.len() != 0 {
-                            match Scanner::scan(&mut file, &mut subscriptions) {
+                            match Scanner::scan(&mut reader, &mut subscriptions) {
                                 Ok(_) => subscriptions.retain(|s| {
                                     s.is_active() && s.query.is_live() && s.query.is_active()
                                 }),
@@ -65,11 +66,11 @@ impl Scanner {
         }
     }
 
-    fn scan(mut file: &mut File, subscriptions: &mut Vec<Subscription>) -> Result<(), DatabaseError> {
+    fn scan(mut reader: &mut BufReader<File>, subscriptions: &mut Vec<Subscription>) -> Result<(), DatabaseError> {
         let offset = subscriptions.iter().map(|s| s.query.position).min().unwrap_or(0);
-        match file.seek(SeekFrom::Start(0)) {
+        match reader.seek(SeekFrom::Start(0)) {
             Ok(_) => {
-                for line in BufReader::new(file).lines().skip(offset) {
+                for line in reader.lines().skip(offset) {
                     match line {
                         Ok(line) => {
                             match Event::from_tab_separated_str(&line) {
@@ -178,11 +179,11 @@ mod tests {
     #[test]
     fn test_subscriptions_management() {
         let log = create_log();
-        let writer = Writer::new(log.clone()).expect("Unable to create writer");
+        let appender = Appender::new(log.clone()).expect("Unable to create appender");
         let event = Event::new("data", vec!["tag1", "tag2"]);
         let sleep_duration = Duration::from_millis(10);
 
-        assert!(writer.store(event).is_ok());
+        assert!(appender.append(event).is_ok());
 
         let scanner = Scanner::new(log.clone(), sleep_duration).expect("Unable to run scanner");
 

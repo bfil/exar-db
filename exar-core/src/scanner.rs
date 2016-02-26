@@ -41,29 +41,25 @@ impl Scanner {
         let running = self.running.clone();
         let subscriptions = self.subscriptions.clone();
         let sleep_duration = self.sleep_duration.clone();
-        match self.log.open_reader() {
-            Ok(file) => {
-                Ok(thread::spawn(move || {
-                    let mut reader = BufReader::new(file);
-                    while *running.lock().unwrap() {
-                        let mut subscriptions = subscriptions.lock().unwrap();
-                        while let Ok(subscription) = recv.try_recv() {
-                            subscriptions.push(subscription);
+        self.log.open_reader().and_then(|mut reader| {
+            Ok(thread::spawn(move || {
+                while *running.lock().unwrap() {
+                    let mut subscriptions = subscriptions.lock().unwrap();
+                    while let Ok(subscription) = recv.try_recv() {
+                        subscriptions.push(subscription);
+                    }
+                    if subscriptions.len() != 0 {
+                        match Scanner::scan(&mut reader, &mut subscriptions) {
+                            Ok(_) => subscriptions.retain(|s| {
+                                s.is_active() && s.query.is_live() && s.query.is_active()
+                            }),
+                            Err(err) => println!("Unable to scan file: {}", err)
                         }
-                        if subscriptions.len() != 0 {
-                            match Scanner::scan(&mut reader, &mut subscriptions) {
-                                Ok(_) => subscriptions.retain(|s| {
-                                    s.is_active() && s.query.is_live() && s.query.is_active()
-                                }),
-                                Err(err) => println!("Unable to scan file: {}", err)
-                            }
-                        }
-                        thread::sleep(sleep_duration);
-                    };
-                }))
-            },
-            Err(err) => Err(DatabaseError::new_io_error(err))
-        }
+                    }
+                    thread::sleep(sleep_duration);
+                };
+            }))
+        })
     }
 
     fn scan(mut reader: &mut BufReader<File>, subscriptions: &mut Vec<Subscription>) -> Result<(), DatabaseError> {

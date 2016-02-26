@@ -46,10 +46,7 @@ impl Collection {
 
     pub fn drop(&mut self) -> Result<(), DatabaseError> {
         self.scanners.truncate(0);
-        match self.log.remove() {
-            Ok(()) => Ok(()),
-            Err(err) => Err(DatabaseError::new_io_error(err))
-        }
+        self.log.remove()
     }
 
     fn apply_routing_strategy(&mut self, subscription: Subscription) -> Result<RoutingStrategy, DatabaseError> {

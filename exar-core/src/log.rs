@@ -1,5 +1,7 @@
+use super::*;
+
 use std::fs::*;
-use std::io::{BufRead, BufReader, Result, Write};
+use std::io::{BufRead, BufReader, Write};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Log {
@@ -15,27 +17,30 @@ impl Log {
         }
     }
 
-    pub fn open_reader(&self) -> Result<File> {
-        OpenOptions::new()
-            .read(true)
-            .open(self.get_path())
+    pub fn open_reader(&self) -> Result<BufReader<File>, DatabaseError> {
+        match OpenOptions::new().read(true).open(self.get_path()) {
+            Ok(file) => Ok(BufReader::new(file)),
+            Err(err) => Err(DatabaseError::new_io_error(err))
+        }
     }
 
-    pub fn open_writer(&self) -> Result<File> {
-        OpenOptions::new()
-            .write(true)
-            .create(true)
-            .append(true)
-            .open(self.get_path())
+    pub fn open_writer(&self) -> Result<BufWriter<File>, DatabaseError> {
+        match OpenOptions::new().write(true).create(true).append(true).open(self.get_path()) {
+            Ok(file) => Ok(BufWriter::new(file)),
+            Err(err) => Err(DatabaseError::new_io_error(err))
+        }
     }
 
-    pub fn remove(&self) -> Result<()> {
-        remove_file(self.get_path())
+    pub fn remove(&self) -> Result<(), DatabaseError> {
+        match remove_file(self.get_path()) {
+            Ok(()) => Ok(()),
+            Err(err) => Err(DatabaseError::new_io_error(err))
+        }
     }
 
-    pub fn count_lines(&self) -> Result<usize> {
+    pub fn count_lines(&self) -> Result<usize, DatabaseError> {
         match self.open_reader() {
-            Ok(file) => Ok(BufReader::new(file).lines().count()),
+            Ok(reader) => Ok(reader.lines().count()),
             Err(err) => Err(err)
         }
     }
@@ -52,8 +57,6 @@ impl Log {
 #[cfg(test)]
 mod tests {
     use super::super::*;
-
-    use std::io::Write;
 
     #[test]
     fn test_get_path() {
@@ -76,7 +79,7 @@ mod tests {
 
         let mut file_writer = log.open_writer().expect("Unable to open file writer");
 
-        assert!(file_writer.write_all(format!("data\n").as_bytes()).is_ok());
+        assert!(file_writer.write_line("data").is_ok());
         assert_eq!(log.count_lines().unwrap(), 1);
 
         assert!(log.remove().is_ok());

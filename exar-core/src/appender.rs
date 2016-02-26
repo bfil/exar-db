@@ -10,20 +10,14 @@ pub struct Appender {
 
 impl Appender {
     pub fn new(log: Log) -> Result<Appender, DatabaseError> {
-        match log.open_writer() {
-            Ok(file) => {
-                match log.count_lines() {
-                    Ok(lines_count) => {
-                        Ok(Appender {
-                            writer: BufWriter::new(file),
-                            offset:lines_count + 1
-                        })
-                    },
-                    Err(err) => Err(DatabaseError::new_io_error(err))
-                }
-            },
-            Err(err) => Err(DatabaseError::new_io_error(err))
-        }
+        log.open_writer().and_then(|writer| {
+            log.count_lines().and_then(|lines_count| {
+                Ok(Appender {
+                    writer: writer,
+                    offset:lines_count + 1
+                })
+            })
+        })
     }
 
     pub fn append(&mut self, event: Event) -> Result<usize, DatabaseError> {

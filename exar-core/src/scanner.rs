@@ -10,24 +10,24 @@ use std::time::Duration;
 
 #[derive(Clone, Debug)]
 pub struct Scanner {
-    log: Log,
     send: Arc<Mutex<Sender<Subscription>>>,
     running: Arc<Mutex<bool>>,
-    sleep_duration: Duration,
     subscriptions: Arc<Mutex<Vec<Subscription>>>
 }
 
 impl Scanner {
     pub fn new(log: Log, sleep_duration: Duration) -> Result<Scanner, DatabaseError> {
         let (send, recv) = channel();
-        let scanner = Scanner {
-            log: log,
-            send: Arc::new(Mutex::new(send)),
-            running: Arc::new(Mutex::new(true)),
-            sleep_duration: sleep_duration,
-            subscriptions: Arc::new(Mutex::new(vec![]))
-        };
-        scanner.run_thread(recv).and_then(|_| Ok(scanner))
+        let running = Arc::new(Mutex::new(true));
+        let subscriptions = Arc::new(Mutex::new(vec![]));
+        log.open_reader().and_then(|reader| {
+            ScannerThread::run(reader, recv, sleep_duration, running.clone(), subscriptions.clone());
+            Ok(Scanner {
+                send: Arc::new(Mutex::new(send)),
+                running: running,
+                subscriptions: subscriptions
+            })
+        })
     }
 
     pub fn handle_subscription(&self, subscription: Subscription) -> Result<(), DatabaseError> {
@@ -37,28 +37,41 @@ impl Scanner {
         }
     }
 
-    fn run_thread(&self, recv: Receiver<Subscription>) -> Result<JoinHandle<()>, DatabaseError> {
-        let running = self.running.clone();
-        let subscriptions = self.subscriptions.clone();
-        let sleep_duration = self.sleep_duration.clone();
-        self.log.open_reader().and_then(|mut reader| {
-            Ok(thread::spawn(move || {
-                while *running.lock().unwrap() {
-                    let mut subscriptions = subscriptions.lock().unwrap();
-                    while let Ok(subscription) = recv.try_recv() {
-                        subscriptions.push(subscription);
+    fn stop(&self) {
+        let mut running = self.running.lock().unwrap();
+        *running = false;
+        let mut subscriptions = self.subscriptions.lock().unwrap();
+        subscriptions.truncate(0);
+    }
+}
+
+impl Drop for Scanner {
+    fn drop(&mut self) {
+        self.stop();
+    }
+}
+
+pub struct ScannerThread;
+
+impl ScannerThread {
+    fn run(mut reader: BufReader<File>, recv: Receiver<Subscription>, sleep_duration: Duration,
+           running: Arc<Mutex<bool>>, subscriptions: Arc<Mutex<Vec<Subscription>>>) -> JoinHandle<()> {
+        thread::spawn(move || {
+            while *running.lock().unwrap() {
+                let mut subscriptions = subscriptions.lock().unwrap();
+                while let Ok(subscription) = recv.try_recv() {
+                    subscriptions.push(subscription);
+                }
+                if subscriptions.len() != 0 {
+                    match ScannerThread::scan(&mut reader, &mut subscriptions) {
+                        Ok(_) => subscriptions.retain(|s| {
+                            s.is_active() && s.query.is_live() && s.query.is_active()
+                        }),
+                        Err(err) => println!("Unable to scan file: {}", err)
                     }
-                    if subscriptions.len() != 0 {
-                        match Scanner::scan(&mut reader, &mut subscriptions) {
-                            Ok(_) => subscriptions.retain(|s| {
-                                s.is_active() && s.query.is_live() && s.query.is_active()
-                            }),
-                            Err(err) => println!("Unable to scan file: {}", err)
-                        }
-                    }
-                    thread::sleep(sleep_duration);
-                };
-            }))
+                }
+                thread::sleep(sleep_duration);
+            };
         })
     }
 
@@ -88,19 +101,6 @@ impl Scanner {
             Err(err) => Err(DatabaseError::new_io_error(err))
         }
     }
-
-    fn stop(&self) {
-        let mut running = self.running.lock().unwrap();
-        *running = false;
-        let mut subscriptions = self.subscriptions.lock().unwrap();
-        subscriptions.truncate(0);
-    }
-}
-
-impl Drop for Scanner {
-    fn drop(&mut self) {
-        self.stop();
-    }
 }
 
 #[cfg(test)]
@@ -125,9 +125,7 @@ mod tests {
 
         let scanner = Scanner::new(log.clone(), sleep_duration).expect("Unable to run scanner");
 
-        assert_eq!(scanner.log, log);
         assert_eq!(*scanner.running.lock().unwrap(), true);
-        assert_eq!(scanner.sleep_duration, sleep_duration);
         assert_eq!(scanner.subscriptions.lock().unwrap().len(), 0);
 
         assert!(log.remove().is_ok());

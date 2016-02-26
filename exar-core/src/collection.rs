@@ -32,7 +32,7 @@ impl Collection {
         })
     }
 
-    pub fn publish(&self, event: Event) -> Result<usize, DatabaseError> {
+    pub fn publish(&mut self, event: Event) -> Result<usize, DatabaseError> {
         self.appender.append(event)
     }
 

@@ -179,7 +179,7 @@ mod tests {
     #[test]
     fn test_subscriptions_management() {
         let log = create_log();
-        let appender = Appender::new(log.clone()).expect("Unable to create appender");
+        let mut appender = Appender::new(log.clone()).expect("Unable to create appender");
         let event = Event::new("data", vec!["tag1", "tag2"]);
         let sleep_duration = Duration::from_millis(10);
 

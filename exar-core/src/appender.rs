@@ -1,12 +1,11 @@
 use super::*;
 
 use std::fs::File;
-use std::sync::Mutex;
 
 #[derive(Debug)]
 pub struct Appender {
-    writer: Mutex<BufWriter<File>>,
-    offset: Mutex<usize>
+    writer: BufWriter<File>,
+    offset: usize
 }
 
 impl Appender {
@@ -16,8 +15,8 @@ impl Appender {
                 match log.count_lines() {
                     Ok(lines_count) => {
                         Ok(Appender {
-                            writer: Mutex::new(BufWriter::new(file)),
-                            offset: Mutex::new(lines_count + 1)
+                            writer: BufWriter::new(file),
+                            offset:lines_count + 1
                         })
                     },
                     Err(err) => Err(DatabaseError::new_io_error(err))
@@ -27,19 +26,17 @@ impl Appender {
         }
     }
 
-    pub fn append(&self, event: Event) -> Result<usize, DatabaseError> {
-        let mut writer = self.writer.lock().unwrap();
-        let mut offset = self.offset.lock().unwrap();
+    pub fn append(&mut self, event: Event) -> Result<usize, DatabaseError> {
         match event.validate() {
             Ok(event) => {
-                let event_id = *offset;
+                let event_id = self.offset;
                 let mut event = event.with_id(event_id);
                 if event.timestamp == 0 {
                     event = event.with_current_timestamp();
                 }
-                match writer.write_line(&event.to_tab_separated_string()) {
+                match self.writer.write_line(&event.to_tab_separated_string()) {
                     Ok(()) => {
-                        *offset += 1;
+                        self.offset += 1;
                         Ok(event_id)
                     },
                     Err(err) => Err(DatabaseError::new_io_error(err))
@@ -66,17 +63,17 @@ mod tests {
         let log = create_log();
         let event = Event::new("data", vec!["tag1", "tag2"]);
 
-        let appender = Appender::new(log.clone()).expect("Unable to create appender");
+        let mut appender = Appender::new(log.clone()).expect("Unable to create appender");
 
-        assert_eq!(appender.writer.lock().unwrap().get_ref().metadata().unwrap().is_file(), true);
-        assert_eq!(*appender.offset.lock().unwrap(), 1);
+        assert_eq!(appender.writer.get_ref().metadata().unwrap().is_file(), true);
+        assert_eq!(appender.offset, 1);
 
         assert_eq!(appender.append(event), Ok(1));
 
         let appender = Appender::new(log.clone()).expect("Unable to create appender");
 
-        assert_eq!(appender.writer.lock().unwrap().get_ref().metadata().unwrap().is_file(), true);
-        assert_eq!(*appender.offset.lock().unwrap(), 2);
+        assert_eq!(appender.writer.get_ref().metadata().unwrap().is_file(), true);
+        assert_eq!(appender.offset, 2);
 
         assert!(log.remove().is_ok());
     }
@@ -92,16 +89,16 @@ mod tests {
     }
 
     #[test]
-    fn test_store() {
+    fn test_append() {
         let log = create_log();
         let event = Event::new("data", vec!["tag1", "tag2"]);
 
-        let appender = Appender::new(log.clone()).expect("Unable to create appender");
+        let mut appender = Appender::new(log.clone()).expect("Unable to create appender");
 
         assert_eq!(appender.append(event.clone()), Ok(1));
-        assert_eq!(*appender.offset.lock().unwrap(), 2);
+        assert_eq!(appender.offset, 2);
         assert_eq!(appender.append(event.clone()), Ok(2));
-        assert_eq!(*appender.offset.lock().unwrap(), 3);
+        assert_eq!(appender.offset, 3);
 
         let reader = log.open_reader().expect("Unable to open reader");
 

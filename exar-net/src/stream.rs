@@ -60,12 +60,11 @@ impl TryClone for TcpStream {
     }
 }
 
-impl TryClone for TcpMessageStream<TcpStream> {
+impl<T: Read + Write + TryClone> TryClone for TcpMessageStream<T> {
     fn try_clone(&self) -> Result<Self, DatabaseError> {
-        match self.writer.get_ref().try_clone() {
-            Ok(cloned_stream) => TcpMessageStream::new(cloned_stream),
-            Err(err) => Err(DatabaseError::new_io_error(err))
-        }
+        self.writer.get_ref().try_clone().and_then(|cloned_stream| {
+            TcpMessageStream::new(cloned_stream)
+        })
     }
 }
 
@@ -101,12 +100,12 @@ mod tests {
     use super::super::*;
 
     use std::fs::*;
-    use std::io::{BufReader, Error, Read, Write};
+    use std::io::{Error, Read, Write};
 
     struct LogStream {
         path: String,
-        reader: BufReader<File>,
-        writer: BufWriter<File>
+        reader: File,
+        writer: File
     }
 
     impl LogStream {
@@ -115,8 +114,8 @@ mod tests {
                 OpenOptions::new().read(true).open(path).and_then(|reader| {
                     Ok(LogStream {
                         path: path.to_owned(),
-                        reader: BufReader::new(reader),
-                        writer: BufWriter::new(writer)
+                        reader: reader,
+                        writer: writer
                     })
                 })
             })
@@ -131,10 +130,10 @@ mod tests {
 
     impl Write for LogStream {
         fn write(&mut self, buf: &[u8]) -> Result<usize, Error> {
-            self.writer.get_ref().write(buf)
+            self.writer.write(buf)
         }
         fn flush(&mut self) -> Result<(), Error> {
-            self.writer.get_ref().flush()
+            self.writer.flush()
         }
     }
 
@@ -143,15 +142,6 @@ mod tests {
             match LogStream::new(&self.path) {
                 Ok(cloned_stream) => Ok(cloned_stream),
                 Err(err) => Err(DatabaseError::new_io_error(err))
-            }
-        }
-    }
-
-    impl TryClone for TcpMessageStream<LogStream> {
-        fn try_clone(&self) -> Result<Self, DatabaseError> {
-            match self.writer.get_ref().try_clone() {
-                Ok(cloned_stream) => TcpMessageStream::new(cloned_stream),
-                Err(err) => Err(err)
             }
         }
     }

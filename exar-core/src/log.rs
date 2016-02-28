@@ -25,7 +25,7 @@ impl Log {
     }
 
     pub fn open_writer(&self) -> Result<BufWriter<File>, DatabaseError> {
-        match OpenOptions::new().write(true).create(true).append(true).open(self.get_path()) {
+        match OpenOptions::new().create(true).write(true).append(true).open(self.get_path()) {
             Ok(file) => Ok(BufWriter::new(file)),
             Err(err) => Err(DatabaseError::new_io_error(err))
         }

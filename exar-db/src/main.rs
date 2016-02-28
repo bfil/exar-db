@@ -118,9 +118,10 @@ fn server_test(num_clients: usize, num_events: usize) {
         let owned_collection_name = collection_name.to_owned();
         let owned_address = server_address.to_owned();
         thread::spawn(move || {
+            let server_address: &str = owned_address.as_ref();
             let test_event = Event::new(PAYLOAD, vec!["tag1"]);
             thread::sleep(Duration::from_millis(1000));
-            let mut client = Client::connect(&owned_address, &owned_collection_name, Some("admin"), Some("secret")).unwrap();
+            let mut client = Client::connect(server_address, &owned_collection_name, Some("admin"), Some("secret")).unwrap();
             for _ in 0..num_events {
                 let _ = client.publish(test_event.clone());
             }

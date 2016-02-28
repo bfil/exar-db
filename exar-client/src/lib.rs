@@ -49,24 +49,32 @@ impl Client {
     pub fn subscribe(&mut self, query: Query) -> Result<EventStream, DatabaseError> {
         let subscribe_message = TcpMessage::Subscribe(query.live, query.offset, query.limit, query.tag);
         self.stream.send_message(subscribe_message).and_then(|_| {
-            let (send, recv) = channel();
-            self.stream.try_clone().and_then(|cloned_stream| {
-                thread::spawn(move || {
-                    for message in cloned_stream.messages() {
-                        match message {
-                            Ok(TcpMessage::Event(event)) => match send.send(event) {
-                                Ok(_) => continue,
-                                Err(err) => println!("Unable to send event to the event stream: {}", err)
-                            },
-                            Ok(TcpMessage::EndOfEventStream) => (),
-                            Ok(TcpMessage::Error(error)) => println!("Received error from TCP stream: {}", error),
-                            Ok(message) => println!("Unexpected TCP message: {}", message),
-                            Err(err) => println!("Unable to read TCP message from stream: {}", err)
-                        };
-                        break
-                    }
-                });
-                Ok(EventStream::new(recv))
+            self.stream.recv_message().and_then(|message| {
+                match message {
+                    TcpMessage::Subscribed => {
+                        let (send, recv) = channel();
+                        self.stream.try_clone().and_then(|cloned_stream| {
+                            thread::spawn(move || {
+                                for message in cloned_stream.messages() {
+                                    match message {
+                                        Ok(TcpMessage::Event(event)) => match send.send(event) {
+                                            Ok(_) => continue,
+                                            Err(err) => println!("Unable to send event to the event stream: {}", err)
+                                        },
+                                        Ok(TcpMessage::EndOfEventStream) => (),
+                                        Ok(TcpMessage::Error(error)) => println!("Received error from TCP stream: {}", error),
+                                        Ok(message) => println!("Unexpected TCP message: {}", message),
+                                        Err(err) => println!("Unable to read TCP message from stream: {}", err)
+                                    };
+                                    break
+                                }
+                            });
+                            Ok(EventStream::new(recv))
+                        })
+                    },
+                    TcpMessage::Error(err) => Err(err),
+                    _ => Err(DatabaseError::SubscriptionError)
+                }
             })
         })
     }
@@ -86,6 +94,7 @@ mod tests {
     use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, TcpListener, ToSocketAddrs};
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::thread;
+    use std::time::Duration;
 
     static PORT: AtomicUsize = AtomicUsize::new(0);
 
@@ -129,10 +138,52 @@ mod tests {
                 Err(err) => println!("Error: {}", err)
             }
         });
+        thread::sleep(Duration::from_millis(100));
     }
 
     #[test]
-    fn test_client() {
+    fn test_connect() {
+        each_ip(&mut |addr| {
+
+            stub_server(addr.clone(), vec![
+                StreamAction::Read(TcpMessage::Connect("collection".to_owned(), None, None)),
+                StreamAction::Write(TcpMessage::Connected),
+            ]);
+
+            assert!(Client::connect(addr, "collection", None, None).is_ok());
+        });
+    }
+
+    #[test]
+    fn test_connect_with_authentication() {
+        each_ip(&mut |addr| {
+
+            stub_server(addr.clone(), vec![
+                StreamAction::Read(TcpMessage::Connect(
+                    "collection".to_owned(), Some("username".to_owned()), Some("password".to_owned()
+                ))),
+                StreamAction::Write(TcpMessage::Connected),
+            ]);
+
+            assert!(Client::connect(addr, "collection", Some("username"), Some("password")).is_ok());
+        });
+    }
+
+    #[test]
+    fn test_connect_failure() {
+        each_ip(&mut |addr| {
+
+            stub_server(addr.clone(), vec![
+                StreamAction::Read(TcpMessage::Connect("collection".to_owned(), None, None)),
+                StreamAction::Write(TcpMessage::Error(DatabaseError::ConnectionError))
+            ]);
+
+            assert_eq!(Client::connect(addr, "collection", None, None).err(), Some(DatabaseError::ConnectionError));
+        });
+    }
+
+    #[test]
+    fn test_publish() {
         each_ip(&mut |addr| {
 
             let event = Event::new("data", vec!["tag1", "tag2"]).with_timestamp(1234567890);
@@ -141,22 +192,70 @@ mod tests {
                 StreamAction::Read(TcpMessage::Connect("collection".to_owned(), None, None)),
                 StreamAction::Write(TcpMessage::Connected),
                 StreamAction::Read(TcpMessage::Publish(event.clone())),
-                StreamAction::Write(TcpMessage::Published(1)),
+                StreamAction::Write(TcpMessage::Published(1))
+            ]);
+
+            let mut client = Client::connect(addr, "collection", None, None).expect("Unable to connect");
+            assert_eq!(client.publish(event.clone()), Ok(1));
+        });
+    }
+
+    #[test]
+    fn test_publish_failure() {
+        each_ip(&mut |addr| {
+
+            let event = Event::new("data", vec!["tag1", "tag2"]).with_timestamp(1234567890);
+            let validation_error = ValidationError::new("validation error");
+
+            stub_server(addr.clone(), vec![
+                StreamAction::Read(TcpMessage::Connect("collection".to_owned(), None, None)),
+                StreamAction::Write(TcpMessage::Connected),
+                StreamAction::Read(TcpMessage::Publish(event.clone())),
+                StreamAction::Write(TcpMessage::Error(DatabaseError::ValidationError(validation_error.clone())))
+            ]);
+
+            let mut client = Client::connect(addr, "collection", None, None).expect("Unable to connect");
+            assert_eq!(client.publish(event.clone()), Err(DatabaseError::ValidationError(validation_error)));
+        });
+    }
+
+    #[test]
+    fn test_subscribe() {
+        each_ip(&mut |addr| {
+
+            let event = Event::new("data", vec!["tag1", "tag2"]).with_timestamp(1234567890);
+
+            stub_server(addr.clone(), vec![
+                StreamAction::Read(TcpMessage::Connect("collection".to_owned(), None, None)),
+                StreamAction::Write(TcpMessage::Connected),
                 StreamAction::Read(TcpMessage::Subscribe(true, 0, None, None)),
+                StreamAction::Write(TcpMessage::Subscribed),
                 StreamAction::Write(TcpMessage::Event(event.clone().with_id(1))),
                 StreamAction::Write(TcpMessage::Event(event.clone().with_id(2))),
                 StreamAction::Write(TcpMessage::EndOfEventStream)
             ]);
 
             let mut client = Client::connect(addr, "collection", None, None).expect("Unable to connect");
-
-            assert_eq!(client.publish(event.clone()), Ok(1));
-
             let mut event_stream = client.subscribe(Query::live()).expect("Unable to subscribe");
-
             assert_eq!(event_stream.next(), Some(event.clone().with_id(1)));
             assert_eq!(event_stream.next(), Some(event.clone().with_id(2)));
             assert_eq!(event_stream.next(), None);
+        });
+    }
+
+    #[test]
+    fn test_subscribe_failure() {
+        each_ip(&mut |addr| {
+
+            stub_server(addr.clone(), vec![
+                StreamAction::Read(TcpMessage::Connect("collection".to_owned(), None, None)),
+                StreamAction::Write(TcpMessage::Connected),
+                StreamAction::Read(TcpMessage::Subscribe(true, 0, None, None)),
+                StreamAction::Write(TcpMessage::Error(DatabaseError::SubscriptionError))
+            ]);
+
+            let mut client = Client::connect(addr, "collection", None, None).expect("Unable to connect");
+            assert_eq!(client.subscribe(Query::live()).err(), Some(DatabaseError::SubscriptionError));
         });
     }
 }

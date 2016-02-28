@@ -91,11 +91,13 @@ impl Handler {
             ActionResult::Connected => self.stream.send_message(TcpMessage::Connected),
             ActionResult::Published(event_id) => self.stream.send_message(TcpMessage::Published(event_id)),
             ActionResult::EventStream(event_stream) => {
-                for event in event_stream {
-                    let send_result = self.stream.send_message(TcpMessage::Event(event));
-                    if send_result.is_err() { return send_result }
-                }
-                self.stream.send_message(TcpMessage::EndOfEventStream)
+                self.stream.send_message(TcpMessage::Subscribed).and_then(|_| {
+                    for event in event_stream {
+                        let send_result = self.stream.send_message(TcpMessage::Event(event));
+                        if send_result.is_err() { return send_result }
+                    }
+                    self.stream.send_message(TcpMessage::EndOfEventStream)
+                })
             }
         }
     }

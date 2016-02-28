@@ -120,7 +120,7 @@ fn server_test(num_clients: usize, num_events: usize) {
         thread::spawn(move || {
             let server_address: &str = owned_address.as_ref();
             let test_event = Event::new(PAYLOAD, vec!["tag1"]);
-            thread::sleep(Duration::from_millis(1000));
+            thread::sleep(Duration::from_millis(100));
             let mut client = Client::connect(server_address, &owned_collection_name, Some("admin"), Some("secret")).unwrap();
             for _ in 0..num_events {
                 let _ = client.publish(test_event.clone());
@@ -128,7 +128,7 @@ fn server_test(num_clients: usize, num_events: usize) {
             let query = Query::live().offset(0).limit(num_events).by_tag("tag1");
             let events: Vec<_> = client.subscribe(query).unwrap().take(num_events).collect();
             println!("Received {} events..", events.len());
-            thread::sleep(Duration::from_millis(1000));
+            thread::sleep(Duration::from_millis(100));
         });
     }
 

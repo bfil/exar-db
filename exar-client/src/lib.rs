@@ -83,10 +83,9 @@ mod tests {
     use super::*;
 
     use std::env;
-    use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, TcpListener};
+    use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, TcpListener, ToSocketAddrs};
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::thread;
-    use std::time::Duration;
 
     static PORT: AtomicUsize = AtomicUsize::new(0);
 
@@ -109,35 +108,47 @@ mod tests {
         f(next_test_ip4());
     }
 
+    enum StreamAction {
+        Read(TcpMessage),
+        Write(TcpMessage)
+    }
+
+    fn stub_server<A: Send + ToSocketAddrs + 'static>(addr: A, actions: Vec<StreamAction>) {
+        thread::spawn(|| {
+            let listener = TcpListener::bind(addr).expect("Unable to bind to address");
+            match listener.accept() {
+                Ok((stream, _)) => {
+                    let mut stream = TcpMessageStream::new(stream).expect("Unable to create message stream");
+                    for action in actions {
+                        match action {
+                            StreamAction::Read(message) => assert_eq!(stream.recv_message(), Ok(message)),
+                            StreamAction::Write(message) => assert!(stream.send_message(message).is_ok())
+                        }
+                    }
+                },
+                Err(err) => println!("Error: {}", err)
+            }
+        });
+    }
+
     #[test]
-    fn test_name() {
+    fn test_client() {
         each_ip(&mut |addr| {
 
             let event = Event::new("data", vec!["tag1", "tag2"]).with_timestamp(1234567890);
 
-            let cloned_addr = addr.clone();
-            thread::spawn(move || {
-                let listener = TcpListener::bind(cloned_addr).expect("Unable to bind to address");
-                match listener.accept() {
-                    Ok((stream, _)) => {
-                        let mut stream = TcpMessageStream::new(stream).expect("Unable to create message stream");
-                        let _ = stream.recv_message();
-                        let _ = stream.send_message(TcpMessage::Connected);
-                        let _ = stream.recv_message();
-                        let _ = stream.send_message(TcpMessage::Published(1));
-                        let _ = stream.recv_message();
-                        let _ = stream.send_message(TcpMessage::Event(event.clone().with_id(1)));
-                        let _ = stream.send_message(TcpMessage::Event(event.clone().with_id(2)));
-                        let _ = stream.send_message(TcpMessage::EndOfEventStream);
-                        thread::sleep(Duration::from_millis(1000));
-                    },
-                    Err(err) => println!("Error: {}", err)
-                }
-            });
+            stub_server(addr.clone(), vec![
+                StreamAction::Read(TcpMessage::Connect("collection".to_owned(), None, None)),
+                StreamAction::Write(TcpMessage::Connected),
+                StreamAction::Read(TcpMessage::Publish(event.clone())),
+                StreamAction::Write(TcpMessage::Published(1)),
+                StreamAction::Read(TcpMessage::Subscribe(true, 0, None, None)),
+                StreamAction::Write(TcpMessage::Event(event.clone().with_id(1))),
+                StreamAction::Write(TcpMessage::Event(event.clone().with_id(2))),
+                StreamAction::Write(TcpMessage::EndOfEventStream)
+            ]);
 
             let mut client = Client::connect(addr, "collection", None, None).expect("Unable to connect");
-
-            let event = Event::new("data", vec!["tag1", "tag2"]).with_timestamp(1234567890);
 
             assert_eq!(client.publish(event.clone()), Ok(1));
 

@@ -1,6 +1,9 @@
 #[macro_use]
 extern crate exar;
 
+#[cfg(test)]
+pub mod testkit;
+
 mod protocol;
 mod stream;
 

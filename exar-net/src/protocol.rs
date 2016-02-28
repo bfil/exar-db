@@ -142,3 +142,116 @@ impl Display for TcpMessage {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use exar::*;
+    use super::super::*;
+
+    #[test]
+    fn test_connect() {
+        let message = TcpMessage::Connect("collection".to_owned(), None, None);
+        let string = "Connect\tcollection";
+        assert_encoded_eq!(message, string);
+        assert_decoded_eq!(string, message.clone());
+        assert_eq!(format!("{}", message), "Connect(collection)");
+
+        let message = TcpMessage::Connect("collection".to_owned(), Some("username".to_owned()), Some("password".to_owned()));
+        let string = "Connect\tcollection\tusername\tpassword";
+        assert_encoded_eq!(message, string);
+        assert_decoded_eq!(string, message.clone());
+        assert_eq!(format!("{}", message), "Connect(collection, username, password)");
+    }
+
+    #[test]
+    fn test_connected() {
+        let message = TcpMessage::Connected;
+        let string = "Connected";
+        assert_encoded_eq!(message, string);
+        assert_decoded_eq!(string, message.clone());
+        assert_eq!(format!("{}", message), "Connected");
+    }
+
+    #[test]
+    fn test_publish() {
+        let event = Event::new("data", vec!["tag1", "tag2"]).with_timestamp(1234567890);
+        let message = TcpMessage::Publish(event.clone());
+        let string = "Publish\ttag1 tag2\t1234567890\tdata";
+        assert_encoded_eq!(message, string);
+        assert_decoded_eq!(string, message.clone());
+        assert_eq!(format!("{}", message), format!("Publish({})", event));
+    }
+
+    #[test]
+    fn test_published() {
+        let message = TcpMessage::Published(1);
+        let string = "Published\t1";
+        assert_encoded_eq!(message, string);
+        assert_decoded_eq!(string, message.clone());
+        assert_eq!(format!("{}", message), "Published(1)");
+    }
+
+    #[test]
+    fn test_subscribe() {
+        let message = TcpMessage::Subscribe(true, 0, Some(100), Some("tag1".to_owned()));
+        let string = "Subscribe\ttrue\t0\t100\ttag1";
+        assert_encoded_eq!(message, string);
+        assert_decoded_eq!(string, message.clone());
+        assert_eq!(format!("{}", message), "Subscribe(true, 0, 100, tag1)");
+
+        let message = TcpMessage::Subscribe(true, 0, Some(100), None);
+        let string = "Subscribe\ttrue\t0\t100";
+        assert_encoded_eq!(message, string);
+        assert_decoded_eq!(string, message.clone());
+        assert_eq!(format!("{}", message), "Subscribe(true, 0, 100)");
+
+        let message = TcpMessage::Subscribe(true, 0, None, Some("tag1".to_owned()));
+        let string = "Subscribe\ttrue\t0\t0\ttag1";
+        assert_encoded_eq!(message, string);
+        assert_decoded_eq!(string, message.clone());
+        assert_eq!(format!("{}", message), "Subscribe(true, 0, 0, tag1)");
+
+        let message = TcpMessage::Subscribe(true, 0, None, None);
+        let string = "Subscribe\ttrue\t0";
+        assert_encoded_eq!(message, string);
+        assert_decoded_eq!(string, message.clone());
+        assert_eq!(format!("{}", message), "Subscribe(true, 0)");
+    }
+
+    #[test]
+    fn test_subscribed() {
+        let message = TcpMessage::Subscribed;
+        let string = "Subscribed";
+        assert_encoded_eq!(message, string);
+        assert_decoded_eq!(string, message.clone());
+        assert_eq!(format!("{}", message), "Subscribed");
+    }
+
+    #[test]
+    fn test_event() {
+        let event = Event::new("data", vec!["tag1", "tag2"]).with_id(1).with_timestamp(1234567890);
+        let message = TcpMessage::Event(event.clone());
+        let string = "Event\t1\t1234567890\ttag1 tag2\tdata";
+        assert_encoded_eq!(message, string);
+        assert_decoded_eq!(string, message.clone());
+        assert_eq!(format!("{}", message), format!("Event({})", event));
+    }
+
+    #[test]
+    fn test_end_of_event_stream() {
+        let message = TcpMessage::EndOfEventStream;
+        let string = "EndOfEventStream";
+        assert_encoded_eq!(message, string);
+        assert_decoded_eq!(string, message.clone());
+        assert_eq!(format!("{}", message), "EndOfEventStream");
+    }
+
+    #[test]
+    fn test_error() {
+        let message = TcpMessage::Error(DatabaseError::AuthenticationError);
+        let string = "Error\tAuthenticationError";
+        assert_encoded_eq!(message, string);
+        assert_decoded_eq!(string, message.clone());
+        assert_eq!(format!("{}", message), "Error(authentication failure)");
+    }
+}

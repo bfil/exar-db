@@ -1,6 +1,7 @@
 use super::*;
 
 use std::fs::File;
+use std::io::BufWriter;
 
 #[derive(Debug)]
 pub struct Logger {

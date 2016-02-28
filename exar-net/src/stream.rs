@@ -2,7 +2,7 @@ use exar::*;
 use super::*;
 
 use std::io::prelude::*;
-use std::io::{BufReader, Lines};
+use std::io::{BufReader, BufWriter, Lines};
 use std::net::TcpStream;
 
 #[derive(Debug)]

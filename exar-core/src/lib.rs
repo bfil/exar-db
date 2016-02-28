@@ -11,7 +11,6 @@ extern crate time;
 pub mod testkit;
 
 mod logger;
-mod buf_writer;
 mod config;
 mod collection;
 mod connection;
@@ -24,10 +23,10 @@ mod query;
 mod scanner;
 mod routing_strategy;
 mod subscription;
+mod util;
 mod validation;
 
 pub use self::logger::*;
-pub use self::buf_writer::*;
 pub use self::config::*;
 pub use self::collection::*;
 pub use self::connection::*;
@@ -40,4 +39,5 @@ pub use self::query::*;
 pub use self::routing_strategy::*;
 pub use self::scanner::*;
 pub use self::subscription::*;
+pub use self::util::*;
 pub use self::validation::*;

@@ -1,29 +1,16 @@
 use std::io::prelude::*;
-use std::io::Result;
+use std::io::{BufWriter, Result};
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct BufWriter<T: Write> {
-    inner: T
+pub trait WriteLine {
+    fn write_line(&mut self, line: &str) -> Result<()>;
 }
 
-impl<T: Write> BufWriter<T> {
-    pub fn new(stream: T) -> BufWriter<T> {
-        BufWriter {
-            inner: stream
-        }
-    }
-
-    pub fn write_line(&mut self, line: &str) -> Result<()> {
-        self.inner.write(format!("{}\n", line).as_bytes()).and_then(|_| {
-            self.inner.flush()
+impl<T: Write> WriteLine for BufWriter<T> {
+    fn write_line(&mut self, line: &str) -> Result<()> {
+        write!(self, "{}\n", line).and_then(|_| {
+            self.flush()
         })
     }
-
-    pub fn get_ref(&self) -> &T { &self.inner }
-
-    pub fn get_mut(&mut self) -> &mut T { &mut self.inner }
-
-    pub fn into_inner(self) -> T { self.inner }
 }
 
 #[cfg(test)]
@@ -31,10 +18,10 @@ mod tests {
     use super::super::*;
 
     use std::fs::*;
-    use std::io::{BufRead, BufReader, Write, Seek, SeekFrom};
+    use std::io::{BufRead, BufReader, BufWriter, Write, Seek, SeekFrom};
 
     #[test]
-    fn test_buf_writer() {
+    fn test_write_line() {
         let file = OpenOptions::new().read(true).write(true).create(true)
                                      .open("buf-writer.log").expect("Unable to create file");
 
@@ -42,7 +29,7 @@ mod tests {
         assert!(buf_writer.write_line("line 1").is_ok());
         assert!(buf_writer.write_line("line 2").is_ok());
 
-        let mut file = buf_writer.into_inner();
+        let mut file = buf_writer.into_inner().expect("Unable to extract inner context");
         file.seek(SeekFrom::Start(0)).expect("Unable to seek to start");
         let mut lines = BufReader::new(file).lines();
 

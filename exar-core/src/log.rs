@@ -1,7 +1,7 @@
 use super::*;
 
 use std::fs::*;
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, BufWriter, Write};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Log {

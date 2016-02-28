@@ -94,3 +94,88 @@ impl<T: Read + Write> Iterator for TcpMessages<T> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use exar::*;
+    use super::super::*;
+
+    use std::fs::*;
+    use std::io::{BufReader, Error, Read, Write};
+
+    struct LogStream {
+        path: String,
+        reader: BufReader<File>,
+        writer: BufWriter<File>
+    }
+
+    impl LogStream {
+        pub fn new(path: &str) -> Result<Self, Error> {
+            OpenOptions::new().create(true).write(true).append(true).open(path).and_then(|writer| {
+                OpenOptions::new().read(true).open(path).and_then(|reader| {
+                    Ok(LogStream {
+                        path: path.to_owned(),
+                        reader: BufReader::new(reader),
+                        writer: BufWriter::new(writer)
+                    })
+                })
+            })
+        }
+    }
+
+    impl Read for LogStream {
+        fn read(&mut self, buf: &mut [u8]) -> Result<usize, Error> {
+            self.reader.read(buf)
+        }
+    }
+
+    impl Write for LogStream {
+        fn write(&mut self, buf: &[u8]) -> Result<usize, Error> {
+            self.writer.get_ref().write(buf)
+        }
+        fn flush(&mut self) -> Result<(), Error> {
+            self.writer.get_ref().flush()
+        }
+    }
+
+    impl TryClone for LogStream {
+        fn try_clone(&self) -> Result<Self, DatabaseError> {
+            match LogStream::new(&self.path) {
+                Ok(cloned_stream) => Ok(cloned_stream),
+                Err(err) => Err(DatabaseError::new_io_error(err))
+            }
+        }
+    }
+
+    impl TryClone for TcpMessageStream<LogStream> {
+        fn try_clone(&self) -> Result<Self, DatabaseError> {
+            match self.writer.get_ref().try_clone() {
+                Ok(cloned_stream) => TcpMessageStream::new(cloned_stream),
+                Err(err) => Err(err)
+            }
+        }
+    }
+
+    #[test]
+    fn test_constructor() {
+
+        let log_stream = LogStream::new("message-stream.log").expect("Unable to create log stream");
+        let mut stream = TcpMessageStream::new(log_stream).expect("Unable to create message stream");
+
+        let message = TcpMessage::Connect("collection".to_string(), None, None);
+
+        assert!(stream.send_message(message.clone()).is_ok());
+        assert_eq!(stream.recv_message(), Ok(message.clone()));
+
+        let mut messages = stream.try_clone().expect("Unable to clone message stream").messages();
+
+        assert!(stream.send_message(message.clone()).is_ok());
+
+        assert_eq!(messages.next(), Some(Ok(message.clone())));
+        assert_eq!(messages.next(), Some(Ok(message)));
+
+        assert_eq!(messages.next(), None);
+
+        assert!(remove_file("message-stream.log").is_ok());
+    }
+}

@@ -10,7 +10,7 @@ use std::sync::mpsc::channel;
 use std::thread;
 
 pub struct Client {
-    stream: Stream
+    stream: Stream<TcpStream>
 }
 
 impl Client {
@@ -22,7 +22,7 @@ impl Client {
                 let password = password.map(|p| p.to_owned());
                 let connection_message = TcpMessage::Connect(collection_name.to_owned(), username, password);
                 try!(stream.send_message(connection_message));
-                match stream.receive_message() {
+                match stream.recv_message() {
                     Ok(TcpMessage::Connected) => Ok(Client { stream: stream }),
                     Ok(TcpMessage::Error(error)) => Err(error),
                     Ok(_) => Err(DatabaseError::ConnectionError),
@@ -35,7 +35,7 @@ impl Client {
 
     pub fn publish(&mut self, event: Event) -> Result<usize, DatabaseError> {
         try!(self.stream.send_message(TcpMessage::Publish(event)));
-        match self.stream.receive_message() {
+        match self.stream.recv_message() {
             Ok(TcpMessage::Published(event_id)) => Ok(event_id),
             Ok(TcpMessage::Error(error)) => Err(error),
             Ok(_) => Err(DatabaseError::IoError(ErrorKind::InvalidData, "unexpected TCP message".to_owned())),

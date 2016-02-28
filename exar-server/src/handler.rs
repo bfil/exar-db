@@ -9,7 +9,7 @@ use std::sync::{Arc, Mutex};
 
 pub struct Handler {
     config: ServerConfig,
-    stream: Stream,
+    stream: Stream<TcpStream>,
     state: State
 }
 

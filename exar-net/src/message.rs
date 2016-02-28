@@ -2,19 +2,19 @@ use exar::*;
 
 use std::fmt::{Display, Formatter, Result as DisplayResult};
 
-/// Connect         database        [admin]         [secret]
+/// Connect             collection      [username]      [password]
 /// Connected
 ///
-/// Publish         tag1 tag2       timestamp       event_data
-/// Published       1
+/// Publish             tag1 tag2       timestamp       event_data
+/// Published           event_id
 ///
-/// Subscribe       live            0               100             [tag1 tag2]
+/// Subscribe           live            offset          limit           [tag1]
 /// Subscribed
 ///
-/// Event           event_id        tag1 tag2       timestamp       event_data
+/// Event               event_id        tag1 tag2       timestamp       event_data
 /// EndOfEventStream
 ///
-/// Error           type            [subtype]       description
+/// Error               type            [subtype]       description
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TcpMessage {

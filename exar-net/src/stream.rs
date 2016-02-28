@@ -6,16 +6,15 @@ use std::io::{BufReader, Lines};
 use std::net::TcpStream;
 
 #[derive(Debug)]
-pub struct Stream<T: Read + Write> {
+pub struct TcpMessageStream<T: Read + Write> {
     reader: BufReader<T>,
     writer: BufWriter<T>
 }
 
-impl<T: Read + Write + TryClone> Stream<T> {
-
-    pub fn new(stream: T) -> Result<Stream<T>, DatabaseError> {
+impl<T: Read + Write + TryClone> TcpMessageStream<T> {
+    pub fn new(stream: T) -> Result<TcpMessageStream<T>, DatabaseError> {
         stream.try_clone().and_then(|cloned_stream| {
-            Ok(Stream {
+            Ok(TcpMessageStream {
                 reader: BufReader::new(cloned_stream),
                 writer: BufWriter::new(stream)
             })
@@ -43,8 +42,8 @@ impl<T: Read + Write + TryClone> Stream<T> {
         }
     }
 
-    pub fn messages(self) -> Messages<T> {
-        Messages::new(self)
+    pub fn messages(self) -> TcpMessages<T> {
+        TcpMessages::new(self)
     }
 }
 
@@ -61,28 +60,28 @@ impl TryClone for TcpStream {
     }
 }
 
-impl TryClone for Stream<TcpStream> {
+impl TryClone for TcpMessageStream<TcpStream> {
     fn try_clone(&self) -> Result<Self, DatabaseError> {
         match self.writer.get_ref().try_clone() {
-            Ok(cloned_stream) => Stream::new(cloned_stream),
+            Ok(cloned_stream) => TcpMessageStream::new(cloned_stream),
             Err(err) => Err(DatabaseError::new_io_error(err))
         }
     }
 }
 
-pub struct Messages<T: Read + Write> {
+pub struct TcpMessages<T: Read + Write> {
     lines: Lines<BufReader<T>>
 }
 
-impl<T: Read + Write> Messages<T> {
-    pub fn new(stream: Stream<T>) -> Messages<T> {
-        Messages {
+impl<T: Read + Write> TcpMessages<T> {
+    pub fn new(stream: TcpMessageStream<T>) -> TcpMessages<T> {
+        TcpMessages {
             lines: stream.reader.lines()
         }
     }
 }
 
-impl<T: Read + Write> Iterator for Messages<T> {
+impl<T: Read + Write> Iterator for TcpMessages<T> {
     type Item = Result<TcpMessage, DatabaseError>;
     fn next(&mut self) -> Option<Self::Item> {
         match self.lines.next() {

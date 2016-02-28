@@ -4,8 +4,8 @@ extern crate exar;
 #[cfg(test)]
 pub mod testkit;
 
-mod protocol;
+mod message;
 mod stream;
 
-pub use self::protocol::*;
+pub use self::message::*;
 pub use self::stream::*;

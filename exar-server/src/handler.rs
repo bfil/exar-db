@@ -9,13 +9,13 @@ use std::sync::{Arc, Mutex};
 
 pub struct Handler {
     config: ServerConfig,
-    stream: Stream<TcpStream>,
+    stream: TcpMessageStream<TcpStream>,
     state: State
 }
 
 impl Handler {
     pub fn new(stream: TcpStream, db: Arc<Mutex<Database>>, config: ServerConfig) -> Result<Handler, DatabaseError> {
-        Stream::new(stream).and_then(|stream| {
+        TcpMessageStream::new(stream).and_then(|stream| {
             Ok(Handler {
                 config: config,
                 stream: stream,

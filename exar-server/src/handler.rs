@@ -8,16 +8,16 @@ use std::net::TcpStream;
 use std::sync::{Arc, Mutex};
 
 pub struct Handler {
-    config: ServerConfig,
+    credentials: Credentials,
     stream: TcpMessageStream<TcpStream>,
     state: State
 }
 
 impl Handler {
-    pub fn new(stream: TcpStream, db: Arc<Mutex<Database>>, config: ServerConfig) -> Result<Handler, DatabaseError> {
+    pub fn new(stream: TcpStream, db: Arc<Mutex<Database>>, credentials: Credentials) -> Result<Handler, DatabaseError> {
         TcpMessageStream::new(stream).and_then(|stream| {
             Ok(Handler {
-                config: config,
+                credentials: credentials,
                 stream: stream,
                 state: State::Idle(db)
             })
@@ -46,13 +46,13 @@ impl Handler {
     }
 
     fn needs_authentication(&self) -> bool {
-        self.config.username.is_some() && self.config.password.is_some()
+        self.credentials.username.is_some() && self.credentials.password.is_some()
     }
 
     fn verify_authentication(&self, username: Option<String>, password: Option<String>) -> bool {
         if self.needs_authentication() {
             if username.is_some() && password.is_some() {
-                self.config.username == username && self.config.password == password
+                self.credentials.username == username && self.credentials.password == password
             } else { false }
         } else { true }
     }

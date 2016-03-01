@@ -139,8 +139,10 @@ fn server_test(num_clients: usize, num_events: usize) {
     }
 
     let db = Database::new(config.database);
-    let server = Server::new(config.server, db).unwrap();
+    let server = Server::new(config.server.clone(), db).unwrap();
+    println!("Server listening on {}..", config.server.address());
     server.listen();
+    println!("Server shutting down..");
 }
 
 fn main() {

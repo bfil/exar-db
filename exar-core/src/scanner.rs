@@ -94,7 +94,7 @@ impl ScannerThread {
                             }
                         },
                         Err(err) => println!("Unable to read database line: {}", err)
-                    };
+                    }
                 }
                 Ok(())
             },

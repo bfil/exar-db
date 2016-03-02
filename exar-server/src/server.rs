@@ -86,6 +86,6 @@ mod tests {
         assert!(Server::new(ServerConfig::default(), db).is_ok());
 
         let db = Database::new(DatabaseConfig::default());
-        assert!(Server::bind("127.0.0.1:38581", db).is_ok());
+        assert!(Server::bind(&*ServerConfig::default().address(), db).is_ok());
     }
 }

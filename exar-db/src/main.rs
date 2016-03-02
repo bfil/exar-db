@@ -198,6 +198,7 @@ struct IndexedLineReader<T> {
     index: BTreeMap<u64, u64>,
     index_interval: u64,
     last_index: u64,
+    pos: u64,
     reader: T
 }
 
@@ -207,6 +208,7 @@ impl<T: BufRead + Seek> IndexedLineReader<T> {
             index: BTreeMap::new(),
             index_interval: 100000,
             last_index: 0,
+            pos: 0,
             reader: reader
         };
         indexed_line_reader.index();
@@ -220,6 +222,7 @@ impl<T: BufRead + Seek> IndexedLineReader<T> {
     fn index(&mut self) -> Result<(), Error> {
         let mut bytes_len = self.bytes_len_at_index(&self.last_index);
         let mut reader = &mut self.reader;
+        // let current_pos = reader.seek(SeekFrom::Current(0)).unwrap();
         if bytes_len > 0 {
             reader.seek(SeekFrom::Start(bytes_len));
         }
@@ -235,6 +238,7 @@ impl<T: BufRead + Seek> IndexedLineReader<T> {
                 Err(err) => return Err(err)
             }
         }
+        // reader.seek(SeekFrom::Start(current_pos));
         Ok(())
     }
 }
@@ -266,25 +270,45 @@ impl<T: BufRead + Seek> Seek for IndexedLineReader<T> {
 
                 self.reader.seek(SeekFrom::Start(bytes_len)).and_then(|new_pos| {
                     if extra_lines > 0 {
-                        return self.seek(SeekFrom::Current(extra_lines as i64)).and_then(|new_extra_pos| {
+                        self.pos = closest_index;
+                        self.seek(SeekFrom::Current(extra_lines as i64)).and_then(|new_extra_pos| {
+                            self.pos = pos;
                             Ok(new_pos + new_extra_pos)
-                        });
+                        })
+                    } else {
+                        self.pos = pos;
+                        Ok(new_pos)
                     }
-                    Ok(new_pos)
                 })
             },
-            SeekFrom::Current(mut pos) => {
+            SeekFrom::Current(pos) => {
+                self.index();
                 let mut extra_bytes_len: u64 = 0;
-                for line in (&mut self.reader).lines() {
-                    match line {
-                        Ok(line) => {
-                            pos -= 1;
-                            extra_bytes_len += (line.as_bytes().len() as u64 + 1);
-                            if pos == 0 { break }
-                        },
-                        Err(err) => return Err(err)
+                let mut lines_left = pos as u64;
+
+                let mut extra_lines = lines_left % self.index_interval;
+
+                let mut extra_lines_from_current_pos = self.pos % self.index_interval;
+                let previous_closest_index = self.pos - extra_lines_from_current_pos;
+                let closest_index = previous_closest_index + lines_left - extra_lines;
+
+                let mut bytes_len = self.bytes_len_at_index(&closest_index);
+                self.reader.seek(SeekFrom::Start(bytes_len));
+                lines_left = extra_lines + extra_lines_from_current_pos;
+
+                if lines_left > 0 {
+                    for line in (&mut self.reader).lines() {
+                        match line {
+                            Ok(line) => {
+                                lines_left -= 1;
+                                extra_bytes_len += (line.as_bytes().len() as u64 + 1);
+                                if lines_left == 0 { break }
+                            },
+                            Err(err) => return Err(err)
+                        }
                     }
                 }
+                self.pos += pos as u64;
                 Ok(extra_bytes_len)
             },
             _ => unimplemented!()
@@ -293,11 +317,11 @@ impl<T: BufRead + Seek> Seek for IndexedLineReader<T> {
     }
 }
 
-fn perf_fetch_line(mut line_reader: &mut IndexedLineReader<BufReader<File>>, line_number: u64) -> () {
+fn perf_fetch_line(mut line_reader: &mut IndexedLineReader<BufReader<File>>, seek_from: SeekFrom) -> () {
     let sw = Stopwatch::start_new();
-    let _ = line_reader.seek(SeekFrom::Start(line_number));
+    let _ = line_reader.seek(seek_from);
     println!("{:?}", (&mut line_reader).lines().next());
-    println!("Fetching line {} took {}ms..", line_number, sw.elapsed_ms());
+    println!("Fetching line after seeking using {:?} took {}ms..", seek_from, sw.elapsed_ms());
 }
 
 fn main() {
@@ -327,8 +351,12 @@ fn main() {
     let mut line_reader = IndexedLineReader::new(reader);
     println!("Indexing took {}ms..", sw.elapsed_ms());
 
-    perf_fetch_line(&mut line_reader, 39000100);
-    perf_fetch_line(&mut line_reader, 23832100);
+    perf_fetch_line(&mut line_reader, SeekFrom::Start(39000100));
+    perf_fetch_line(&mut line_reader, SeekFrom::Start(23832100));
+    perf_fetch_line(&mut line_reader, SeekFrom::Current(10000000));
+    perf_fetch_line(&mut line_reader, SeekFrom::Current(1000005));
+    perf_fetch_line(&mut line_reader, SeekFrom::Current(95));
+    perf_fetch_line(&mut line_reader, SeekFrom::Current(1000005));
 
 
 

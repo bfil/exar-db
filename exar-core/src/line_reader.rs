@@ -1,6 +1,7 @@
 use std::io::{BufRead, Error, Read, Seek, SeekFrom};
 use std::collections::BTreeMap;
 
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LinesIndex {
     index: BTreeMap<u64, u64>,
     granularity: u64
@@ -53,6 +54,7 @@ impl LinesIndex {
     }
 }
 
+#[derive(Debug)]
 pub struct IndexedLineReader<T> {
     index: LinesIndex,
     pos: u64,
@@ -185,5 +187,47 @@ impl<T: BufRead + Seek> Seek for IndexedLineReader<T> {
                 }
             }
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::*;
+
+    use std::fs::File;
+    use std::io::{BufRead, BufReader, Seek, SeekFrom};
+
+    fn seek_and_expect(mut reader: &mut IndexedLineReader<BufReader<File>>, pos: SeekFrom, expected_value: u64) {
+        reader.seek(pos).expect(&format!("Unable to seek from {:?}", pos));
+        let line = (&mut reader).lines().next().unwrap().unwrap();
+        let n: u64 = line.parse().expect("Unable to deserialize event");
+        assert_eq!(n, expected_value);
+    }
+
+    #[test]
+    fn test_line_reader() {
+        let ref collection_name = testkit::gen_collection_name();
+        let log = Log::new("", collection_name);
+
+        let mut file_writer = log.open_writer().expect("Unable to open file writer");
+
+        for i in 1..10001 {
+            assert!(file_writer.write_line(&i.to_string()).is_ok());
+        }
+
+        let reader = log.open_reader().unwrap();
+        let mut line_reader = IndexedLineReader::new(reader, 100);
+
+        line_reader.update_index().expect("Unable to update index");
+
+        seek_and_expect(&mut line_reader, SeekFrom::Start(1234), 1234);
+        seek_and_expect(&mut line_reader, SeekFrom::Start(2468), 2468);
+        seek_and_expect(&mut line_reader, SeekFrom::Current(1000), 3468);
+        seek_and_expect(&mut line_reader, SeekFrom::Current(1032), 4500);
+        seek_and_expect(&mut line_reader, SeekFrom::Current(-450), 4050);
+        seek_and_expect(&mut line_reader, SeekFrom::End(1234), 8766);
+        seek_and_expect(&mut line_reader, SeekFrom::End(-1234), 8766);
+
+        log.remove().expect("Unable to delete log");
     }
 }

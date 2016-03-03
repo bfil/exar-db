@@ -127,7 +127,7 @@ impl ScannerThread {
 }
 
 #[derive(Clone, Debug)]
-enum ScannerAction {
+pub enum ScannerAction {
     HandleSubscription(Subscription),
     Stop
 }

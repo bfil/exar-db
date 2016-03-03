@@ -74,10 +74,8 @@ impl ScannerThread {
                 }
                 if self.subscriptions.len() != 0 {
                     match self.scan() {
-                        Ok(_) => self.subscriptions.retain(|s| {
-                            s.is_active() && s.query.is_live() && s.query.is_active()
-                        }),
-                        Err(err) => println!("Unable to scan file: {}", err)
+                        Ok(_) => self.retain_active_subscriptions(),
+                        Err(err) => println!("Unable to scan log: {}", err)
                     }
                 }
                 thread::sleep(self.sleep_duration);
@@ -86,25 +84,31 @@ impl ScannerThread {
         })
     }
 
+    fn retain_active_subscriptions(&mut self) {
+        self.subscriptions.retain(|s| {
+            s.is_active() && s.query.is_live() && s.query.is_active()
+        })
+    }
+
+    fn find_min_offset(&self) -> u64 {
+        self.subscriptions.iter().map(|s| s.query.position).min().unwrap_or(0) as u64
+    }
+
     fn scan(&mut self) -> Result<(), DatabaseError> {
-        let offset = self.subscriptions.iter().map(|s| s.query.position).min().unwrap_or(0);
-        match self.reader.seek(SeekFrom::Start(offset as u64)) {
+        let offset = self.find_min_offset();
+        match self.reader.seek(SeekFrom::Start(offset)) {
             Ok(_) => {
                 for line in (&mut self.reader).lines() {
                     match line {
-                        Ok(line) => {
-                            match Event::from_tab_separated_str(&line) {
-                                Ok(ref event) => {
-                                    for subscription in self.subscriptions.iter_mut().filter(|s| {
-                                        s.is_active() && s.query.is_active() && s.query.matches(event)
-                                    }) {
-                                        let _ = subscription.emit(event.clone());
-                                    }
-                                },
-                                Err(err) => println!("Unable to deserialize database line: {}", err)
-                            }
+                        Ok(line) => match Event::from_tab_separated_str(&line) {
+                            Ok(ref event) => {
+                                for subscription in self.subscriptions.iter_mut().filter(|s| s.matches_event(event)) {
+                                    let _ = subscription.emit(event.clone());
+                                }
+                            },
+                            Err(err) => println!("Unable to deserialize log line: {}", err)
                         },
-                        Err(err) => println!("Unable to read database line: {}", err)
+                        Err(err) => println!("Unable to read log line: {}", err)
                     }
                 }
                 Ok(())

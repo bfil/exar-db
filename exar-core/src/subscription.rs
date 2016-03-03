@@ -32,6 +32,10 @@ impl Subscription {
     pub fn is_active(&self) -> bool {
         self.active
     }
+
+    pub fn matches_event(&self, event: &Event) -> bool {
+        self.is_active() && self.query.is_active() && self.query.matches(event)
+    }
 }
 
 #[cfg(test)]

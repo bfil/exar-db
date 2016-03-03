@@ -1,5 +1,5 @@
-use std::io::{BufRead, Error, Read, Seek, SeekFrom};
 use std::collections::BTreeMap;
+use std::io::{BufRead, Error, Read, Seek, SeekFrom};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LinesIndex {

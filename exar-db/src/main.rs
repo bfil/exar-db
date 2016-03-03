@@ -186,13 +186,14 @@ fn server_test(num_clients: usize, num_events: usize) {
 
     let db = Database::new(config.database);
     let server = Server::new(config.server.clone(), db).unwrap();
+    println!("---------------------------------------------------------------");
     println!("Server listening on {}..", config.server.address());
     server.listen();
     println!("Server shutting down..");
 }
 fn main() {
-    // perf_test(1, 10, 100000);
-    // perf_test(2, 10, 100000);
+    perf_test(1, 10, 100000);
+    perf_test(2, 10, 100000);
     // perf_test(1, 10, 1000000);
     // perf_test(1, 10, 10000000);
     // perf_test(1, 100, 100000);
@@ -211,5 +212,5 @@ fn main() {
     // big_data_perf_test(1, 10000000);
     // big_data_perf_test(1, 50000000);
 
-    // server_test(0, 0);
+    server_test(10, 10000);
 }

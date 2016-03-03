@@ -24,6 +24,13 @@ impl Log {
         }
     }
 
+    pub fn open_line_reader(&self) -> Result<IndexedLineReader<BufReader<File>>, DatabaseError> {
+        match OpenOptions::new().read(true).open(self.get_path()) {
+            Ok(file) => Ok(IndexedLineReader::new(BufReader::new(file), 100000)),
+            Err(err) => Err(DatabaseError::new_io_error(err))
+        }
+    }
+
     pub fn open_writer(&self) -> Result<BufWriter<File>, DatabaseError> {
         match OpenOptions::new().create(true).write(true).append(true).open(self.get_path()) {
             Ok(file) => Ok(BufWriter::new(file)),

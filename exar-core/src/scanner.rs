@@ -20,13 +20,18 @@ impl Scanner {
         let (send, recv) = channel();
         let running = Arc::new(Mutex::new(true));
         let subscriptions = Arc::new(Mutex::new(vec![]));
-        log.open_reader().and_then(|reader| {
-            ScannerThread::run(reader, recv, sleep_duration, running.clone(), subscriptions.clone());
-            Ok(Scanner {
-                send: send,
-                running: running,
-                subscriptions: subscriptions
-            })
+        log.open_line_reader().and_then(|mut reader| {
+            match reader.update_index() {
+                Ok(_) => {
+                    ScannerThread::run(reader, recv, sleep_duration, running.clone(), subscriptions.clone());
+                    Ok(Scanner {
+                        send: send,
+                        running: running,
+                        subscriptions: subscriptions
+                    })
+                },
+                Err(err) => Err(DatabaseError::new_io_error(err))
+            }
         })
     }
 
@@ -54,7 +59,7 @@ impl Drop for Scanner {
 pub struct ScannerThread;
 
 impl ScannerThread {
-    fn run(mut reader: BufReader<File>, recv: Receiver<Subscription>, sleep_duration: Duration,
+    fn run(mut reader: IndexedLineReader<BufReader<File>>, recv: Receiver<Subscription>, sleep_duration: Duration,
            running: Arc<Mutex<bool>>, subscriptions: Arc<Mutex<Vec<Subscription>>>) -> JoinHandle<()> {
         thread::spawn(move || {
             while *running.lock().unwrap() {
@@ -75,11 +80,11 @@ impl ScannerThread {
         })
     }
 
-    fn scan(mut reader: &mut BufReader<File>, subscriptions: &mut Vec<Subscription>) -> Result<(), DatabaseError> {
+    fn scan(mut reader: &mut IndexedLineReader<BufReader<File>>, subscriptions: &mut Vec<Subscription>) -> Result<(), DatabaseError> {
         let offset = subscriptions.iter().map(|s| s.query.position).min().unwrap_or(0);
-        match reader.seek(SeekFrom::Start(0)) {
+        match reader.seek(SeekFrom::Start(offset as u64)) {
             Ok(_) => {
-                for line in reader.lines().skip(offset) {
+                for line in reader.lines() {
                     match line {
                         Ok(line) => {
                             match Event::from_tab_separated_str(&line) {

@@ -33,7 +33,7 @@ fn setup() -> (Config, &'static str) {
     config.database.logs_path = "/Users/bruno.filippone/Downloads".to_owned();
     {
         let mut db = Database::new(config.database.clone());
-        // let _ = db.drop_collection("test");
+        let _ = db.drop_collection("test");
     }
     (config, "test")
 }
@@ -121,27 +121,29 @@ fn big_data_perf_test(scanners: u8, num_events: usize) {
 
     let connection = db.connect(collection_name).unwrap();
 
+    let query = Query::live().offset(0).limit(num_events * 2).by_tag("tag1");
+
     println!("---------------------------------------------------------------");
     println!("Big data performance test with {} scanners and {} events", scanners, num_events);
 
     // Writing
-    // let sw = Stopwatch::start_new();
-    // for i in 0..num_events {
-    //     match connection.publish(Event::new(PAYLOAD, vec!["tag1"])) {
-    //         Ok(_) => i,
-    //         Err(err) => panic!("Unable to log to the database: {}", err)
-    //     };
-    //     match connection.publish(Event::new(PAYLOAD, vec!["tag2"])) {
-    //         Ok(_) => i,
-    //         Err(err) => panic!("Unable to log to the database: {}", err)
-    //     };
-    // }
-    // report_performance(sw, num_events * 2, "Writing");
+    let sw = Stopwatch::start_new();
+    for i in 0..num_events {
+        match connection.publish(Event::new(PAYLOAD, vec!["tag1"])) {
+            Ok(_) => i,
+            Err(err) => panic!("Unable to log to the database: {}", err)
+        };
+        match connection.publish(Event::new(PAYLOAD, vec!["tag2"])) {
+            Ok(_) => i,
+            Err(err) => panic!("Unable to log to the database: {}", err)
+        };
+    }
+    report_performance(sw, num_events * 2, "Writing");
 
     // Reading
-    // let sw = Stopwatch::start_new();
-    // let _: Vec<_> = connection.subscribe(query.clone()).unwrap().take(num_events).collect();
-    // report_performance(sw, num_events, "Reading");
+    let sw = Stopwatch::start_new();
+    let _: Vec<_> = connection.subscribe(query.clone()).unwrap().take(num_events).collect();
+    report_performance(sw, num_events, "Reading");
 
     // Reading Last Element
     let sw = Stopwatch::start_new();
@@ -149,7 +151,7 @@ fn big_data_perf_test(scanners: u8, num_events: usize) {
     let _: Vec<_> = connection.subscribe(last_element_query).unwrap().take(1).collect();
     println!("Reading last element took {}ms..", sw.elapsed_ms());
 
-    // let _ = db.drop_collection(collection_name);
+    let _ = db.drop_collection(collection_name);
 
     connection.close();
 }
@@ -188,18 +190,6 @@ fn server_test(num_clients: usize, num_events: usize) {
     server.listen();
     println!("Server shutting down..");
 }
-
-use std::fs::*;
-use std::io::{BufRead, BufReader, Read, Seek, SeekFrom};
-
-fn perf_fetch_line(mut line_reader: &mut IndexedLineReader<BufReader<File>>, seek_from: SeekFrom) -> () {
-    let sw = Stopwatch::start_new();
-    let _ = line_reader.seek(seek_from);
-    let line = (&mut line_reader).lines().next().unwrap();
-    println!("Fetching line seeking from {:?} took {}ms..", seek_from, sw.elapsed_ms());
-    println!("Got line: {}", line.unwrap().split("\t").collect::<Vec<_>>()[0]);
-}
-
 fn main() {
     // perf_test(1, 10, 100000);
     // perf_test(2, 10, 100000);
@@ -217,26 +207,9 @@ fn main() {
     // perf_test(1, 10000, 1000000);
     // perf_test(1, 10000, 10000000);
 
-    // big_data_perf_test(1, 20000000);
-
-    let log = Log::new("/Users/bruno.filippone/Downloads", "test");
-    let reader = log.open_reader().unwrap();
-    let mut line_reader = IndexedLineReader::new(reader, 100000);
-
-    println!("Indexing lines..");
-    let sw = Stopwatch::start_new();
-    let _ = line_reader.update_index();
-    println!("Indexing lines took {}ms..", sw.elapsed_ms());
-
-    perf_fetch_line(&mut line_reader, SeekFrom::Start(39000100));
-    perf_fetch_line(&mut line_reader, SeekFrom::Start(23832100));
-    perf_fetch_line(&mut line_reader, SeekFrom::Current(10000000));
-    perf_fetch_line(&mut line_reader, SeekFrom::Current(1000005));
-    perf_fetch_line(&mut line_reader, SeekFrom::Current(95));
-    perf_fetch_line(&mut line_reader, SeekFrom::Current(1000005));
-    perf_fetch_line(&mut line_reader, SeekFrom::Current(-2205));
-    perf_fetch_line(&mut line_reader, SeekFrom::End(7654321));
-    perf_fetch_line(&mut line_reader, SeekFrom::End(-7654321));
+    big_data_perf_test(1, 1000000);
+    // big_data_perf_test(1, 10000000);
+    // big_data_perf_test(1, 50000000);
 
     // server_test(0, 0);
 }

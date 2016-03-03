@@ -24,7 +24,7 @@ impl LinesIndex {
     }
 
     pub fn insert(&mut self, pos: u64, bytes_len: u64) -> Option<u64> {
-        self.index.insert(pos as u64 + 2, bytes_len)
+        self.index.insert(pos as u64 + 1, bytes_len)
     }
 
     fn update<T: BufRead + Seek>(&mut self, mut reader: &mut T) -> Result<u64, Error> {
@@ -38,8 +38,8 @@ impl LinesIndex {
             match line {
                 Ok(line) => {
                     bytes_len += line.as_bytes().len() as u64 + 1;
-                    if (pos as u64 + 2) % self.granularity == 0 {
-                        self.index.insert(pos as u64 + 2, bytes_len);
+                    if (pos as u64 + 1) % self.granularity == 0 {
+                        self.index.insert(pos as u64 + 1, bytes_len);
                     }
                     last_pos += 1;
                 },
@@ -211,7 +211,7 @@ mod tests {
 
         let mut file_writer = log.open_writer().expect("Unable to open file writer");
 
-        for i in 1..10001 {
+        for i in 0..10000 {
             assert!(file_writer.write_line(&i.to_string()).is_ok());
         }
 

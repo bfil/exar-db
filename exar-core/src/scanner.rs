@@ -52,6 +52,14 @@ impl Drop for Scanner {
     }
 }
 
+#[derive(Debug)]
+pub struct ScannerThread {
+    reader: IndexedLineReader<BufReader<File>>,
+    recv: Receiver<ScannerAction>,
+    sleep_duration: Duration,
+    subscriptions: Vec<Subscription>
+}
+
 impl ScannerThread {
     fn new(reader: IndexedLineReader<BufReader<File>>, recv: Receiver<ScannerAction>,
         sleep_duration: Duration) -> ScannerThread {
@@ -119,17 +127,9 @@ impl ScannerThread {
 }
 
 #[derive(Clone, Debug)]
-pub enum ScannerAction {
+enum ScannerAction {
     HandleSubscription(Subscription),
     Stop
-}
-
-#[derive(Debug)]
-pub struct ScannerThread {
-    reader: IndexedLineReader<BufReader<File>>,
-    recv: Receiver<ScannerAction>,
-    sleep_duration: Duration,
-    subscriptions: Vec<Subscription>
 }
 
 #[cfg(test)]

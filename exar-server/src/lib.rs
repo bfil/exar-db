@@ -1,3 +1,5 @@
+#![feature(const_fn)]
+
 #![cfg_attr(feature = "serde-serialization", feature(custom_derive, plugin))]
 #![cfg_attr(feature = "serde-serialization", plugin(serde_macros))]
 

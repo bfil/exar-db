@@ -9,6 +9,12 @@ extern crate exar_net;
 #[cfg(feature = "rustc-serialization")] extern crate rustc_serialize;
 #[cfg(feature = "serde-serialization")] extern crate serde;
 
+#[cfg(test)]
+extern crate rand;
+
+#[cfg(test)]
+pub mod testkit;
+
 mod credentials;
 mod config;
 mod handler;

@@ -78,11 +78,14 @@ impl Server {
 #[cfg(test)]
 mod tests {
     use exar::*;
+    use exar_net::*;
     use super::super::*;
 
     use std::env;
-    use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
+    use std::fs::*;
+    use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, TcpStream, ToSocketAddrs};
     use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::thread;
 
     static PORT: AtomicUsize = AtomicUsize::new(0);
 
@@ -105,6 +108,11 @@ mod tests {
         f(next_test_ip4());
     }
 
+    fn create_client<A: ToSocketAddrs>(addr: A) -> TcpMessageStream<TcpStream> {
+        let stream  = TcpStream::connect(addr).expect("Unable to connect to the TCP stream");
+        TcpMessageStream::new(stream).expect("Unable to create TCP message stream client")
+    }
+
     #[test]
     fn test_constructor() {
         each_ip(&mut |addr| {
@@ -125,6 +133,24 @@ mod tests {
         each_ip(&mut |addr| {
             let db = Database::new(DatabaseConfig::default());
             assert!(Server::bind(&addr, db).is_ok());
+        });
+    }
+
+    #[test]
+    fn test_server() {
+        each_ip(&mut |addr| {
+            let collection_name = testkit::gen_collection_name();
+            let db = Database::new(DatabaseConfig::default());
+            let server = Server::bind(addr, db).expect("Unable to start the TCP server");
+            thread::spawn(move || {
+                server.listen();
+            });
+            let mut client = create_client(addr);
+
+            assert!(client.send_message(TcpMessage::Connect(collection_name.to_owned(), None, None)).is_ok());
+            assert_eq!(client.recv_message(), Ok(TcpMessage::Connected));
+
+            assert!(remove_file(format!("{}.log", collection_name)).is_ok());
         });
     }
 }

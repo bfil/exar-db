@@ -18,7 +18,7 @@ impl Scanner {
         log.open_line_reader().and_then(|mut reader| {
             match reader.update_index() {
                 Ok(_) => {
-                    ScannerThread::new(reader, recv, sleep_duration).run();
+                    ScannerThread::new(reader, recv).run(sleep_duration);
                     Ok(Scanner {
                         send: send
                     })
@@ -56,22 +56,19 @@ impl Drop for Scanner {
 pub struct ScannerThread {
     reader: IndexedLineReader<BufReader<File>>,
     recv: Receiver<ScannerAction>,
-    sleep_duration: Duration,
     subscriptions: Vec<Subscription>
 }
 
 impl ScannerThread {
-    fn new(reader: IndexedLineReader<BufReader<File>>, recv: Receiver<ScannerAction>,
-        sleep_duration: Duration) -> ScannerThread {
+    fn new(reader: IndexedLineReader<BufReader<File>>, recv: Receiver<ScannerAction>) -> ScannerThread {
         ScannerThread {
             reader: reader,
             recv: recv,
-            sleep_duration: sleep_duration,
             subscriptions: vec![]
         }
     }
 
-    fn run(mut self) -> JoinHandle<()> {
+    fn run(mut self, sleep_duration: Duration) -> JoinHandle<Self> {
         thread::spawn(move || {
             'main: loop {
                 while let Ok(action) = self.recv.try_recv() {
@@ -86,9 +83,10 @@ impl ScannerThread {
                         Err(err) => println!("Unable to scan log: {}", err)
                     }
                 }
-                thread::sleep(self.sleep_duration);
+                thread::sleep(sleep_duration);
             };
             self.subscriptions.truncate(0);
+            self
         })
     }
 
@@ -136,7 +134,7 @@ pub enum ScannerAction {
 mod tests {
     use super::super::*;
 
-    use std::sync::mpsc::channel;
+    use std::sync::mpsc::{channel, TryRecvError};
     use std::thread;
     use std::time::Duration;
 
@@ -148,7 +146,7 @@ mod tests {
     }
 
     #[test]
-    fn test_constructor() {
+    fn test_scanner_constructor() {
         let log = create_log();
         let sleep_duration = Duration::from_millis(10);
 
@@ -158,7 +156,7 @@ mod tests {
     }
 
     #[test]
-    fn test_constructor_failure() {
+    fn test_scanner_constructor_failure() {
         let ref collection_name = testkit::gen_collection_name();
         let log = Log::new("", collection_name);
         let sleep_duration = Duration::from_millis(10);
@@ -169,7 +167,7 @@ mod tests {
     }
 
     #[test]
-    fn test_message_passing() {
+    fn test_scanner_message_passing() {
         let log = create_log();
         let sleep_duration = Duration::from_millis(10);
 
@@ -207,43 +205,54 @@ mod tests {
     }
 
     #[test]
-    fn test_stop() {
+    fn test_scanner_thread_stop() {
         let log = create_log();
+        let line_reader = log.open_line_reader().expect("Unable to open line reader");
         let sleep_duration = Duration::from_millis(10);
 
-        let scanner = Scanner::new(log.clone(), sleep_duration).expect("Unable to run scanner");
+        let (send, recv) = channel();
+        let scanner_thread = ScannerThread::new(line_reader, recv);
+        let handle = scanner_thread.run(sleep_duration);
 
-        assert!(scanner.stop().is_ok());
+        assert!(send.send(ScannerAction::Stop).is_ok());
+
+        let scanner_thread = handle.join().expect("Unable to join scanner thread");
+        assert_eq!(scanner_thread.subscriptions.len(), 0);
 
         assert!(log.remove().is_ok());
     }
 
     #[test]
-    fn test_subscriptions_management() {
+    fn test_scanner_thread_subscriptions_management() {
         let log = create_log();
         let mut logger = Logger::new(log.clone()).expect("Unable to create logger");
+        let line_reader = log.open_line_reader().expect("Unable to open line reader");
         let event = Event::new("data", vec!["tag1", "tag2"]);
         let sleep_duration = Duration::from_millis(10);
 
         assert!(logger.log(event).is_ok());
 
-        let scanner = Scanner::new(log.clone(), sleep_duration).expect("Unable to run scanner");
+        let (thread_send, thread_recv) = channel();
+        let scanner_thread = ScannerThread::new(line_reader, thread_recv);
+        scanner_thread.run(sleep_duration);
 
         let (send, recv) = channel();
         let live_subscription = Subscription::new(send, Query::live());
 
-        assert!(scanner.handle_subscription(live_subscription).is_ok());
+        assert!(thread_send.send(ScannerAction::HandleSubscription(live_subscription)).is_ok());
         thread::sleep(sleep_duration * 2);
 
         assert_eq!(recv.try_recv().map(|e| e.id), Ok(1));
+        assert_eq!(recv.try_recv().err(), Some(TryRecvError::Empty));
 
         let (send, recv) = channel();
         let current_subscription = Subscription::new(send, Query::current());
 
-        assert!(scanner.handle_subscription(current_subscription).is_ok());
+        assert!(thread_send.send(ScannerAction::HandleSubscription(current_subscription)).is_ok());
         thread::sleep(sleep_duration * 2);
 
         assert_eq!(recv.try_recv().map(|e| e.id), Ok(1));
+        assert_eq!(recv.try_recv().err(), Some(TryRecvError::Disconnected));
 
         assert!(log.remove().is_ok());
     }

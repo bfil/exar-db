@@ -112,10 +112,9 @@ fn perf_test(scanners: u8, num_subscribers: usize, num_events: usize) {
     connection.close();
 }
 
-fn big_data_perf_test(scanners: u8, num_events: usize) {
+fn big_data_perf_test(num_events: usize) {
 
     let (mut config, collection_name) = setup();
-    config.database.scanners = scanners;
 
     let mut db = Database::new(config.database);
 
@@ -124,7 +123,7 @@ fn big_data_perf_test(scanners: u8, num_events: usize) {
     let query = Query::live().offset(0).limit(num_events * 2).by_tag("tag1");
 
     println!("---------------------------------------------------------------");
-    println!("Big data performance test with {} scanners and {} events", scanners, num_events);
+    println!("Big data performance test with {} events", num_events);
 
     // Writing
     let sw = Stopwatch::start_new();
@@ -208,9 +207,9 @@ fn main() {
     // perf_test(1, 10000, 1000000);
     // perf_test(1, 10000, 10000000);
 
-    big_data_perf_test(1, 1000000);
-    // big_data_perf_test(1, 10000000);
-    // big_data_perf_test(1, 50000000);
+    big_data_perf_test(1000000);
+    // big_data_perf_test(10000000);
+    // big_data_perf_test(50000000);
 
     server_test(10, 10000);
 }

@@ -128,3 +128,114 @@ pub enum ActionResult {
     Published(usize),
     EventStream(EventStream)
 }
+
+#[cfg(test)]
+mod tests {
+    use exar::*;
+    use exar_net::*;
+    use super::super::*;
+
+    use std::env;
+    use std::fs::*;
+    use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, TcpListener, TcpStream, ToSocketAddrs};
+    use std::sync::{Arc, Mutex};
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::thread;
+    use std::time::Duration;
+
+    static PORT: AtomicUsize = AtomicUsize::new(0);
+
+    fn base_port() -> u16 {
+        let cwd = env::current_dir().unwrap();
+        let dirs = ["32-opt", "32-nopt", "musl-64-opt", "cross-opt",
+                    "64-opt", "64-nopt", "64-opt-vg", "64-debug-opt",
+                    "all-opt", "snap3", "dist"];
+        dirs.iter().enumerate().find(|&(_, dir)| {
+            cwd.to_str().unwrap().contains(dir)
+        }).map(|p| p.0).unwrap_or(0) as u16 * 1000 + 20600
+    }
+
+    pub fn next_test_ip4() -> SocketAddr {
+        let port = PORT.fetch_add(1, Ordering::SeqCst) as u16 + base_port();
+        SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), port))
+    }
+
+    fn each_ip(f: &mut FnMut(SocketAddr)) {
+        f(next_test_ip4());
+    }
+
+    fn create_client<A: ToSocketAddrs>(addr: A) -> TcpMessageStream<TcpStream> {
+        let stream  = TcpStream::connect(addr).expect("Unable to connect to the TCP stream");
+        TcpMessageStream::new(stream).expect("Unable to create TCP message stream client")
+    }
+
+    #[test]
+    fn test_connection() {
+        each_ip(&mut |addr| {
+            let collection_name = testkit::gen_collection_name();
+            let db = Arc::new(Mutex::new(Database::new(DatabaseConfig::default())));
+
+            let handle = thread::spawn(move || {
+                let listener = TcpListener::bind(addr).expect("Unable to bind to address");
+                match listener.accept() {
+                    Ok((stream, _)) => {
+                        let mut handler = Handler::new(stream, db, Credentials::empty())
+                                                  .expect("Unable to create TCP connection handler");
+                        handler.run();
+                    },
+                    Err(err) => panic!("Error: {}", err)
+                }
+            });
+            thread::sleep(Duration::from_millis(100));
+
+            let mut client = create_client(addr);
+
+            assert!(client.send_message(TcpMessage::Connect(collection_name.to_owned(),
+                                        None, None)).is_ok());
+            assert_eq!(client.recv_message(), Ok(TcpMessage::Connected));
+
+            drop(client);
+
+            assert!(remove_file(format!("{}.log", collection_name)).is_ok());
+
+             handle.join().expect("Unable to join server thread");
+        });
+    }
+
+    #[test]
+    fn test_connection_with_credentials() {
+        each_ip(&mut |addr| {
+            let collection_name = testkit::gen_collection_name();
+            let db = Arc::new(Mutex::new(Database::new(DatabaseConfig::default())));
+
+            let handle = thread::spawn(move || {
+                let listener = TcpListener::bind(addr).expect("Unable to bind to address");
+                match listener.accept() {
+                    Ok((stream, _)) => {
+                        let mut handler = Handler::new(stream, db, Credentials::new("username", "password"))
+                                                  .expect("Unable to create TCP connection handler");
+                        handler.run();
+                    },
+                    Err(err) => panic!("Error: {}", err)
+                }
+            });
+            thread::sleep(Duration::from_millis(100));
+
+            let mut client = create_client(addr);
+
+            assert!(client.send_message(TcpMessage::Connect(collection_name.to_owned(),
+                                        None, None)).is_ok());
+            assert_eq!(client.recv_message(), Ok(TcpMessage::Error(DatabaseError::AuthenticationError)));
+
+            assert!(client.send_message(TcpMessage::Connect(collection_name.to_owned(),
+                                        Some("username".to_owned()), Some("password".to_owned()))).is_ok());
+            assert_eq!(client.recv_message(), Ok(TcpMessage::Connected));
+
+            drop(client);
+
+            assert!(remove_file(format!("{}.log", collection_name)).is_ok());
+
+            handle.join().expect("Unable to join server thread");
+        });
+    }
+}

@@ -135,7 +135,7 @@ mod tests {
                         }
                     }
                 },
-                Err(err) => println!("Error: {}", err)
+                Err(err) => panic!("Error: {}", err)
             }
         });
         thread::sleep(Duration::from_millis(100));

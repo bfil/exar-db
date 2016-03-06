@@ -137,7 +137,7 @@ mod tests {
     }
 
     #[test]
-    fn test_server() {
+    fn test_connection() {
         each_ip(&mut |addr| {
             let collection_name = testkit::gen_collection_name();
             let db = Database::new(DatabaseConfig::default());
@@ -147,7 +147,32 @@ mod tests {
             });
             let mut client = create_client(addr);
 
-            assert!(client.send_message(TcpMessage::Connect(collection_name.to_owned(), None, None)).is_ok());
+            assert!(client.send_message(TcpMessage::Connect(collection_name.to_owned(),
+                                        None, None)).is_ok());
+            assert_eq!(client.recv_message(), Ok(TcpMessage::Connected));
+
+            assert!(remove_file(format!("{}.log", collection_name)).is_ok());
+        });
+    }
+
+    #[test]
+    fn test_connection_with_credentials() {
+        each_ip(&mut |addr| {
+            let collection_name = testkit::gen_collection_name();
+            let db = Database::new(DatabaseConfig::default());
+            let server = Server::bind(addr, db).expect("Unable to start the TCP server");
+            let server = server.with_credentials("username", "password");
+            thread::spawn(move || {
+                server.listen();
+            });
+            let mut client = create_client(addr);
+
+            assert!(client.send_message(TcpMessage::Connect(collection_name.to_owned(),
+                                        None, None)).is_ok());
+            assert_eq!(client.recv_message(), Ok(TcpMessage::Error(DatabaseError::AuthenticationError)));
+
+            assert!(client.send_message(TcpMessage::Connect(collection_name.to_owned(),
+                                        Some("username".to_owned()), Some("password".to_owned()))).is_ok());
             assert_eq!(client.recv_message(), Ok(TcpMessage::Connected));
 
             assert!(remove_file(format!("{}.log", collection_name)).is_ok());

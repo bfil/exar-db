@@ -129,11 +129,25 @@ mod tests {
     }
 
     #[test]
+    fn test_constructor_failure() {
+        let db = Database::new(DatabaseConfig::default());
+        let mut config = ServerConfig::default();
+        config.port = 1000;
+        assert!(Server::new(config, db).is_err());
+    }
+
+    #[test]
     fn test_bind() {
         each_ip(&mut |addr| {
             let db = Database::new(DatabaseConfig::default());
             assert!(Server::bind(&addr, db).is_ok());
         });
+    }
+
+    #[test]
+    fn test_bind_failure() {
+        let db = Database::new(DatabaseConfig::default());
+        assert!(Server::bind("127.0.0.1:1000", db).is_err());
     }
 
     #[test]

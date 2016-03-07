@@ -6,16 +6,18 @@ use std::io::BufWriter;
 #[derive(Debug)]
 pub struct Logger {
     writer: BufWriter<File>,
-    offset: usize
+    offset: usize,
+    bytes_written: usize
 }
 
 impl Logger {
     pub fn new(log: Log) -> Result<Logger, DatabaseError> {
         log.open_writer().and_then(|writer| {
-            log.count_lines().and_then(|lines_count| {
+            log.count_lines_and_bytes().and_then(|(lines_count, bytes_count)| {
                 Ok(Logger {
                     writer: writer,
-                    offset: lines_count + 1
+                    offset: lines_count + 1,
+                    bytes_written: bytes_count
                 })
             })
         })
@@ -29,9 +31,11 @@ impl Logger {
                 if event.timestamp == 0 {
                     event = event.with_current_timestamp();
                 }
-                match self.writer.write_line(&event.to_tab_separated_string()) {
-                    Ok(()) => {
+                let event_string = event.to_tab_separated_string();
+                match self.writer.write_line(&event_string) {
+                    Ok(bytes_written) => {
                         self.offset += 1;
+                        self.bytes_written += bytes_written;
                         Ok(event_id)
                     },
                     Err(err) => Err(DatabaseError::new_io_error(err))
@@ -39,6 +43,10 @@ impl Logger {
             },
             Err(err) => Err(DatabaseError::ValidationError(err))
         }
+    }
+
+    pub fn bytes_written(&self) -> usize {
+        self.bytes_written
     }
 }
 

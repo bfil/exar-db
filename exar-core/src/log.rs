@@ -45,9 +45,22 @@ impl Log {
         }
     }
 
-    pub fn count_lines(&self) -> Result<usize, DatabaseError> {
-        match self.open_reader() {
-            Ok(reader) => Ok(reader.lines().count()),
+    pub fn count_lines_and_bytes(&self) -> Result<(usize, usize), DatabaseError> {
+        match self.open_line_reader() {
+            Ok(mut reader) => {
+                let mut lines_count = 0;
+                let mut bytes_count = 0;
+                for line in (&mut reader).lines() {
+                    match line {
+                        Ok(line) => {
+                            lines_count += 1;
+                            bytes_count += line.as_bytes().len() + 1;
+                        },
+                        Err(err) => return Err(DatabaseError::new_io_error(err))
+                    }
+                }
+                Ok((lines_count, bytes_count))
+            },
             Err(err) => Err(err)
         }
     }
@@ -83,12 +96,12 @@ mod tests {
         assert!(log.open_writer().is_ok());
         assert!(log.open_reader().is_ok());
 
-        assert_eq!(log.count_lines().unwrap(), 0);
+        assert_eq!(log.count_lines_and_bytes().unwrap(), (0, 0));
 
         let mut file_writer = log.open_writer().expect("Unable to open file writer");
 
         assert!(file_writer.write_line("data").is_ok());
-        assert_eq!(log.count_lines().unwrap(), 1);
+        assert_eq!(log.count_lines_and_bytes().unwrap(), (1, 5));
 
         assert!(log.remove().is_ok());
 

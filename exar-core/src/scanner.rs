@@ -35,6 +35,13 @@ impl Scanner {
         }
     }
 
+    pub fn add_line_index(&self, line: usize, bytes_len: usize) -> Result<(), DatabaseError> {
+        match self.send.send(ScannerAction::AddLineIndex(line, bytes_len)) {
+            Ok(()) => Ok(()),
+            Err(_) => Err(DatabaseError::EventStreamError(EventStreamError::Closed))
+        }
+    }
+
     fn stop(&self) -> Result<(), DatabaseError> {
         match self.send.send(ScannerAction::Stop) {
             Ok(()) => Ok(()),
@@ -54,6 +61,7 @@ impl Drop for Scanner {
 
 #[derive(Debug)]
 pub struct ScannerThread {
+    index: LinesIndex,
     reader: IndexedLineReader<BufReader<File>>,
     recv: Receiver<ScannerAction>,
     subscriptions: Vec<Subscription>
@@ -62,6 +70,7 @@ pub struct ScannerThread {
 impl ScannerThread {
     fn new(reader: IndexedLineReader<BufReader<File>>, recv: Receiver<ScannerAction>) -> ScannerThread {
         ScannerThread {
+            index: LinesIndex::new(100000),
             reader: reader,
             recv: recv,
             subscriptions: vec![]
@@ -74,6 +83,9 @@ impl ScannerThread {
                 while let Ok(action) = self.recv.try_recv() {
                     match action {
                         ScannerAction::HandleSubscription(subscription) => self.subscriptions.push(subscription),
+                        ScannerAction::AddLineIndex(line, bytes_len) => {
+                            self.index.insert(line as u64, bytes_len as u64);
+                        },
                         ScannerAction::Stop => break 'main
                     }
                 }
@@ -102,6 +114,7 @@ impl ScannerThread {
 
     fn scan(&mut self) -> Result<(), DatabaseError> {
         let offset = self.find_min_offset();
+        self.reader.load_index(self.index.clone());
         match self.reader.seek(SeekFrom::Start(offset)) {
             Ok(_) => {
                 for line in (&mut self.reader).lines() {
@@ -127,6 +140,7 @@ impl ScannerThread {
 #[derive(Clone, Debug)]
 pub enum ScannerAction {
     HandleSubscription(Subscription),
+    AddLineIndex(usize, usize),
     Stop
 }
 

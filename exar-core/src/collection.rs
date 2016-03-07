@@ -33,7 +33,14 @@ impl Collection {
     }
 
     pub fn publish(&mut self, event: Event) -> Result<usize, DatabaseError> {
-        self.logger.log(event)
+        self.logger.log(event).and_then(|event_id| {
+            if event_id % 100000 == 99999 {
+                for scanner in &self.scanners {
+                    try!(scanner.add_line_index(event_id, self.logger.bytes_written()))
+                }
+            }
+            Ok(event_id)
+        })
     }
 
     pub fn subscribe(&mut self, query: Query) -> Result<EventStream, DatabaseError> {

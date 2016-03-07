@@ -1,7 +1,7 @@
 use super::*;
 
 use std::fs::*;
-use std::io::{BufRead, BufReader, BufWriter, Write};
+use std::io::{BufReader, BufWriter, Write};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Log {
@@ -48,18 +48,13 @@ impl Log {
     pub fn count_lines_and_bytes(&self) -> Result<(usize, usize), DatabaseError> {
         match self.open_line_reader() {
             Ok(mut reader) => {
-                let mut lines_count = 0;
-                let mut bytes_count = 0;
-                for line in (&mut reader).lines() {
-                    match line {
-                        Ok(line) => {
-                            lines_count += 1;
-                            bytes_count += line.as_bytes().len() + 1;
-                        },
-                        Err(err) => return Err(DatabaseError::new_io_error(err))
-                    }
+                match reader.compute_index() {
+                    Ok(lines_count) => {
+                        let bytes_count = reader.bytes_len().unwrap();
+                        Ok((lines_count as usize, bytes_count as usize))
+                    },
+                    Err(err) => Err(DatabaseError::new_io_error(err))
                 }
-                Ok((lines_count, bytes_count))
             },
             Err(err) => Err(err)
         }

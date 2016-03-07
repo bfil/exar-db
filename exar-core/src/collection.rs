@@ -17,17 +17,26 @@ impl Collection {
     pub fn new(collection_name: &str, config: CollectionConfig) -> Result<Collection, DatabaseError> {
         let log = Log::new(&config.logs_path, collection_name);
         Logger::new(log.clone()).and_then(|logger| {
-            let mut scanners = vec![];
-            let scanners_sleep_duration = Duration::from_millis(config.scanners_sleep_ms as u64);
-            for _ in 0..config.scanners {
-                let scanner = try!(Scanner::new(log.clone(), scanners_sleep_duration));
-                scanners.push(scanner);
-            }
-            Ok(Collection {
-                log: log,
-                scanners: scanners,
-                routing_strategy: config.routing_strategy.clone(),
-                logger: logger
+            log.open_line_reader().and_then(|mut reader| {
+                match reader.compute_index() {
+                    Ok(_) => {
+                        let index = reader.get_index();
+                        let mut scanners = vec![];
+                        let scanners_sleep_duration = Duration::from_millis(config.scanners_sleep_ms as u64);
+                        for _ in 0..config.scanners {
+                            let scanner = try!(Scanner::new(log.clone(), scanners_sleep_duration));
+                            try!(scanner.update_index(index.clone()));
+                            scanners.push(scanner);
+                        }
+                        Ok(Collection {
+                            log: log,
+                            scanners: scanners,
+                            routing_strategy: config.routing_strategy.clone(),
+                            logger: logger
+                        })
+                    },
+                    Err(err) => Err(DatabaseError::new_io_error(err))
+                }
             })
         })
     }

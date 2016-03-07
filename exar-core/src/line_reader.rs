@@ -27,11 +27,11 @@ impl LinesIndex {
         self.index.insert(pos as u64 + 1, bytes_len)
     }
 
-    fn update<T: BufRead + Seek>(&mut self, mut reader: &mut T) -> Result<u64, Error> {
+    fn compute<T: BufRead + Seek>(&mut self, mut reader: &mut T) -> Result<u64, Error> {
         let mut last_pos = self.last_indexed_pos();
         let mut bytes_len = self.get(&last_pos);
+        try!(reader.seek(SeekFrom::Start(bytes_len)));
         if bytes_len > 0 {
-            try!(reader.seek(SeekFrom::Start(bytes_len)));
             reader.lines().next();
         }
         for (pos, line) in reader.lines().enumerate() {
@@ -80,8 +80,8 @@ impl<T: BufRead + Seek> IndexedLineReader<T> {
         self.index = index;
     }
 
-    pub fn update_index(&mut self) -> Result<u64, Error> {
-        self.index.update(&mut self.reader).and_then(|last_pos| {
+    pub fn compute_index(&mut self) -> Result<u64, Error> {
+        self.index.compute(&mut self.reader).and_then(|last_pos| {
             self.last_pos = last_pos;
             Ok(last_pos)
         })
@@ -89,6 +89,14 @@ impl<T: BufRead + Seek> IndexedLineReader<T> {
 
     pub fn clear_index(&mut self) {
         self.index.clear()
+    }
+
+    pub fn get_current_position(&self) -> u64 {
+        self.pos
+    }
+
+    pub fn bytes_len(&mut self) -> Result<u64, Error> {
+        self.reader.seek(SeekFrom::End(0))
     }
 
     fn seek_to_index(&mut self, indexed_pos: u64) -> Result<u64, Error> {
@@ -153,7 +161,7 @@ impl<T: BufRead> BufRead for IndexedLineReader<T> {
 
 impl<T: BufRead + Seek> Seek for IndexedLineReader<T> {
     fn seek(&mut self, pos: SeekFrom) -> Result<u64, Error> {
-        self.update_index().and_then(|_| {
+        self.compute_index().and_then(|_| {
             match pos {
                 SeekFrom::Start(pos) => {
                     let extra_lines = pos as u64 % self.index.granularity;
@@ -219,7 +227,7 @@ mod tests {
         let reader = log.open_reader().unwrap();
         let mut line_reader = IndexedLineReader::new(reader, 100);
 
-        line_reader.update_index().expect("Unable to update index");
+        line_reader.compute_index().expect("Unable to compute index");
 
         seek_and_expect(&mut line_reader, SeekFrom::Start(1234), 1234);
         seek_and_expect(&mut line_reader, SeekFrom::Start(2468), 2468);

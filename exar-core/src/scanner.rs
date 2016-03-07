@@ -16,7 +16,7 @@ impl Scanner {
     pub fn new(log: Log, sleep_duration: Duration) -> Result<Scanner, DatabaseError> {
         let (send, recv) = channel();
         log.open_line_reader().and_then(|mut reader| {
-            match reader.update_index() {
+            match reader.compute_index() {
                 Ok(_) => {
                     ScannerThread::new(reader, recv).run(sleep_duration);
                     Ok(Scanner {
@@ -37,6 +37,13 @@ impl Scanner {
 
     pub fn add_line_index(&self, line: usize, bytes_len: usize) -> Result<(), DatabaseError> {
         match self.send.send(ScannerAction::AddLineIndex(line, bytes_len)) {
+            Ok(()) => Ok(()),
+            Err(_) => Err(DatabaseError::EventStreamError(EventStreamError::Closed))
+        }
+    }
+
+    pub fn update_index(&self, index: LinesIndex) -> Result<(), DatabaseError> {
+        match self.send.send(ScannerAction::UpdateIndex(index)) {
             Ok(()) => Ok(()),
             Err(_) => Err(DatabaseError::EventStreamError(EventStreamError::Closed))
         }
@@ -85,6 +92,11 @@ impl ScannerThread {
                         ScannerAction::HandleSubscription(subscription) => self.subscriptions.push(subscription),
                         ScannerAction::AddLineIndex(line, bytes_len) => {
                             self.index.insert(line as u64, bytes_len as u64);
+                            self.reader.load_index(self.index.clone());
+                        },
+                        ScannerAction::UpdateIndex(index) => {
+                            self.index = index;
+                            self.reader.load_index(self.index.clone());
                         },
                         ScannerAction::Stop => break 'main
                     }
@@ -114,7 +126,6 @@ impl ScannerThread {
 
     fn scan(&mut self) -> Result<(), DatabaseError> {
         let offset = self.find_min_offset();
-        self.reader.load_index(self.index.clone());
         match self.reader.seek(SeekFrom::Start(offset)) {
             Ok(_) => {
                 for line in (&mut self.reader).lines() {
@@ -141,6 +152,7 @@ impl ScannerThread {
 pub enum ScannerAction {
     HandleSubscription(Subscription),
     AddLineIndex(usize, usize),
+    UpdateIndex(LinesIndex),
     Stop
 }
 

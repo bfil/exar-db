@@ -137,10 +137,12 @@ mod tests {
 
     use std::env;
     use std::fs::*;
+    use std::io::ErrorKind;
     use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, TcpListener, TcpStream, ToSocketAddrs};
     use std::sync::{Arc, Mutex};
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::thread;
+    use std::thread::JoinHandle;
     use std::time::Duration;
 
     static PORT: AtomicUsize = AtomicUsize::new(0);
@@ -164,6 +166,22 @@ mod tests {
         f(next_test_ip4());
     }
 
+    fn create_handler(addr: SocketAddr, credentials: Credentials) -> JoinHandle<()> {
+        let db = Arc::new(Mutex::new(Database::new(DatabaseConfig::default())));
+        let handle = thread::spawn(move || {
+            let listener = TcpListener::bind(addr).expect("Unable to bind to address");
+            match listener.accept() {
+                Ok((stream, _)) => {
+                    let mut handler = Handler::new(stream, db, credentials).expect("Unable to create TCP connection handler");
+                    handler.run();
+                },
+                Err(err) => panic!("Error: {}", err)
+            }
+        });
+        thread::sleep(Duration::from_millis(100));
+        handle
+    }
+
     fn create_client<A: ToSocketAddrs>(addr: A) -> TcpMessageStream<TcpStream> {
         let stream  = TcpStream::connect(addr).expect("Unable to connect to the TCP stream");
         TcpMessageStream::new(stream).expect("Unable to create TCP message stream client")
@@ -173,21 +191,8 @@ mod tests {
     fn test_connection() {
         each_ip(&mut |addr| {
             let collection_name = testkit::gen_collection_name();
-            let db = Arc::new(Mutex::new(Database::new(DatabaseConfig::default())));
 
-            let handle = thread::spawn(move || {
-                let listener = TcpListener::bind(addr).expect("Unable to bind to address");
-                match listener.accept() {
-                    Ok((stream, _)) => {
-                        let mut handler = Handler::new(stream, db, Credentials::empty())
-                                                  .expect("Unable to create TCP connection handler");
-                        handler.run();
-                    },
-                    Err(err) => panic!("Error: {}", err)
-                }
-            });
-            thread::sleep(Duration::from_millis(100));
-
+            let handle = create_handler(addr, Credentials::empty());
             let mut client = create_client(addr);
 
             assert!(client.send_message(TcpMessage::Connect(collection_name.to_owned(),
@@ -206,21 +211,8 @@ mod tests {
     fn test_connection_with_credentials() {
         each_ip(&mut |addr| {
             let collection_name = testkit::gen_collection_name();
-            let db = Arc::new(Mutex::new(Database::new(DatabaseConfig::default())));
 
-            let handle = thread::spawn(move || {
-                let listener = TcpListener::bind(addr).expect("Unable to bind to address");
-                match listener.accept() {
-                    Ok((stream, _)) => {
-                        let mut handler = Handler::new(stream, db, Credentials::new("username", "password"))
-                                                  .expect("Unable to create TCP connection handler");
-                        handler.run();
-                    },
-                    Err(err) => panic!("Error: {}", err)
-                }
-            });
-            thread::sleep(Duration::from_millis(100));
-
+            let handle = create_handler(addr, Credentials::new("username", "password"));
             let mut client = create_client(addr);
 
             assert!(client.send_message(TcpMessage::Connect(collection_name.to_owned(),
@@ -236,6 +228,55 @@ mod tests {
             assert!(remove_file(format!("{}.log", collection_name)).is_ok());
 
             handle.join().expect("Unable to join server thread");
+        });
+    }
+
+    #[test]
+    fn test_publish_and_subscribe() {
+        each_ip(&mut |addr| {
+            let collection_name = testkit::gen_collection_name();
+
+            let handle = create_handler(addr, Credentials::empty());
+            let mut client = create_client(addr);
+
+            assert!(client.send_message(TcpMessage::Connect(collection_name.to_owned(),
+                                        None, None)).is_ok());
+            assert_eq!(client.recv_message(), Ok(TcpMessage::Connected));
+
+            let event = Event::new("data", vec!["tag1", "tag2"]).with_timestamp(1234567890);
+
+            assert!(client.send_message(TcpMessage::Publish(event.clone())).is_ok());
+            assert_eq!(client.recv_message(), Ok(TcpMessage::Published(1)));
+
+            assert!(client.send_message(TcpMessage::Subscribe(false, 0, None, None)).is_ok());
+            assert_eq!(client.recv_message(), Ok(TcpMessage::Subscribed));
+            if let Ok(TcpMessage::Event(received_event)) = client.recv_message() {
+                assert_eq!(received_event, event.with_id(1));
+                assert_eq!(client.recv_message(), Ok(TcpMessage::EndOfEventStream));
+            } else {
+                panic!("Unable to receive event");
+            }
+
+            drop(client);
+
+            assert!(remove_file(format!("{}.log", collection_name)).is_ok());
+
+             handle.join().expect("Unable to join server thread");
+        });
+    }
+
+    #[test]
+    fn test_unexpected_tcp_message() {
+        each_ip(&mut |addr| {
+            let handle = create_handler(addr, Credentials::empty());
+            let mut client = create_client(addr);
+
+            assert!(client.send_message(TcpMessage::Subscribe(false, 0, None, None)).is_ok());
+            assert_eq!(client.recv_message(), Ok(TcpMessage::Error(DatabaseError::IoError(ErrorKind::InvalidData, "unexpected TCP message".to_owned()))));
+
+            drop(client);
+
+             handle.join().expect("Unable to join server thread");
         });
     }
 }

@@ -19,3 +19,19 @@ impl Credentials {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_constructors() {
+        let credentials = Credentials::new("username", "password");
+        assert_eq!(credentials.username, Some("username".to_owned()));
+        assert_eq!(credentials.password, Some("password".to_owned()));
+
+        let credentials = Credentials::empty();
+        assert_eq!(credentials.username, None);
+        assert_eq!(credentials.password, None);
+    }
+}

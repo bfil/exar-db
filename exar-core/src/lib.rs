@@ -4,11 +4,11 @@
 #[cfg(feature = "rustc-serialization")] extern crate rustc_serialize;
 #[cfg(feature = "serde-serialization")] extern crate serde;
 
+#[cfg(test)] #[macro_use]
+extern crate exar_testkit;
+
 extern crate rand;
 extern crate time;
-
-#[cfg(test)]
-pub mod testkit;
 
 mod logger;
 mod config;

@@ -61,6 +61,7 @@ impl Database {
 #[cfg(test)]
 mod tests {
     use super::super::*;
+    use exar_testkit::*;
 
     #[test]
     fn test_constructor() {
@@ -74,7 +75,7 @@ mod tests {
     fn test_connect() {
         let mut db = Database::new(DatabaseConfig::default());
 
-        let ref collection_name = testkit::gen_collection_name();
+        let ref collection_name = random_collection_name();
         assert!(db.connect(collection_name).is_ok());
         assert!(db.contains_collection(collection_name));
         assert!(db.drop_collection(collection_name).is_ok());
@@ -84,7 +85,7 @@ mod tests {
     fn test_connection_failure() {
         let mut db = Database::new(DatabaseConfig::default());
 
-        let ref collection_name = testkit::invalid_collection_name();
+        let ref collection_name = invalid_collection_name();
         assert!(db.connect(collection_name).is_err());
         assert!(!db.contains_collection(collection_name));
         assert!(db.drop_collection(collection_name).is_err());
@@ -94,7 +95,7 @@ mod tests {
     fn test_collection_management() {
         let mut db = Database::new(DatabaseConfig::default());
 
-        let ref collection_name = testkit::gen_collection_name();
+        let ref collection_name = random_collection_name();
         assert!(!db.contains_collection(collection_name));
         assert!(db.get_collection(collection_name).is_ok());
         assert!(db.contains_collection(collection_name));

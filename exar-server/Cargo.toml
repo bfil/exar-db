@@ -15,4 +15,4 @@ rustc-serialization = ["rustc-serialize"]
 serde-serialization = ["serde", "serde_macros"]
 
 [dev-dependencies]
-rand = "0.3"
+exar-testkit = { version = "0.1", path = "../exar-testkit" }

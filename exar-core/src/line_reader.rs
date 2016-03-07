@@ -193,6 +193,7 @@ impl<T: BufRead + Seek> Seek for IndexedLineReader<T> {
 #[cfg(test)]
 mod tests {
     use super::super::*;
+    use exar_testkit::*;
 
     use std::fs::File;
     use std::io::{BufRead, BufReader, Seek, SeekFrom};
@@ -206,7 +207,7 @@ mod tests {
 
     #[test]
     fn test_line_reader() {
-        let ref collection_name = testkit::gen_collection_name();
+        let ref collection_name = random_collection_name();
         let log = Log::new("", collection_name);
 
         let mut file_writer = log.open_writer().expect("Unable to open file writer");

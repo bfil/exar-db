@@ -1,5 +1,3 @@
-#![feature(const_fn)]
-
 #![cfg_attr(feature = "serde-serialization", feature(custom_derive, plugin))]
 #![cfg_attr(feature = "serde-serialization", plugin(serde_macros))]
 
@@ -9,11 +7,8 @@ extern crate exar_net;
 #[cfg(feature = "rustc-serialization")] extern crate rustc_serialize;
 #[cfg(feature = "serde-serialization")] extern crate serde;
 
-#[cfg(test)]
-extern crate rand;
-
-#[cfg(test)]
-pub mod testkit;
+#[cfg(test)] #[macro_use]
+extern crate exar_testkit;
 
 mod credentials;
 mod config;

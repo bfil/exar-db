@@ -1,0 +1,8 @@
+[package]
+name = "exar-testkit"
+version = "0.1.0"
+authors = ["Bruno Filippone <bruno.filippone@b-fil.com>"]
+publish = false
+
+[dependencies]
+rand = "0.3"

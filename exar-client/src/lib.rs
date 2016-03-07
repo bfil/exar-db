@@ -1,7 +1,8 @@
-#![feature(const_fn)]
-
 extern crate exar;
 extern crate exar_net;
+
+#[cfg(test)] #[macro_use]
+extern crate exar_testkit;
 
 use exar::*;
 use exar_net::*;
@@ -88,34 +89,12 @@ impl Client {
 mod tests {
     use exar::*;
     use exar_net::*;
+    use exar_testkit::*;
     use super::*;
 
-    use std::env;
-    use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, TcpListener, ToSocketAddrs};
-    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::net::{TcpListener, ToSocketAddrs};
     use std::thread;
     use std::time::Duration;
-
-    static PORT: AtomicUsize = AtomicUsize::new(0);
-
-    fn base_port() -> u16 {
-        let cwd = env::current_dir().unwrap();
-        let dirs = ["32-opt", "32-nopt", "musl-64-opt", "cross-opt",
-                    "64-opt", "64-nopt", "64-opt-vg", "64-debug-opt",
-                    "all-opt", "snap3", "dist"];
-        dirs.iter().enumerate().find(|&(_, dir)| {
-            cwd.to_str().unwrap().contains(dir)
-        }).map(|p| p.0).unwrap_or(0) as u16 * 1000 + 19600
-    }
-
-    pub fn next_test_ip4() -> SocketAddr {
-        let port = PORT.fetch_add(1, Ordering::SeqCst) as u16 + base_port();
-        SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), port))
-    }
-
-    fn each_ip(f: &mut FnMut(SocketAddr)) {
-        f(next_test_ip4());
-    }
 
     enum StreamAction {
         Read(TcpMessage),
@@ -143,7 +122,7 @@ mod tests {
 
     #[test]
     fn test_connect() {
-        each_ip(&mut |addr| {
+        with_addr(&mut |addr| {
 
             stub_server(addr.clone(), vec![
                 StreamAction::Read(TcpMessage::Connect("collection".to_owned(), None, None)),
@@ -156,7 +135,7 @@ mod tests {
 
     #[test]
     fn test_connect_with_authentication() {
-        each_ip(&mut |addr| {
+        with_addr(&mut |addr| {
 
             stub_server(addr.clone(), vec![
                 StreamAction::Read(TcpMessage::Connect(
@@ -171,7 +150,7 @@ mod tests {
 
     #[test]
     fn test_connect_failure() {
-        each_ip(&mut |addr| {
+        with_addr(&mut |addr| {
 
             stub_server(addr.clone(), vec![
                 StreamAction::Read(TcpMessage::Connect("collection".to_owned(), None, None)),
@@ -184,7 +163,7 @@ mod tests {
 
     #[test]
     fn test_publish() {
-        each_ip(&mut |addr| {
+        with_addr(&mut |addr| {
 
             let event = Event::new("data", vec!["tag1", "tag2"]).with_timestamp(1234567890);
 
@@ -202,7 +181,7 @@ mod tests {
 
     #[test]
     fn test_publish_failure() {
-        each_ip(&mut |addr| {
+        with_addr(&mut |addr| {
 
             let event = Event::new("data", vec!["tag1", "tag2"]).with_timestamp(1234567890);
             let validation_error = ValidationError::new("validation error");
@@ -221,7 +200,7 @@ mod tests {
 
     #[test]
     fn test_subscribe() {
-        each_ip(&mut |addr| {
+        with_addr(&mut |addr| {
 
             let event = Event::new("data", vec!["tag1", "tag2"]).with_timestamp(1234567890);
 
@@ -245,7 +224,7 @@ mod tests {
 
     #[test]
     fn test_subscribe_failure() {
-        each_ip(&mut |addr| {
+        with_addr(&mut |addr| {
 
             stub_server(addr.clone(), vec![
                 StreamAction::Read(TcpMessage::Connect("collection".to_owned(), None, None)),

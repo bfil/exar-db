@@ -78,12 +78,13 @@ impl Collection {
 #[cfg(test)]
 mod tests {
     use super::super::*;
+    use exar_testkit::*;
 
     use std::sync::mpsc::channel;
 
     #[test]
     fn test_constructor() {
-        let ref collection_name = testkit::gen_collection_name();
+        let ref collection_name = random_collection_name();
         let config = CollectionConfig::default();
         let mut collection = Collection::new(collection_name, config).expect("Unable to create collection");
 
@@ -96,13 +97,13 @@ mod tests {
 
     #[test]
     fn test_constructor_error() {
-        let ref collection_name = testkit::invalid_collection_name();
+        let ref collection_name = invalid_collection_name();
         assert!(Collection::new(collection_name, CollectionConfig::default()).is_err());
     }
 
     #[test]
     fn test_publish_and_subscribe() {
-        let ref collection_name = testkit::gen_collection_name();
+        let ref collection_name = random_collection_name();
         let config = CollectionConfig::default();
         let mut collection = Collection::new(collection_name, config).expect("Unable to create collection");
 
@@ -119,7 +120,7 @@ mod tests {
 
     #[test]
     fn test_drop() {
-        let ref collection_name = testkit::gen_collection_name();
+        let ref collection_name = random_collection_name();
         let config = CollectionConfig::default();
         let mut collection = Collection::new(collection_name, config).expect("Unable to create collection");
 
@@ -132,7 +133,7 @@ mod tests {
 
     #[test]
     fn test_apply_round_robin_routing_strategy() {
-        let ref collection_name = testkit::gen_collection_name();
+        let ref collection_name = random_collection_name();
         let config = CollectionConfig::default();
         let mut collection = Collection::new(collection_name, config)
                                         .expect("Unable to create collection");

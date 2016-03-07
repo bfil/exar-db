@@ -79,34 +79,12 @@ impl Server {
 mod tests {
     use exar::*;
     use exar_net::*;
+    use exar_testkit::*;
     use super::super::*;
 
-    use std::env;
     use std::fs::*;
-    use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, TcpStream, ToSocketAddrs};
-    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::net::{TcpStream, ToSocketAddrs};
     use std::thread;
-
-    static PORT: AtomicUsize = AtomicUsize::new(0);
-
-    fn base_port() -> u16 {
-        let cwd = env::current_dir().unwrap();
-        let dirs = ["32-opt", "32-nopt", "musl-64-opt", "cross-opt",
-                    "64-opt", "64-nopt", "64-opt-vg", "64-debug-opt",
-                    "all-opt", "snap3", "dist"];
-        dirs.iter().enumerate().find(|&(_, dir)| {
-            cwd.to_str().unwrap().contains(dir)
-        }).map(|p| p.0).unwrap_or(0) as u16 * 1000 + 19600
-    }
-
-    pub fn next_test_ip4() -> SocketAddr {
-        let port = PORT.fetch_add(1, Ordering::SeqCst) as u16 + base_port();
-        SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), port))
-    }
-
-    fn each_ip(f: &mut FnMut(SocketAddr)) {
-        f(next_test_ip4());
-    }
 
     fn create_client<A: ToSocketAddrs>(addr: A) -> TcpMessageStream<TcpStream> {
         let stream  = TcpStream::connect(addr).expect("Unable to connect to the TCP stream");
@@ -115,7 +93,7 @@ mod tests {
 
     #[test]
     fn test_constructor() {
-        each_ip(&mut |addr| {
+        with_addr(&mut |addr| {
             let db = Database::new(DatabaseConfig::default());
             let mut config = ServerConfig::default();
 
@@ -138,7 +116,7 @@ mod tests {
 
     #[test]
     fn test_bind() {
-        each_ip(&mut |addr| {
+        with_addr(&mut |addr| {
             let db = Database::new(DatabaseConfig::default());
             assert!(Server::bind(&addr, db).is_ok());
         });
@@ -152,8 +130,8 @@ mod tests {
 
     #[test]
     fn test_connection() {
-        each_ip(&mut |addr| {
-            let collection_name = testkit::gen_collection_name();
+        with_addr(&mut |addr| {
+            let collection_name = random_collection_name();
             let db = Database::new(DatabaseConfig::default());
             let server = Server::bind(addr, db).expect("Unable to start the TCP server");
             thread::spawn(move || {
@@ -171,8 +149,8 @@ mod tests {
 
     #[test]
     fn test_connection_with_credentials() {
-        each_ip(&mut |addr| {
-            let collection_name = testkit::gen_collection_name();
+        with_addr(&mut |addr| {
+            let collection_name = random_collection_name();
             let db = Database::new(DatabaseConfig::default());
             let server = Server::bind(addr, db).expect("Unable to start the TCP server");
             let server = server.with_credentials("username", "password");

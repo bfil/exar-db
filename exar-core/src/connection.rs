@@ -30,12 +30,13 @@ impl Connection {
 #[cfg(test)]
 mod tests {
     use super::super::*;
+    use exar_testkit::*;
 
     #[test]
     fn test_connection() {
         let mut db = Database::new(DatabaseConfig::default());
 
-        let ref collection_name = testkit::gen_collection_name();
+        let ref collection_name = random_collection_name();
         let collection = db.get_collection(collection_name).expect("Unable to get collection");
 
         let connection = Connection::new(collection);

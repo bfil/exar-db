@@ -15,4 +15,5 @@ rustc-serialization = ["rustc-serialize"]
 serde-serialization = ["serde", "serde_macros"]
 
 [dev-dependencies]
+exar-testkit = { version = "0.1", path = "../exar-testkit" }
 serde_json = "0.6"

@@ -64,10 +64,11 @@ impl Log {
 #[cfg(test)]
 mod tests {
     use super::super::*;
+    use exar_testkit::*;
 
     #[test]
     fn test_get_path() {
-        let ref collection_name = testkit::gen_collection_name();
+        let ref collection_name = random_collection_name();
         let log = Log::new("", collection_name);
         assert_eq!(log.get_path(), format!("{}.log", collection_name));
         let log = Log::new("path/to/log", collection_name);
@@ -76,7 +77,7 @@ mod tests {
 
     #[test]
     fn test_log() {
-        let ref collection_name = testkit::gen_collection_name();
+        let ref collection_name = random_collection_name();
         let log = Log::new("", collection_name);
 
         assert!(log.open_writer().is_ok());

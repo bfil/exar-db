@@ -1,24 +1,17 @@
 extern crate exar;
 extern crate rand;
 
-use exar::*;
+#[cfg(test)] #[macro_use]
+extern crate exar_testkit;
 
-mod testkit {
-    use rand;
-    use rand::Rng;
-    pub fn gen_collection_name() -> String {
-        rand::thread_rng()
-            .gen_ascii_chars()
-            .take(10)
-            .collect::<String>()
-    }
-}
+use exar::*;
+use exar_testkit::*;
 
 #[test]
 fn integration_test() {
     let mut db = Database::new(DatabaseConfig::default());
 
-    let ref collection_name = testkit::gen_collection_name();
+    let ref collection_name = random_collection_name();
     let connection = db.connect(collection_name).expect("Unable to connect");
 
     let test_event = Event::new("data", vec!["tag1", "tag2"]);

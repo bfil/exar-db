@@ -45,11 +45,12 @@ impl Logger {
 #[cfg(test)]
 mod tests {
     use super::super::*;
+    use exar_testkit::*;
 
     use std::io::{BufRead, BufReader};
 
     fn create_log() -> Log {
-        let ref collection_name = testkit::gen_collection_name();
+        let ref collection_name = random_collection_name();
         Log::new("", collection_name)
     }
 
@@ -75,7 +76,7 @@ mod tests {
 
     #[test]
     fn test_constructor_failure() {
-        let ref collection_name = testkit::invalid_collection_name();
+        let ref collection_name = invalid_collection_name();
         let log = Log::new("", collection_name);
 
         assert!(Logger::new(log.clone()).is_err());

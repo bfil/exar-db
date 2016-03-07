@@ -133,38 +133,16 @@ pub enum ActionResult {
 mod tests {
     use exar::*;
     use exar_net::*;
+    use exar_testkit::*;
     use super::super::*;
 
-    use std::env;
     use std::fs::*;
     use std::io::ErrorKind;
-    use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, TcpListener, TcpStream, ToSocketAddrs};
+    use std::net::{SocketAddr, TcpListener, TcpStream, ToSocketAddrs};
     use std::sync::{Arc, Mutex};
-    use std::sync::atomic::{AtomicUsize, Ordering};
     use std::thread;
     use std::thread::JoinHandle;
     use std::time::Duration;
-
-    static PORT: AtomicUsize = AtomicUsize::new(0);
-
-    fn base_port() -> u16 {
-        let cwd = env::current_dir().unwrap();
-        let dirs = ["32-opt", "32-nopt", "musl-64-opt", "cross-opt",
-                    "64-opt", "64-nopt", "64-opt-vg", "64-debug-opt",
-                    "all-opt", "snap3", "dist"];
-        dirs.iter().enumerate().find(|&(_, dir)| {
-            cwd.to_str().unwrap().contains(dir)
-        }).map(|p| p.0).unwrap_or(0) as u16 * 1000 + 20600
-    }
-
-    pub fn next_test_ip4() -> SocketAddr {
-        let port = PORT.fetch_add(1, Ordering::SeqCst) as u16 + base_port();
-        SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), port))
-    }
-
-    fn each_ip(f: &mut FnMut(SocketAddr)) {
-        f(next_test_ip4());
-    }
 
     fn create_handler(addr: SocketAddr, credentials: Credentials) -> JoinHandle<()> {
         let db = Arc::new(Mutex::new(Database::new(DatabaseConfig::default())));
@@ -189,8 +167,8 @@ mod tests {
 
     #[test]
     fn test_connection() {
-        each_ip(&mut |addr| {
-            let collection_name = testkit::gen_collection_name();
+        with_addr(&mut |addr| {
+            let collection_name = random_collection_name();
 
             let handle = create_handler(addr, Credentials::empty());
             let mut client = create_client(addr);
@@ -209,8 +187,8 @@ mod tests {
 
     #[test]
     fn test_connection_with_credentials() {
-        each_ip(&mut |addr| {
-            let collection_name = testkit::gen_collection_name();
+        with_addr(&mut |addr| {
+            let collection_name = random_collection_name();
 
             let handle = create_handler(addr, Credentials::new("username", "password"));
             let mut client = create_client(addr);
@@ -233,8 +211,8 @@ mod tests {
 
     #[test]
     fn test_publish_and_subscribe() {
-        each_ip(&mut |addr| {
-            let collection_name = testkit::gen_collection_name();
+        with_addr(&mut |addr| {
+            let collection_name = random_collection_name();
 
             let handle = create_handler(addr, Credentials::empty());
             let mut client = create_client(addr);
@@ -267,7 +245,7 @@ mod tests {
 
     #[test]
     fn test_unexpected_tcp_message() {
-        each_ip(&mut |addr| {
+        with_addr(&mut |addr| {
             let handle = create_handler(addr, Credentials::empty());
             let mut client = create_client(addr);
 

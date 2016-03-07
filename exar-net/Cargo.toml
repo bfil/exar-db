@@ -5,3 +5,6 @@ authors = ["Bruno Filippone <bruno.filippone@b-fil.com>"]
 
 [dependencies]
 exar = { version = "0.1", path = "../exar-core" }
+
+[dev-dependencies]
+exar-testkit = { version = "0.1", path = "../exar-testkit" }

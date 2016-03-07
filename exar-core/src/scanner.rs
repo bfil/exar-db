@@ -133,13 +133,14 @@ pub enum ScannerAction {
 #[cfg(test)]
 mod tests {
     use super::super::*;
+    use exar_testkit::*;
 
     use std::sync::mpsc::{channel, TryRecvError};
     use std::thread;
     use std::time::Duration;
 
     fn create_log() -> Log {
-        let ref collection_name = testkit::gen_collection_name();
+        let ref collection_name = random_collection_name();
         let log = Log::new("", collection_name);
         assert!(log.open_writer().is_ok());
         log
@@ -157,7 +158,7 @@ mod tests {
 
     #[test]
     fn test_scanner_constructor_failure() {
-        let ref collection_name = testkit::gen_collection_name();
+        let ref collection_name = random_collection_name();
         let log = Log::new("", collection_name);
         let sleep_duration = Duration::from_millis(10);
 

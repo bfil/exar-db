@@ -4,23 +4,16 @@ extern crate exar;
 extern crate rand;
 extern crate test;
 
-use exar::*;
-use test::Bencher;
+#[cfg(test)] #[macro_use]
+extern crate exar_testkit;
 
-mod testkit {
-    use rand;
-    use rand::Rng;
-    pub fn gen_collection_name() -> String {
-        rand::thread_rng()
-            .gen_ascii_chars()
-            .take(10)
-            .collect::<String>()
-    }
-}
+use exar::*;
+use exar_testkit::*;
+use test::Bencher;
 
 #[bench]
 fn bench_publish(b: &mut Bencher) {
-    let ref collection_name = testkit::gen_collection_name();
+    let ref collection_name = random_collection_name();
     let config = DatabaseConfig::default();
     let mut db = Database::new(config);
     let connection = db.connect(collection_name).unwrap();

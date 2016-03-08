@@ -4,14 +4,18 @@ use std::io::{BufRead, Error, Read, Seek, SeekFrom};
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LinesIndex {
     index: BTreeMap<u64, u64>,
-    granularity: u64
+    granularity: u64,
+    lines_count: u64,
+    bytes_count: u64
 }
 
 impl LinesIndex {
     pub fn new(granularity: u64) -> LinesIndex {
         LinesIndex {
             index: BTreeMap::new(),
-            granularity: granularity
+            granularity: granularity,
+            lines_count: 0,
+            bytes_count: 0
         }
     }
 
@@ -47,11 +51,21 @@ impl LinesIndex {
                 Err(err) => return Err(err)
             }
         }
+        self.lines_count = last_pos;
+        self.bytes_count = bytes_len;
         Ok(last_pos)
     }
 
     pub fn clear(&mut self) {
         self.index.clear();
+    }
+
+    pub fn lines_count(&self) -> u64 {
+        self.lines_count
+    }
+
+    pub fn bytes_count(&self) -> u64 {
+        self.bytes_count
     }
 }
 
@@ -217,7 +231,7 @@ mod tests {
     #[test]
     fn test_line_reader() {
         let ref collection_name = random_collection_name();
-        let log = Log::new("", collection_name);
+        let log = Log::new("", collection_name, 100);
 
         let mut file_writer = log.open_writer().expect("Unable to open file writer");
 

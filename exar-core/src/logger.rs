@@ -6,16 +6,18 @@ use std::io::BufWriter;
 #[derive(Debug)]
 pub struct Logger {
     writer: BufWriter<File>,
-    offset: usize
+    offset: usize,
+    bytes_written: usize
 }
 
 impl Logger {
     pub fn new(log: Log) -> Result<Logger, DatabaseError> {
-        log.open_writer().and_then(|writer| {
-            log.count_lines().and_then(|lines_count| {
+        log.compute_index().and_then(|index| {
+            log.open_writer().and_then(|writer| {
                 Ok(Logger {
                     writer: writer,
-                    offset: lines_count + 1
+                    offset: index.lines_count() as usize + 1,
+                    bytes_written: index.bytes_count() as usize
                 })
             })
         })
@@ -31,8 +33,9 @@ impl Logger {
                 }
                 let event_string = event.to_tab_separated_string();
                 match self.writer.write_line(&event_string) {
-                    Ok(_) => {
+                    Ok(bytes_written) => {
                         self.offset += 1;
+                        self.bytes_written += bytes_written;
                         Ok(event_id)
                     },
                     Err(err) => Err(DatabaseError::new_io_error(err))
@@ -40,6 +43,10 @@ impl Logger {
             },
             Err(err) => Err(DatabaseError::ValidationError(err))
         }
+    }
+
+    pub fn bytes_written(&self) -> usize {
+        self.bytes_written
     }
 }
 
@@ -52,7 +59,7 @@ mod tests {
 
     fn create_log() -> Log {
         let ref collection_name = random_collection_name();
-        Log::new("", collection_name)
+        Log::new("", collection_name, 100)
     }
 
     #[test]
@@ -78,7 +85,7 @@ mod tests {
     #[test]
     fn test_constructor_failure() {
         let ref collection_name = invalid_collection_name();
-        let log = Log::new("", collection_name);
+        let log = Log::new("", collection_name, 100);
 
         assert!(Logger::new(log.clone()).is_err());
 

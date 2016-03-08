@@ -157,7 +157,9 @@ fn big_data_perf_test(scanners: u8, num_events: usize) {
 
     let mut db = Database::new(config.database);
 
+    let sw = Stopwatch::start_new();
     let connection = db.connect(collection_name).unwrap();
+    println!("Restarting DB engine took {}ms..", sw.elapsed_ms());
 
     // Reading Last Element
     let sw = Stopwatch::start_new();

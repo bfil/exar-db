@@ -145,6 +145,7 @@ fn big_data_perf_test(scanners: u8, num_events: usize) {
     let last_element_query = Query::current().offset((2 * num_events) - 1).limit(1);
     let events: Vec<_> = connection.subscribe(last_element_query).unwrap().take(1).collect();
     println!("Reading last element took {}ms..", sw.elapsed_ms());
+    assert_eq!(events[0].id, 2 * num_events);
 
     // Reading
     let sw = Stopwatch::start_new();
@@ -163,6 +164,7 @@ fn big_data_perf_test(scanners: u8, num_events: usize) {
     let last_element_query = Query::current().offset((2 * num_events) - 1).limit(1);
     let events: Vec<_> = connection.subscribe(last_element_query).unwrap().take(1).collect();
     println!("Reading last element took {}ms..", sw.elapsed_ms());
+    assert_eq!(events[0].id, 2 * num_events);
 
     // Reading
     let sw = Stopwatch::start_new();

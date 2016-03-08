@@ -117,7 +117,7 @@ fn big_data_perf_test(scanners: u8, num_events: usize) {
     let (mut config, collection_name) = setup();
     config.database.scanners = scanners;
 
-    let mut db = Database::new(config.database);
+    let mut db = Database::new(config.database.clone());
 
     let connection = db.connect(collection_name).unwrap();
 
@@ -139,6 +139,24 @@ fn big_data_perf_test(scanners: u8, num_events: usize) {
         };
     }
     report_performance(sw, num_events * 2, "Writing");
+
+    // Reading Last Element
+    let sw = Stopwatch::start_new();
+    let last_element_query = Query::current().offset((2 * num_events) - 1).limit(1);
+    let events: Vec<_> = connection.subscribe(last_element_query).unwrap().take(1).collect();
+    println!("Reading last element took {}ms..", sw.elapsed_ms());
+
+    // Reading
+    let sw = Stopwatch::start_new();
+    let _: Vec<_> = connection.subscribe(query.clone()).unwrap().take(num_events).collect();
+    report_performance(sw, num_events, "Reading");
+
+    connection.close();
+    drop(db);
+
+    let mut db = Database::new(config.database);
+
+    let connection = db.connect(collection_name).unwrap();
 
     // Reading Last Element
     let sw = Stopwatch::start_new();

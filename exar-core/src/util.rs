@@ -2,15 +2,13 @@ use std::io::prelude::*;
 use std::io::{BufWriter, Result};
 
 pub trait WriteLine {
-    fn write_line(&mut self, line: &str) -> Result<usize>;
+    fn write_line(&mut self, line: &str) -> Result<()>;
 }
 
 impl<T: Write> WriteLine for BufWriter<T> {
-    fn write_line(&mut self, line: &str) -> Result<usize> {
-        self.write(format!("{}\n", line).as_bytes()).and_then(|bytes_written| {
-            self.flush().and_then(|_| {
-                Ok(bytes_written)
-            })
+    fn write_line(&mut self, line: &str) -> Result<()> {
+        write!(self, "{}\n", line).and_then(|_| {
+            self.flush()
         })
     }
 }

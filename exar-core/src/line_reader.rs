@@ -28,7 +28,8 @@ impl LinesIndex {
     }
 
     fn compute<T: BufRead + Seek>(&mut self, mut reader: &mut T) -> Result<u64, Error> {
-        let mut last_pos = self.last_indexed_pos();
+        let initial_pos = self.last_indexed_pos();
+        let mut last_pos = initial_pos;
         let mut bytes_len = self.get(&last_pos);
         try!(reader.seek(SeekFrom::Start(bytes_len)));
         if bytes_len > 0 {
@@ -39,7 +40,7 @@ impl LinesIndex {
                 Ok(line) => {
                     bytes_len += line.as_bytes().len() as u64 + 1;
                     if (pos as u64 + 1) % self.granularity == 0 {
-                        self.index.insert(pos as u64 + 1, bytes_len);
+                        self.index.insert(initial_pos + pos as u64 + 1, bytes_len);
                     }
                     last_pos += 1;
                 },
@@ -76,7 +77,7 @@ impl<T: BufRead + Seek> IndexedLineReader<T> {
         &self.index
     }
 
-    pub fn load_index(&mut self, index: LinesIndex) {
+    pub fn restore_index(&mut self, index: LinesIndex) {
         self.index = index;
     }
 

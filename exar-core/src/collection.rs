@@ -8,6 +8,7 @@ use std::time::Duration;
 #[derive(Debug)]
 pub struct Collection {
     log: Log,
+    index: LinesIndex,
     scanners: Vec<Scanner>,
     routing_strategy: RoutingStrategy,
     logger: Logger
@@ -17,35 +18,38 @@ impl Collection {
     pub fn new(collection_name: &str, config: CollectionConfig) -> Result<Collection, DatabaseError> {
         let log = Log::new(&config.logs_path, collection_name);
         Logger::new(log.clone()).and_then(|logger| {
-            log.open_line_reader().and_then(|mut reader| {
-                match reader.compute_index() {
-                    Ok(_) => {
-                        let index = reader.get_index();
-                        let mut scanners = vec![];
-                        let scanners_sleep_duration = Duration::from_millis(config.scanners_sleep_ms as u64);
-                        for _ in 0..config.scanners {
-                            let scanner = try!(Scanner::new(log.clone(), scanners_sleep_duration));
-                            try!(scanner.update_index(index.clone()));
-                            scanners.push(scanner);
-                        }
-                        Ok(Collection {
-                            log: log,
-                            scanners: scanners,
-                            routing_strategy: config.routing_strategy.clone(),
-                            logger: logger
-                        })
-                    },
-                    Err(err) => Err(DatabaseError::new_io_error(err))
+            log.compute_index().and_then(|index| {
+                let mut scanners = vec![];
+                let scanners_sleep_duration = Duration::from_millis(config.scanners_sleep_ms as u64);
+                for _ in 0..config.scanners {
+                    let scanner = try!(Scanner::new(log.clone(), scanners_sleep_duration));
+                    try!(scanner.update_index(index.clone()));
+                    scanners.push(scanner);
                 }
+                Ok(Collection {
+                    log: log,
+                    index: index,
+                    scanners: scanners,
+                    routing_strategy: config.routing_strategy.clone(),
+                    logger: logger
+                })
             })
         })
     }
 
     pub fn publish(&mut self, event: Event) -> Result<usize, DatabaseError> {
         self.logger.log(event).and_then(|event_id| {
-            if event_id % 100000 == 99999 {
-                for scanner in &self.scanners {
-                    try!(scanner.add_line_index(event_id, self.logger.bytes_written()))
+            if event_id % 100000 == 0 {
+                let mut reader = try!(self.log.open_line_reader());
+                reader.restore_index(self.index.clone());
+                match reader.compute_index() {
+                    Ok(_) => {
+                        self.index = reader.get_index().clone();
+                        for scanner in &self.scanners {
+                            try!(scanner.update_index(self.index.clone()));
+                        }
+                    },
+                    Err(err) => return Err(DatabaseError::new_io_error(err))
                 }
             }
             Ok(event_id)

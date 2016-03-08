@@ -1,7 +1,7 @@
 use super::*;
 
 use std::fs::*;
-use std::io::{BufReader, BufWriter, Write};
+use std::io::{BufRead, BufReader, BufWriter, Write};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Log {
@@ -45,17 +45,18 @@ impl Log {
         }
     }
 
-    pub fn count_lines_and_bytes(&self) -> Result<(usize, usize), DatabaseError> {
+    pub fn compute_index(&self) -> Result<LinesIndex, DatabaseError> {
+        self.open_line_reader().and_then(|mut reader| {
+            match reader.compute_index() {
+                Ok(_) => Ok(reader.get_index().clone()),
+                Err(err) => Err(DatabaseError::new_io_error(err))
+            }
+        })
+    }
+
+    pub fn count_lines(&self) -> Result<usize, DatabaseError> {
         match self.open_line_reader() {
-            Ok(mut reader) => {
-                match reader.compute_index() {
-                    Ok(lines_count) => {
-                        let bytes_count = reader.bytes_len().unwrap();
-                        Ok((lines_count as usize, bytes_count as usize))
-                    },
-                    Err(err) => Err(DatabaseError::new_io_error(err))
-                }
-            },
+            Ok(mut reader) => Ok((&mut reader).lines().count()),
             Err(err) => Err(err)
         }
     }
@@ -91,12 +92,12 @@ mod tests {
         assert!(log.open_writer().is_ok());
         assert!(log.open_reader().is_ok());
 
-        assert_eq!(log.count_lines_and_bytes().unwrap(), (0, 0));
+        assert_eq!(log.count_lines().unwrap(), 0);
 
         let mut file_writer = log.open_writer().expect("Unable to open file writer");
 
         assert!(file_writer.write_line("data").is_ok());
-        assert_eq!(log.count_lines_and_bytes().unwrap(), (1, 5));
+        assert_eq!(log.count_lines().unwrap(), 1);
 
         assert!(log.remove().is_ok());
 

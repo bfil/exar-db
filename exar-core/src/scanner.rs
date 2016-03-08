@@ -35,13 +35,6 @@ impl Scanner {
         }
     }
 
-    pub fn add_line_index(&self, line: usize, bytes_len: usize) -> Result<(), DatabaseError> {
-        match self.send.send(ScannerAction::AddLineIndex(line, bytes_len)) {
-            Ok(()) => Ok(()),
-            Err(_) => Err(DatabaseError::EventStreamError(EventStreamError::Closed))
-        }
-    }
-
     pub fn update_index(&self, index: LinesIndex) -> Result<(), DatabaseError> {
         match self.send.send(ScannerAction::UpdateIndex(index)) {
             Ok(()) => Ok(()),
@@ -90,13 +83,9 @@ impl ScannerThread {
                 while let Ok(action) = self.recv.try_recv() {
                     match action {
                         ScannerAction::HandleSubscription(subscription) => self.subscriptions.push(subscription),
-                        ScannerAction::AddLineIndex(line, bytes_len) => {
-                            self.index.insert(line as u64, bytes_len as u64);
-                            self.reader.load_index(self.index.clone());
-                        },
                         ScannerAction::UpdateIndex(index) => {
                             self.index = index;
-                            self.reader.load_index(self.index.clone());
+                            self.reader.restore_index(self.index.clone());
                         },
                         ScannerAction::Stop => break 'main
                     }
@@ -151,7 +140,6 @@ impl ScannerThread {
 #[derive(Clone, Debug)]
 pub enum ScannerAction {
     HandleSubscription(Subscription),
-    AddLineIndex(usize, usize),
     UpdateIndex(LinesIndex),
     Stop
 }

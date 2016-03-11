@@ -1,0 +1,14 @@
+<template>
+    <require from="bootstrap/css/bootstrap.css"></require>
+    <require from="bootstrap-datetimepicker/build/css/bootstrap-datetimepicker.css"></require>
+    <require from="font-awesome/css/font-awesome.css"></require>
+    <require from="../styles/styles.css"></require>
+    
+    <require from="./components/nav-bar"></require>
+
+    <nav-bar router.bind="router"></nav-bar>
+
+    <div class="page-host">
+        <router-view></router-view>
+    </div>
+</template>

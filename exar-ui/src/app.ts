@@ -5,7 +5,6 @@ export class App {
 
     configureRouter(config: RouterConfiguration, router: Router) {
         config.title = 'Exar UI';
-        // config.options.pushState = true;
         config.map([
             { route: '', name: 'home', moduleId: 'views/home', nav: false, title: 'Home' }
         ]);

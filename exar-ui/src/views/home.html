@@ -1,16 +1,35 @@
 <template>
     <section>
-        <h3>Welcome</h3>
-        <p>
-            Welcome to the Exar UI
-        </p>
-        <form class="form-inline">
+        <h3>Welcome to ExarDB</h3>
+        <form class="form-inline" if.bind="!connected">
             <input type="text" class="form-control" value.bind="collection" placeholder="Collection Name">
             <button type="submit" class="btn btn-default" click.delegate="connect()">Connect</button>
         </form>
+        <div if.bind="connected">
+            <div>
+                Connected to <b>${collection}</b>
+                <button type="submit" class="btn btn-default" click.delegate="disconnect()">Disconnect</button>
+            </div>
+            <hr>
+            <form class="form-inline">
+                <input type="text" class="form-control" value.bind="data" placeholder="Event Data">
+                <input type="text" class="form-control" value.bind="tags" placeholder="Tags">
+                <button type="submit" class="btn btn-default" click.delegate="publish()">Publish</button>
+            </form>
+            <hr>
+            <form class="form-inline">
+                <input type="number" class="form-control" value.bind="offset" placeholder="Offset">
+                <input type="number" class="form-control" value.bind="limit" placeholder="Limit">
+                <input type="text" class="form-control" value.bind="tag" placeholder="Tag">
+                <button type="submit" class="btn btn-default" click.delegate="subscribe()">Subscribe</button>
+            </form>
+        </div>
         <hr>
-        <ul>
-            <li repeat.for="message of messages">${message}</li>
+        <p if.bind="messages.length">
+            Messages <button type="submit" class="btn btn-default btn-xs pull-right" click.delegate="clearMessages()">Clear</button>
+        </p>
+        <ul class="list-group">
+            <li class="list-group-item" repeat.for="message of messages">${message}</li>
         </ul>
     </section>
 </template>

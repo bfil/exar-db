@@ -1,6 +1,10 @@
-interface TCPSocket {
+interface TCPSocketStatic {
     open(host: string, port: number): TCPSocket;
+}
+
+interface TCPSocket {
     send(data: any);
+    close();
     
     onopen: any;
     ondata: any;
@@ -10,5 +14,5 @@ interface TCPSocket {
 }
 
 interface Navigator {
-    TCPSocket: TCPSocket;
+    TCPSocket: TCPSocketStatic;
 }

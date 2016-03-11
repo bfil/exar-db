@@ -61,8 +61,10 @@
       "aurelia-templating-router": "npm:aurelia-templating-router@^1.0.0-beta.1.1.0",
       "bootstrap": "github:twbs/bootstrap@^3.3.5",
       "bootstrap-datetimepicker": "github:eonasdan/bootstrap-datetimepicker@^4.17.37",
+      "emailjs-tcp-socket": "npm:emailjs-tcp-socket@^1.0.2",
       "fetch": "github:github/fetch@^0.10.1",
       "font-awesome": "npm:font-awesome@^4.5.0",
+      "forge": "npm:forge@^2.3.0",
       "moment": "npm:moment@^2.12.0",
       "text": "github:systemjs/plugin-text@^0.0.3"
     },

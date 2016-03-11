@@ -4,5 +4,13 @@
         <p>
             Welcome to the Exar UI
         </p>
+        <form class="form-inline">
+            <input type="text" class="form-control" value.bind="collection" placeholder="Collection Name">
+            <button type="submit" class="btn btn-default" click.delegate="connect()">Connect</button>
+        </form>
+        <hr>
+        <ul>
+            <li repeat.for="message of messages">${message}</li>
+        </ul>
     </section>
 </template>

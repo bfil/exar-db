@@ -1,5 +1,6 @@
 import 'bootstrap';
 import 'bootstrap-datetimepicker';
+import 'emailjs-tcp-socket';
 import 'moment';
 
 import {Aurelia} from 'aurelia-framework';

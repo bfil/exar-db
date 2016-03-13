@@ -1,0 +1,21 @@
+<template>
+    <div class="navbar nav_title">
+        <a href="" class="site_title"><i class="fa fa-paw"></i> <span>Exar UI</span></a>
+    </div>
+    <div class="clearfix"></div>
+    <div id="sidebar-menu" class="main_menu_side hidden-print main_menu">
+
+        <div class="menu_section">
+            <h3 if.bind="router.navigation.length">Navigation</h3>
+            <ul class="nav side-menu">
+                <li repeat.for="row of router.navigation" class="${row.isActive ? 'active' : ''}">
+                    <a data-toggle="collapse" data-target="#navbar-collapse.in" href.bind="row.href">${row.title}</a>
+                </li>
+            </ul>
+            <h3>Connections</h3>
+            <ul class="nav side-menu">
+                <li><a><i class="fa fa-database"></i>No open connections</a></li>
+            </ul>
+        </div>
+    </div>
+</template>

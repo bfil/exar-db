@@ -1,5 +1,18 @@
 body {
   margin: 0;
+  height: 100%;
+}
+
+.container.body {
+    height: 100%;
+}
+
+.main_container {
+    height: 100%;
+}
+
+.right_col {
+    height: 100%;
 }
 
 .splash {
@@ -183,4 +196,21 @@ h3 {
 
 .input-group.date .form-control[readonly] {
     background: white;
+}
+
+.form-inline > * {
+   margin-bottom: 10px;
+}
+
+footer p {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    width: 100%;
+    text-align: right;
+}
+
+#sidebar-menu .fa {
+    vertical-align: middle;
+    margin-top: -1px;
 }

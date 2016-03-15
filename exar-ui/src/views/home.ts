@@ -1,38 +1,6 @@
 import {autoinject} from 'aurelia-framework';
 
-interface Connection {
-    collection: string;
-    
-    data?: string;
-    tags?: string;
-    
-    offset?: string;
-    limit?: string;
-    tag?: string;
-    
-    connected: boolean;
-    messages: string[];
-    socket?: TCPSocket;
-    
-    logMessage(message: String);
-}
-
-class Connection {
-    
-    constructor() {
-        this.collection = '';
-        this.connected = false;
-        this.messages = [];
-        this.socket = undefined;
-    }
-    
-    logMessage(message: string) {
-        this.messages.push(message);
-    }
-    clearMessages() {
-        this.messages = [];
-    }
-}
+import * as $ from 'jquery';
 
 @autoinject
 export class Home {
@@ -44,6 +12,7 @@ export class Home {
     
     addConnection() {
         this.connections.push(new Connection());
+        setTimeout(() => $(`#tab-${this.connections.length - 1}`).tab('show'));
     }
     
     removeConnection(index) {
@@ -121,5 +90,35 @@ export class Home {
         connection.socket.ondata = this.awaitingEvents(connection).bind(this);
         let optionalTag = connection.tag ? `\t${connection.tag}`: '';
         connection.socket.send(this.encode(`Subscribe\tfalse\t${connection.offset || 0}\t${connection.limit || 0}${optionalTag}\n`));
+    }
+}
+
+export class Connection {
+    collection: string;
+    
+    data: string;
+    tags: string;
+    
+    offset: string;
+    limit: string;
+    tag: string;
+    
+    connected: boolean;
+    messages: string[];
+    socket: TCPSocket;
+    
+    constructor() {
+        this.collection = '';
+        this.connected = false;
+        this.messages = [];
+        this.socket = undefined;
+    }
+    
+    logMessage(message: string) {
+        this.messages.push(message);
+    }
+    
+    clearMessages() {
+        this.messages = [];
     }
 }

@@ -3205,6 +3205,7 @@ interface JQuery {
     
     // Manually added
     datetimepicker(props: Object);
+    tab(command: string);
 }
 declare module "jquery" {
     export = $;

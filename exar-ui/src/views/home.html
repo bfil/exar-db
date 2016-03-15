@@ -2,7 +2,7 @@
     <div>
         <ul class="nav nav-tabs" role="tablist">
             <li role="presentation" repeat.for="connection of connections">
-                <a href="${'#tab-' + $index}" role="tab" data-toggle="tab">
+                <a id="${'tab-' + $index}" href="${'#tab-content-' + $index}" role="tab" data-toggle="tab">
                     ${connection.collection || "New connection"}
                     <span>&nbsp;&nbsp;<i class="fa fa-times" click.delegate="removeConnection($index)"></i></span>
                 </a>   
@@ -15,7 +15,7 @@
             </li>
         </ul>
         <div class="tab-content">
-            <div repeat.for="connection of connections" role="tabpanel" class="tab-pane" id="${'tab-' + $index}">
+            <div repeat.for="connection of connections" role="tabpanel" class="tab-pane" id="${'tab-content-' + $index}">
                 <section>
                     <h3>Parameters</h3>
                     <form class="form-inline" if.bind="!connection.connected">

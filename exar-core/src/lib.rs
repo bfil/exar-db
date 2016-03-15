@@ -7,6 +7,7 @@
 #[cfg(test)] #[macro_use]
 extern crate exar_testkit;
 
+extern crate indexed_line_reader;
 extern crate rand;
 extern crate time;
 
@@ -18,7 +19,6 @@ mod database;
 mod encoding;
 mod error;
 mod event;
-mod line_reader;
 mod log;
 mod query;
 mod scanner;
@@ -35,7 +35,6 @@ pub use self::database::*;
 pub use self::encoding::*;
 pub use self::error::*;
 pub use self::event::*;
-pub use self::line_reader::*;
 pub use self::log::*;
 pub use self::query::*;
 pub use self::routing_strategy::*;

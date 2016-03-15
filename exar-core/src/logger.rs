@@ -16,8 +16,8 @@ impl Logger {
             log.open_writer().and_then(|writer| {
                 Ok(Logger {
                     writer: writer,
-                    offset: index.lines_count() as usize + 1,
-                    bytes_written: index.bytes_count() as usize
+                    offset: index.line_count() as usize + 1,
+                    bytes_written: index.byte_count() as usize
                 })
             })
         })

@@ -1,5 +1,7 @@
 use super::*;
 
+use indexed_line_reader::*;
+
 use std::fs::*;
 use std::io::{BufReader, BufWriter, Write};
 
@@ -101,13 +103,13 @@ mod tests {
         assert!(log.open_reader().is_ok());
 
         let index = log.compute_index().expect("Unable to compute index");
-        assert_eq!(index.lines_count(), 0);
+        assert_eq!(index.line_count(), 0);
 
         let mut file_writer = log.open_writer().expect("Unable to open file writer");
         assert!(file_writer.write_line("data").is_ok());
 
         let index = log.compute_index().expect("Unable to compute index");
-        assert_eq!(index.lines_count(), 1);
+        assert_eq!(index.line_count(), 1);
 
         assert!(log.remove().is_ok());
 

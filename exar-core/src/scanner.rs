@@ -1,5 +1,7 @@
 use super::*;
 
+use indexed_line_reader::*;
+
 use std::fs::File;
 use std::io::{BufRead, BufReader, Seek, SeekFrom};
 use std::sync::mpsc::{channel, Receiver, Sender};
@@ -35,8 +37,8 @@ impl Scanner {
         }
     }
 
-    pub fn add_line_index(&self, line: usize, bytes_len: usize) -> Result<(), DatabaseError> {
-        match self.send.send(ScannerAction::AddLineIndex(line, bytes_len)) {
+    pub fn add_line_index(&self, line: usize, byte_count: usize) -> Result<(), DatabaseError> {
+        match self.send.send(ScannerAction::AddLineIndex(line, byte_count)) {
             Ok(()) => Ok(()),
             Err(_) => Err(DatabaseError::EventStreamError(EventStreamError::Closed))
         }
@@ -90,8 +92,8 @@ impl ScannerThread {
                 while let Ok(action) = self.recv.try_recv() {
                     match action {
                         ScannerAction::HandleSubscription(subscription) => self.subscriptions.push(subscription),
-                        ScannerAction::AddLineIndex(line, bytes_len) => {
-                            self.index.insert(line as u64, bytes_len as u64);
+                        ScannerAction::AddLineIndex(line, byte_count) => {
+                            self.index.insert(line as u64, byte_count as u64);
                             self.reader.restore_index(self.index.clone());
                         },
                         ScannerAction::UpdateIndex(index) => {

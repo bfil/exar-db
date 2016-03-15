@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "author": "Bruno Filippone <bruno.filippone@ovoenergy.com>",
   "license": "UNLICENSED",
-  "main": "dist/main.js",
+  "main": "index.js",
   "repository": {
     "type": "git",
     "url": "http://github.com/bfil/exar-ui"

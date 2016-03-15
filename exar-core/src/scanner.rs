@@ -163,6 +163,8 @@ mod tests {
     use super::super::*;
     use exar_testkit::*;
 
+    use indexed_line_reader::*;
+
     use std::sync::mpsc::{channel, TryRecvError};
     use std::thread;
     use std::time::Duration;
@@ -219,6 +221,25 @@ mod tests {
             _ => panic!("Expected to receive an HandleSubscription message")
         }
 
+        assert!(scanner.add_line_index(100, 1000).is_ok());
+
+        match recv.recv() {
+            Ok(ScannerAction::AddLineIndex(pos, byte_count)) => {
+                assert_eq!(pos, 100);
+                assert_eq!(byte_count, 1000);
+            },
+            _ => panic!("Expected to receive an HandleSubscription message")
+        }
+
+        assert!(scanner.update_index(LinesIndex::new(100)).is_ok());
+
+        match recv.recv() {
+            Ok(ScannerAction::UpdateIndex(index)) => {
+                assert_eq!(index, LinesIndex::new(100));
+            },
+            _ => panic!("Expected to receive an HandleSubscription message")
+        }
+
         assert!(scanner.stop().is_ok());
 
         match recv.recv() {
@@ -247,6 +268,46 @@ mod tests {
 
         let scanner_thread = handle.join().expect("Unable to join scanner thread");
         assert_eq!(scanner_thread.subscriptions.len(), 0);
+
+        assert!(log.remove().is_ok());
+    }
+
+    #[test]
+    fn test_scanner_thread_index_updates() {
+        let log = create_log();
+        let line_reader = log.open_line_reader().expect("Unable to open line reader");
+        let sleep_duration = Duration::from_millis(10);
+
+        let (send, recv) = channel();
+        let scanner_thread = ScannerThread::new(line_reader, recv);
+        let handle = scanner_thread.run(sleep_duration);
+
+        assert!(send.send(ScannerAction::UpdateIndex(LinesIndex::new(100))).is_ok());
+        assert!(send.send(ScannerAction::Stop).is_ok());
+
+        let scanner_thread = handle.join().expect("Unable to join scanner thread");
+        assert_eq!(scanner_thread.index, LinesIndex::new(100));
+        assert_eq!(scanner_thread.reader.get_index().clone(), LinesIndex::new(100));
+
+        assert!(log.remove().is_ok());
+    }
+
+    #[test]
+    fn test_scanner_thread_new_indexed_line() {
+        let log = create_log();
+        let line_reader = log.open_line_reader().expect("Unable to open line reader");
+        let sleep_duration = Duration::from_millis(10);
+
+        let (send, recv) = channel();
+        let scanner_thread = ScannerThread::new(line_reader, recv);
+        let handle = scanner_thread.run(sleep_duration);
+
+        assert!(send.send(ScannerAction::AddLineIndex(99, 1234)).is_ok());
+        assert!(send.send(ScannerAction::Stop).is_ok());
+
+        let scanner_thread = handle.join().expect("Unable to join scanner thread");
+        assert_eq!(scanner_thread.index.byte_count_at_pos(&100), Some(1234));
+        assert_eq!(scanner_thread.reader.get_index().clone().byte_count_at_pos(&100), Some(1234));
 
         assert!(log.remove().is_ok());
     }

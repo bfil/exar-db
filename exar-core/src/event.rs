@@ -12,7 +12,7 @@ pub struct Event {
     pub id: usize,
     pub data: String,
     pub tags: Vec<String>,
-    pub timestamp: usize
+    pub timestamp: u64
 }
 
 impl Event {
@@ -30,19 +30,14 @@ impl Event {
         self
     }
 
-    pub fn with_timestamp(mut self, timestamp: usize) -> Self {
+    pub fn with_timestamp(mut self, timestamp: u64) -> Self {
         self.timestamp = timestamp;
         self
     }
 
     pub fn with_current_timestamp(mut self) -> Self {
-        self.timestamp = self.get_current_time();
+        self.timestamp = get_current_timestamp_in_ms();
         self
-    }
-
-    fn get_current_time(&self) -> usize {
-        let timespec = time::get_time();
-        timespec.sec as usize * 1000 + timespec.nsec as usize / 1000 / 1000
     }
 }
 
@@ -126,8 +121,14 @@ pub enum EventStreamError {
     Closed
 }
 
+fn get_current_timestamp_in_ms() -> u64 {
+    let timespec = time::get_time();
+    timespec.sec as u64 * 1000 + timespec.nsec as u64 / 1000 / 1000
+}
+
 #[cfg(test)]
 mod tests {
+    use super::get_current_timestamp_in_ms;
     use super::super::*;
 
     use std::sync::mpsc::channel;
@@ -138,7 +139,7 @@ mod tests {
         assert_eq!(event.id, 0);
         assert_eq!(event.data, "data".to_owned());
         assert_eq!(event.tags, vec!["tag1".to_owned(), "tag2".to_owned()]);
-        assert!(event.timestamp <= event.get_current_time());
+        assert!(event.timestamp <= get_current_timestamp_in_ms());
 
         let event = event.with_id(1);
         assert_eq!(event.id, 1);
@@ -148,7 +149,7 @@ mod tests {
 
         let event = event.with_current_timestamp();
         assert!(event.timestamp != 1234567890);
-        assert!(event.timestamp <= event.get_current_time());
+        assert!(event.timestamp <= get_current_timestamp_in_ms());
     }
 
     #[test]

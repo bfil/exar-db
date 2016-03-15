@@ -1,7 +1,10 @@
 use std::fmt::{Display, Formatter, Result as DisplayResult};
 
 pub trait Validation where Self: Sized {
-    fn validate(self) -> Result<Self, ValidationError>;
+    fn validate(&self) -> Result<(), ValidationError>;
+    fn validated(self) -> Result<Self, ValidationError> {
+        self.validate().and_then(|_| Ok(self))
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -33,19 +36,21 @@ mod tests {
     }
 
     impl Validation for Test {
-        fn validate(self) -> Result<Self, ValidationError> {
+        fn validate(&self) -> Result<(), ValidationError> {
             if self.value == "invalid" {
-                Err(ValidationError::new("invalid value"))
-            } else {
-                Ok(self)
+                return Err(ValidationError::new("invalid value"));
             }
+            Ok(())
         }
     }
 
     #[test]
     fn test_validation() {
         let valid_test = Test { value: "valid".to_owned() };
-        assert_eq!(valid_test.clone().validate(), Ok(valid_test));
+        assert_eq!(valid_test.clone().validate(), Ok(()));
+
+        let valid_test = Test { value: "valid".to_owned() };
+        assert_eq!(valid_test.clone().validated(), Ok(valid_test));
 
         let invalid_test = Test { value: "invalid".to_owned() };
         assert_eq!(invalid_test.clone().validate(), Err(ValidationError::new("invalid value")));

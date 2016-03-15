@@ -40,11 +40,6 @@ impl Event {
         self
     }
 
-    pub fn without_empty_tags(mut self) -> Self {
-        self.tags = self.tags.iter().filter(|t| !t.is_empty()).map(|x| x.to_string()).collect();
-        self
-    }
-
     fn get_current_time(&self) -> usize {
         let timespec = time::get_time();
         timespec.sec as usize * 1000 + timespec.nsec as usize / 1000 / 1000
@@ -81,13 +76,13 @@ impl FromTabSeparatedStr for Event {
 }
 
 impl Validation for Event {
-    fn validate(self) -> Result<Self, ValidationError> {
-        let event = self.without_empty_tags();
-        if event.tags.is_empty() {
-            Err(ValidationError::new("event must contain at least one tag"))
-        } else {
-            Ok(event)
+    fn validate(&self) -> Result<(), ValidationError> {
+        if self.tags.is_empty() {
+            return Err(ValidationError::new("event must contain at least one tag"));
+        } else if self.tags.iter().any(|t| t.is_empty()) {
+            return Err(ValidationError::new("event must not contain empty tags"));
         }
+        Ok(())
     }
 }
 
@@ -154,12 +149,6 @@ mod tests {
         let event = event.with_current_timestamp();
         assert!(event.timestamp != 1234567890);
         assert!(event.timestamp <= event.get_current_time());
-
-        let event = Event::new("data", vec!["tag1", "tag2", ""]);
-        assert_eq!(event.tags, vec!["tag1".to_owned(), "tag2".to_owned(), "".to_owned()]);
-
-        let event = event.without_empty_tags();
-        assert_eq!(event.tags, vec!["tag1".to_owned(), "tag2".to_owned()]);
     }
 
     #[test]
@@ -176,11 +165,15 @@ mod tests {
 
     #[test]
     fn test_event_validation() {
-        let event = Event::new("data", vec![""]);
+        let event = Event::new("data", vec![]);
         assert_eq!(event.validate(), Err(ValidationError::new("event must contain at least one tag")));
 
+        let event = Event::new("data", vec![""]);
+        assert_eq!(event.validate(), Err(ValidationError::new("event must not contain empty tags")));
+
         let event = Event::new("data", vec!["tag1", "tag2"]);
-        assert_eq!(event.clone().validate(), Ok(event));
+        assert_eq!(event.clone().validate(), Ok(()));
+        assert_eq!(event.clone().validated(), Ok(event));
     }
 
     #[test]

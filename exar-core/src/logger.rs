@@ -24,7 +24,7 @@ impl Logger {
     }
 
     pub fn log(&mut self, event: Event) -> Result<usize, DatabaseError> {
-        match event.validate() {
+        match event.validated() {
             Ok(event) => {
                 let event_id = self.offset;
                 let mut event = event.with_id(event_id);

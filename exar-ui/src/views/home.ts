@@ -1,23 +1,54 @@
 import {autoinject} from 'aurelia-framework';
 
+interface Connection {
+    collection: string;
+    
+    data?: string;
+    tags?: string;
+    
+    offset?: string;
+    limit?: string;
+    tag?: string;
+    
+    connected: boolean;
+    messages: string[];
+    socket?: TCPSocket;
+    
+    logMessage(message: String);
+}
+
+class Connection {
+    
+    constructor() {
+        this.collection = '';
+        this.connected = false;
+        this.messages = [];
+        this.socket = undefined;
+    }
+    
+    logMessage(message: string) {
+        this.messages.push(message);
+    }
+    clearMessages() {
+        this.messages = [];
+    }
+}
+
 @autoinject
 export class Home {
     
     encoder: TextEncoding.TextEncoder;
     decoder: TextEncoding.TextDecoder;
     
-    collection: string = "test";
+    connections: Connection[] = [];
     
-    data: string;
-    tags: string;
+    addConnection() {
+        this.connections.push(new Connection());
+    }
     
-    offset: string;
-    limit: string;
-    tag: string;
-    
-    connected: boolean = false;
-    messages: string[] = [];
-    socket: TCPSocket;
+    removeConnection(index) {
+        this.connections.splice(index, 1);
+    }
     
     constructor() {
         this.encoder = new TextEncoder("utf8");
@@ -36,61 +67,59 @@ export class Home {
         
     }
     
-    connect() {
-        this.socket = navigator.TCPSocket.open("localhost", 38580);
-        this.socket.onopen = () => {
-            this.socket.send(this.encode(`Connect\t${this.collection}\tadmin\tsecret\n`));
+    connect(connection: Connection) {
+        connection.socket = navigator.TCPSocket.open("localhost", 38580);
+        connection.socket.onopen = () => {
+            connection.socket.send(this.encode(`Connect\t${connection.collection}\tadmin\tsecret\n`));
         };
         
-        this.socket.ondata = this.awaitingConnection.bind(this);
+        connection.socket.ondata = this.awaitingConnection(connection).bind(this);
         
-        this.socket.onerror = event => {
+        connection.socket.onerror = event => {
             let error = event.data;
-            this.logMessage(`Error: ${error.message}`);
+            connection.logMessage(`Error: ${error.message}`);
         };
         
-        this.socket.onclose = () => {
-            this.connected = false;
-            this.logMessage("Disconnected");
+        connection.socket.onclose = () => {
+            connection.connected = false;
+            connection.logMessage("Disconnected");
         };
     }
     
-    awaitingConnection(event) {
-        this.connected = true;
-        this.logMessage(this.decode(event.data));
+    awaitingConnection(connection: Connection) {
+        return event => {
+            connection.connected = true;
+            connection.logMessage(this.decode(event.data));
+        };
     }
     
-    awaitingPublished(event) {
-        this.logMessage(this.decode(event.data));
+    awaitingPublished(connection: Connection) {
+        return event => {
+            connection.logMessage(this.decode(event.data));
+        };
     }
     
-    awaitingEvents(event) {
-        let events = this.decode(event.data).split('\n');
-        for(event of events) {
-            if(event) this.logMessage(event);    
+    awaitingEvents(connection: Connection) {
+        return event => {
+            let events = this.decode(event.data).split('\n');
+            for(event of events) {
+                if(event) connection.logMessage(event);    
+            }
         }
     }
     
-    disconnect() {
-        this.socket.close();
+    disconnect(connection: Connection) {
+        connection.socket.close();
     }
     
-    publish() {
-        this.socket.ondata = this.awaitingPublished.bind(this);
-        this.socket.send(this.encode(`Publish\t${this.tags || ''}\t0\t${this.data || ''}\n`));
+    publish(connection: Connection) {
+        connection.socket.ondata = this.awaitingPublished(connection).bind(this);
+        connection.socket.send(this.encode(`Publish\t${connection.tags || ''}\t0\t${connection.data || ''}\n`));
     }
     
-    subscribe() {
-        this.socket.ondata = this.awaitingEvents.bind(this);
-        let optionalTag = this.tag ? `\t${this.tag}`: '';
-        this.socket.send(this.encode(`Subscribe\tfalse\t${this.offset || 0}\t${this.limit || 0}${optionalTag}\n`));
-    }
-    
-    logMessage(message: string) {
-        this.messages.push(message);
-    }
-    
-    clearMessages() {
-        this.messages = [];
+    subscribe(connection: Connection) {
+        connection.socket.ondata = this.awaitingEvents(connection).bind(this);
+        let optionalTag = connection.tag ? `\t${connection.tag}`: '';
+        connection.socket.send(this.encode(`Subscribe\tfalse\t${connection.offset || 0}\t${connection.limit || 0}${optionalTag}\n`));
     }
 }

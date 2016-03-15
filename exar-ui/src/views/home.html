@@ -1,37 +1,60 @@
 <template>
-    <section>
-        <h3>New Connection</h3>
-        <form class="form-inline" if.bind="!connected">
-            <input type="text" class="form-control" value.bind="collection" placeholder="Collection Name">
-            <button type="submit" class="btn btn-default" click.delegate="connect()">Connect</button>
-        </form>
-        <div if.bind="connected">
-            <div>
-                Connected to <b>${collection}</b>
-                <button type="submit" class="btn btn-default" click.delegate="disconnect()">Disconnect</button>
-            </div>
-            <hr>
-            <form class="form-inline">
-                <h3>Publish</h3>
-                <input type="text" class="form-control" value.bind="data" placeholder="Event Data">
-                <input type="text" class="form-control" value.bind="tags" placeholder="Tags">
-                <button type="submit" class="btn btn-default" click.delegate="publish()">Publish</button>
-            </form>
-            <hr>
-            <form class="form-inline">
-                <h3>Subscribe</h3>
-                <input type="number" class="form-control" value.bind="offset" placeholder="Offset">
-                <input type="number" class="form-control" value.bind="limit" placeholder="Limit">
-                <input type="text" class="form-control" value.bind="tag" placeholder="Tag">
-                <button type="submit" class="btn btn-default" click.delegate="subscribe()">Subscribe</button>
-            </form>
-        </div>
-        <hr>
-        <p if.bind="messages.length">
-            Messages <button type="submit" class="btn btn-default btn-xs pull-right" click.delegate="clearMessages()">Clear</button>
-        </p>
-        <ul class="list-group">
-            <li class="list-group-item" repeat.for="message of messages">${message}</li>
+    <div>
+        <ul class="nav nav-tabs" role="tablist">
+            <li role="presentation" repeat.for="connection of connections">
+                <a href="${'#tab-' + $index}" role="tab" data-toggle="tab">
+                    ${connection.collection || "New connection"}
+                    <span>&nbsp;&nbsp;<i class="fa fa-times" click.delegate="removeConnection($index)"></i></span>
+                </a>   
+            </li>
+            <li role="presentation">
+                <a href="" click.delegate="addConnection()">
+                    <i class="fa fa-plus"></i>
+                    <span if.bind="!connections.length">&nbsp;Add connection</span>
+                </a>
+            </li>
         </ul>
-    </section>
+        <div class="tab-content">
+            <div repeat.for="connection of connections" role="tabpanel" class="tab-pane" id="${'tab-' + $index}">
+                <section>
+                    <h3>Parameters</h3>
+                    <form class="form-inline" if.bind="!connection.connected">
+                        <input type="text" class="form-control" value.bind="connection.collection" placeholder="Collection Name">
+                        <button type="submit" class="btn btn-default" click.delegate="connect(connection)" disabled.bind="!connection.collection">Connect</button>
+                    </form>
+                    <div if.bind="connection.connected">
+                        <div>
+                            Connected to <b>${connection.collection}</b>
+                            <button type="submit" class="btn btn-default" click.delegate="disconnect(connection)">Disconnect</button>
+                        </div>
+                        <hr>
+                        <form class="form-inline">
+                            <h3>Publish</h3>
+                            <input type="text" class="form-control" value.bind="connection.data" placeholder="Event Data">
+                            <input type="text" class="form-control" value.bind="connection.tags" placeholder="Tags">
+                            <button type="submit" class="btn btn-default" click.delegate="publish(connection)">Publish</button>
+                        </form>
+                        <hr>
+                        <form class="form-inline">
+                            <h3>Subscribe</h3>
+                            <input type="number" class="form-control" value.bind="connection.offset" placeholder="Offset">
+                            <input type="number" class="form-control" value.bind="connection.limit" placeholder="Limit">
+                            <input type="text" class="form-control" value.bind="connection.tag" placeholder="Tag">
+                            <button type="submit" class="btn btn-default" click.delegate="subscribe(connection)">Subscribe</button>
+                        </form>
+                    </div>
+                    <hr>
+                    <p if.bind="connection.messages.length">
+                        Messages
+                        <button type="submit" class="btn btn-default btn-xs pull-right" click.delegate="connection.clearMessages()">Clear</button>
+                    </p>
+                    <ul class="list-group">
+                        <li class="list-group-item" repeat.for="message of connection.messages">${message}</li>
+                    </ul>
+                </section>
+            </div>
+        </div>
+    </div>
+
+    
 </template>

@@ -58,11 +58,13 @@ impl Client {
                             thread::spawn(move || {
                                 for message in cloned_stream.messages() {
                                     match message {
-                                        Ok(TcpMessage::Event(event)) => match send.send(event) {
+                                        Ok(TcpMessage::Event(event)) => match send.send(EventStreamMessage::Event(event)) {
                                             Ok(_) => continue,
                                             Err(err) => println!("Unable to send event to the event stream: {}", err)
                                         },
-                                        Ok(TcpMessage::EndOfEventStream) => (),
+                                        Ok(TcpMessage::EndOfEventStream) => {
+                                            let _ = send.send(EventStreamMessage::End);
+                                        },
                                         Ok(TcpMessage::Error(error)) => println!("Received error from TCP stream: {}", error),
                                         Ok(message) => println!("Unexpected TCP message: {}", message),
                                         Err(err) => println!("Unable to read TCP message from stream: {}", err)

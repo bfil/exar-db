@@ -126,16 +126,35 @@ impl ScannerThread {
         self.subscriptions.iter().map(|s| s.query.position).min().unwrap_or(0) as u64
     }
 
+    fn find_max_offset(&self) -> Option<u64> {
+        if self.subscriptions.iter().any(|s| s.query.is_live() || s.query.limit.is_none()) {
+            None
+        } else {
+            self.subscriptions.iter().filter_map(|s| {
+                match s.query.limit {
+                    Some(limit) => Some(s.query.position as u64 + limit as u64),
+                    None => None
+                }
+            }).max()
+        }
+    }
+
     fn scan(&mut self) -> Result<(), DatabaseError> {
-        let offset = self.find_min_offset();
-        match self.reader.seek(SeekFrom::Start(offset)) {
+        let min_offset = self.find_min_offset();
+        let max_offset = self.find_max_offset();
+        match self.reader.seek(SeekFrom::Start(min_offset)) {
             Ok(_) => {
                 for line in (&mut self.reader).lines() {
                     match line {
                         Ok(line) => match Event::from_tab_separated_str(&line) {
                             Ok(ref event) => {
                                 for subscription in self.subscriptions.iter_mut().filter(|s| s.matches_event(event)) {
-                                    let _ = subscription.emit(event.clone());
+                                    let _ = subscription.send(event.clone());
+                                }
+                                if let Some(max_offset) = max_offset {
+                                    if max_offset as usize == event.id {
+                                        break;
+                                    }
                                 }
                             },
                             Err(err) => println!("Unable to deserialize log line: {}", err)
@@ -332,7 +351,10 @@ mod tests {
         assert!(thread_send.send(ScannerAction::HandleSubscription(live_subscription)).is_ok());
         thread::sleep(sleep_duration * 2);
 
-        assert_eq!(recv.try_recv().map(|e| e.id), Ok(1));
+        assert_eq!(recv.try_recv().map(|e| match e {
+            EventStreamMessage::Event(e) => e.id,
+            message => panic!("Unexpected event stream message: {:?}", message),
+        }), Ok(1));
         assert_eq!(recv.try_recv().err(), Some(TryRecvError::Empty));
 
         let (send, recv) = channel();
@@ -341,7 +363,10 @@ mod tests {
         assert!(thread_send.send(ScannerAction::HandleSubscription(current_subscription)).is_ok());
         thread::sleep(sleep_duration * 2);
 
-        assert_eq!(recv.try_recv().map(|e| e.id), Ok(1));
+        assert_eq!(recv.try_recv().map(|e| match e {
+            EventStreamMessage::Event(e) => e.id,
+            message => panic!("Unexpected event stream message: {:?}", message),
+        }), Ok(1));
         assert_eq!(recv.try_recv().err(), Some(TryRecvError::Disconnected));
 
         assert!(log.remove().is_ok());

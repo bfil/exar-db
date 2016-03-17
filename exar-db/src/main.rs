@@ -30,7 +30,7 @@ fn main() {
     let db = Database::new(config.database);
     let server = Server::new(config.server.clone(), db).unwrap();
 
-    println!("ExarDB server listening on {}..", config.server.address());
+    println!("ExarDB running at {}..", config.server.address());
     server.listen();
-    println!("ExarDB server shutting down..");
+    println!("ExarDB shutting down..");
 }

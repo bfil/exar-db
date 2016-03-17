@@ -82,24 +82,26 @@ impl Validation for Event {
 }
 
 pub struct EventStream {
-    recv: Receiver<Event>
+    recv: Receiver<EventStreamMessage>
 }
 
 impl EventStream {
-    pub fn new(recv: Receiver<Event>) -> EventStream {
+    pub fn new(recv: Receiver<EventStreamMessage>) -> EventStream {
         EventStream {
             recv: recv
         }
     }
     pub fn recv(&self) -> Result<Event, EventStreamError> {
         match self.recv.recv() {
-            Ok(event) => Ok(event),
+            Ok(EventStreamMessage::Event(event)) => Ok(event),
+            Ok(EventStreamMessage::End) => Err(EventStreamError::Closed),
             Err(_) => Err(EventStreamError::Closed)
         }
     }
     pub fn try_recv(&self) -> Result<Event, EventStreamError> {
         match self.recv.try_recv() {
-            Ok(event) => Ok(event),
+            Ok(EventStreamMessage::Event(event)) => Ok(event),
+            Ok(EventStreamMessage::End) => Err(EventStreamError::Closed),
             Err(err) => match err {
                 TryRecvError::Empty => Err(EventStreamError::Empty),
                 TryRecvError::Disconnected => Err(EventStreamError::Closed)
@@ -113,6 +115,12 @@ impl Iterator for EventStream {
     fn next(&mut self) -> Option<Self::Item> {
         self.recv().ok()
     }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum EventStreamMessage {
+    Event(Event),
+    End
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -185,7 +193,7 @@ mod tests {
 
         let mut event_stream = EventStream::new(recv);
 
-        assert!(send.send(event.clone()).is_ok());
+        assert!(send.send(EventStreamMessage::Event(event.clone())).is_ok());
 
         assert_eq!(event_stream.next(), Some(event));
         assert_eq!(event_stream.try_recv(), Err(EventStreamError::Empty));

@@ -79,7 +79,7 @@ impl Handler {
             },
             (TcpMessage::Subscribe(live, offset, limit, tag), State::Connected(connection)) => {
                 connection.subscribe(Query::new(live, offset, limit, tag)).and_then(|event_stream| {
-                     Ok(ActionResult::EventStream(event_stream))
+                    Ok(ActionResult::EventStream(event_stream))
                 })
             },
             _ => Err(DatabaseError::IoError(ErrorKind::InvalidData, "unexpected TCP message".to_owned()))

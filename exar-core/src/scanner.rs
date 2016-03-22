@@ -122,50 +122,49 @@ impl ScannerThread {
         })
     }
 
-    fn find_min_offset(&self) -> u64 {
-        self.subscriptions.iter().map(|s| s.query.position).min().unwrap_or(0) as u64
+    fn subscriptions_intervals(&self) -> Vec<Interval<u64>> {
+        self.subscriptions.iter().map(|s| {
+            let start = s.query.position as u64;
+            let end = if s.query.is_live() || s.query.limit.is_none() {
+                u64::max_value()
+            } else {
+                start + s.query.limit.unwrap() as u64
+            };
+            Interval::new(start, end)
+        }).collect()
     }
 
-    fn find_max_offset(&self) -> Option<u64> {
-        if self.subscriptions.iter().any(|s| s.query.is_live() || s.query.limit.is_none()) {
-            None
-        } else {
-            self.subscriptions.iter().filter_map(|s| {
-                match s.query.limit {
-                    Some(limit) => Some(s.query.position as u64 + limit as u64),
-                    None => None
-                }
-            }).max()
-        }
+    fn merged_intervals(&self) -> Vec<Interval<u64>> {
+        let mut intervals = self.subscriptions_intervals();
+        intervals.merge();
+        intervals
     }
 
     fn scan(&mut self) -> Result<(), DatabaseError> {
-        let min_offset = self.find_min_offset();
-        let max_offset = self.find_max_offset();
-        match self.reader.seek(SeekFrom::Start(min_offset)) {
-            Ok(_) => {
-                for line in (&mut self.reader).lines() {
-                    match line {
-                        Ok(line) => match Event::from_tab_separated_str(&line) {
-                            Ok(ref event) => {
-                                for subscription in self.subscriptions.iter_mut().filter(|s| s.matches_event(event)) {
-                                    let _ = subscription.send(event.clone());
-                                }
-                                if let Some(max_offset) = max_offset {
-                                    if max_offset as usize == event.id {
+        for interval in self.merged_intervals() {
+            match self.reader.seek(SeekFrom::Start(interval.start)) {
+                Ok(_) => {
+                    for line in (&mut self.reader).lines() {
+                        match line {
+                            Ok(line) => match Event::from_tab_separated_str(&line) {
+                                Ok(ref event) => {
+                                    for subscription in self.subscriptions.iter_mut().filter(|s| s.matches_event(event)) {
+                                        let _ = subscription.send(event.clone());
+                                    }
+                                    if interval.end as usize == event.id {
                                         break;
                                     }
-                                }
+                                },
+                                Err(err) => println!("Unable to deserialize log line: {}", err)
                             },
-                            Err(err) => println!("Unable to deserialize log line: {}", err)
-                        },
-                        Err(err) => println!("Unable to read log line: {}", err)
+                            Err(err) => println!("Unable to read log line: {}", err)
+                        }
                     }
-                }
-                Ok(())
-            },
-            Err(err) => Err(DatabaseError::new_io_error(err))
+                },
+                Err(err) => return Err(DatabaseError::new_io_error(err))
+            }
         }
+        Ok(())
     }
 }
 

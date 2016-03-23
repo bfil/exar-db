@@ -51,6 +51,17 @@ impl Scanner {
         }
     }
 
+    pub fn set_live_sender(&mut self, send: Sender<ScannerAction>) -> Result<(), DatabaseError> {
+        match self.send.send(ScannerAction::SetLiveSender(send)) {
+            Ok(()) => Ok(()),
+            Err(_) => Err(DatabaseError::EventStreamError(EventStreamError::Closed))
+        }
+    }
+
+    pub fn clone_sender(&self) -> Sender<ScannerAction> {
+        self.send.clone()
+    }
+
     fn stop(&self) -> Result<(), DatabaseError> {
         match self.send.send(ScannerAction::Stop) {
             Ok(()) => Ok(()),
@@ -73,6 +84,7 @@ pub struct ScannerThread {
     index: LinesIndex,
     reader: IndexedLineReader<BufReader<File>>,
     recv: Receiver<ScannerAction>,
+    live_send: Option<Sender<ScannerAction>>,
     subscriptions: Vec<Subscription>
 }
 
@@ -82,6 +94,7 @@ impl ScannerThread {
             index: LinesIndex::new(100000),
             reader: reader,
             recv: recv,
+            live_send: None,
             subscriptions: vec![]
         }
     }
@@ -100,6 +113,9 @@ impl ScannerThread {
                             self.index = index;
                             self.reader.restore_index(self.index.clone());
                         },
+                        ScannerAction::SetLiveSender(send) => {
+                            self.live_send = Some(send);
+                        },
                         ScannerAction::Stop => break 'main
                     }
                 }
@@ -117,9 +133,20 @@ impl ScannerThread {
     }
 
     fn retain_active_subscriptions(&mut self) {
-        self.subscriptions.retain(|s| {
-            s.is_active() && s.query.is_live() && s.query.is_active()
-        })
+        match self.live_send {
+            Some(ref live_send) => {
+                for subscription in self.subscriptions.iter().filter(|s| s.query.is_live()) {
+                    match live_send.send(ScannerAction::HandleSubscription(subscription.clone())) {
+                        Ok(()) => (),
+                        Err(err) => println!("Unable to send the live subscription to the live scanner: {}", err)
+                    }
+                }
+                self.subscriptions.truncate(0);
+            },
+            None => self.subscriptions.retain(|s| {
+                s.is_active() && s.query.is_live() && s.query.is_active()
+            })
+        }
     }
 
     fn subscriptions_intervals(&self) -> Vec<Interval<u64>> {
@@ -173,6 +200,7 @@ pub enum ScannerAction {
     HandleSubscription(Subscription),
     AddLineIndex(usize, usize),
     UpdateIndex(LinesIndex),
+    SetLiveSender(Sender<ScannerAction>),
     Stop
 }
 

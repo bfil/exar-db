@@ -8,6 +8,7 @@ use std::time::Duration;
 #[derive(Debug)]
 pub struct Collection {
     log: Log,
+    live_scanner: Scanner,
     scanners: Vec<Scanner>,
     routing_strategy: RoutingStrategy,
     logger: Logger
@@ -18,15 +19,21 @@ impl Collection {
         let log = Log::new(&config.logs_path, collection_name, config.index_granularity);
         log.compute_index().and_then(|index| {
             Logger::new(log.clone()).and_then(|logger| {
-                let mut scanners = vec![];
                 let scanners_sleep_duration = Duration::from_millis(config.scanners_sleep_ms as u64);
+
+                let live_scanner = try!(Scanner::new(log.clone(), scanners_sleep_duration));
+                try!(live_scanner.update_index(index.clone()));
+
+                let mut scanners = vec![];
                 for _ in 0..config.scanners {
-                    let scanner = try!(Scanner::new(log.clone(), scanners_sleep_duration));
+                    let mut scanner = try!(Scanner::new(log.clone(), scanners_sleep_duration));
+                    try!(scanner.set_live_sender(live_scanner.clone_sender()));
                     try!(scanner.update_index(index.clone()));
                     scanners.push(scanner);
                 }
                 Ok(Collection {
                     log: log,
+                    live_scanner: live_scanner,
                     scanners: scanners,
                     routing_strategy: config.routing_strategy.clone(),
                     logger: logger

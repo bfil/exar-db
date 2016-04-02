@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["Bruno Filippone <bruno.filippone@b-fil.com>"]
 
 [dependencies]
-indexed-line-reader = "0.1"
+indexed-line-reader = "0.2"
 rand = "0.3"
 time = "0.1"
 rustc-serialize = { optional = true, version = "0.3" }

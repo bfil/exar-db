@@ -180,6 +180,7 @@ mod tests {
             drop(client);
 
             assert!(remove_file(format!("{}.log", collection_name)).is_ok());
+            assert!(remove_file(format!("{}.index.log", collection_name)).is_ok());
 
              handle.join().expect("Unable to join server thread");
         });
@@ -204,6 +205,7 @@ mod tests {
             drop(client);
 
             assert!(remove_file(format!("{}.log", collection_name)).is_ok());
+            assert!(remove_file(format!("{}.index.log", collection_name)).is_ok());
 
             handle.join().expect("Unable to join server thread");
         });
@@ -238,6 +240,7 @@ mod tests {
             drop(client);
 
             assert!(remove_file(format!("{}.log", collection_name)).is_ok());
+            assert!(remove_file(format!("{}.index.log", collection_name)).is_ok());
 
              handle.join().expect("Unable to join server thread");
         });

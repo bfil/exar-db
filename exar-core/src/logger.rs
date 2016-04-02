@@ -12,7 +12,7 @@ pub struct Logger {
 
 impl Logger {
     pub fn new(log: Log) -> Result<Logger, DatabaseError> {
-        log.compute_index().and_then(|index| {
+        log.restore_index().and_then(|index| {
             log.open_writer().and_then(|writer| {
                 Ok(Logger {
                     writer: writer,

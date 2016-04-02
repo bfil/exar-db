@@ -17,16 +17,11 @@ pub struct Scanner {
 impl Scanner {
     pub fn new(log: Log, sleep_duration: Duration) -> Result<Scanner, DatabaseError> {
         let (send, recv) = channel();
-        log.open_line_reader().and_then(|mut reader| {
-            match reader.compute_index() {
-                Ok(_) => {
-                    ScannerThread::new(reader, recv).run(sleep_duration);
-                    Ok(Scanner {
-                        send: send
-                    })
-                },
-                Err(err) => Err(DatabaseError::new_io_error(err))
-            }
+        log.open_line_reader().and_then(|reader| {
+            ScannerThread::new(reader, recv).run(sleep_duration);
+            Ok(Scanner {
+                send: send
+            })
         })
     }
 
@@ -348,7 +343,7 @@ mod tests {
         let scanner_thread = ScannerThread::new(line_reader, recv);
         let handle = scanner_thread.run(sleep_duration);
 
-        assert!(send.send(ScannerAction::AddLineIndex(99, 1234)).is_ok());
+        assert!(send.send(ScannerAction::AddLineIndex(100, 1234)).is_ok());
         assert!(send.send(ScannerAction::Stop).is_ok());
 
         let scanner_thread = handle.join().expect("Unable to join scanner thread");

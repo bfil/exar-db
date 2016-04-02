@@ -144,6 +144,7 @@ mod tests {
             assert_eq!(client.recv_message(), Ok(TcpMessage::Connected));
 
             assert!(remove_file(format!("{}.log", collection_name)).is_ok());
+            assert!(remove_file(format!("{}.index.log", collection_name)).is_ok());
         });
     }
 
@@ -168,6 +169,7 @@ mod tests {
             assert_eq!(client.recv_message(), Ok(TcpMessage::Connected));
 
             assert!(remove_file(format!("{}.log", collection_name)).is_ok());
+            assert!(remove_file(format!("{}.index.log", collection_name)).is_ok());
         });
     }
 }

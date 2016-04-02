@@ -1,5 +1,6 @@
 use super::*;
 
+use indexed_line_reader::LinesIndex;
 use rand;
 use rand::Rng;
 use std::sync::mpsc::channel;
@@ -7,6 +8,7 @@ use std::time::Duration;
 
 #[derive(Debug)]
 pub struct Collection {
+    index: LinesIndex,
     log: Log,
     live_scanner: Scanner,
     scanners: Vec<Scanner>,
@@ -17,7 +19,7 @@ pub struct Collection {
 impl Collection {
     pub fn new(collection_name: &str, config: CollectionConfig) -> Result<Collection, DatabaseError> {
         let log = Log::new(&config.logs_path, collection_name, config.index_granularity);
-        log.compute_index().and_then(|index| {
+        log.restore_index().and_then(|index| {
             Logger::new(log.clone()).and_then(|logger| {
                 let scanners_sleep_duration = Duration::from_millis(config.scanners_sleep_ms as u64);
 
@@ -32,6 +34,7 @@ impl Collection {
                     scanners.push(scanner);
                 }
                 Ok(Collection {
+                    index: index,
                     log: log,
                     live_scanner: live_scanner,
                     scanners: scanners,
@@ -44,9 +47,11 @@ impl Collection {
 
     pub fn publish(&mut self, event: Event) -> Result<usize, DatabaseError> {
         self.logger.log(event).and_then(|event_id| {
-            if event_id % 100000 == self.log.get_index_granularity() as usize - 1 {
+            if (event_id + 1) % (self.log.get_index_granularity() as usize) == 0 {
+                self.index.insert(event_id as u64 + 1, self.logger.bytes_written() as u64);
+                let _ = self.log.persist_index(&self.index);
                 for scanner in &self.scanners {
-                    try!(scanner.add_line_index(event_id, self.logger.bytes_written()))
+                    try!(scanner.add_line_index(event_id + 1, self.logger.bytes_written()))
                 }
             }
             Ok(event_id)

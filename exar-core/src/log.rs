@@ -42,6 +42,13 @@ impl Log {
         }
     }
 
+    pub fn open_line_reader_with_index(&self, index: LinesIndex) -> Result<IndexedLineReader<BufReader<File>>, DatabaseError> {
+        self.open_line_reader().and_then(|mut reader| {
+            reader.restore_index(index);
+            Ok(reader)
+        })
+    }
+
     pub fn open_writer(&self) -> Result<BufWriter<File>, DatabaseError> {
         match OpenOptions::new().create(true).write(true).append(true).open(self.get_path()) {
             Ok(file) => Ok(BufWriter::new(file)),

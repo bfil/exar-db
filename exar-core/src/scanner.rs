@@ -15,14 +15,12 @@ pub struct Scanner {
 }
 
 impl Scanner {
-    pub fn new(log: Log, sleep_duration: Duration) -> Result<Scanner, DatabaseError> {
+    pub fn new(reader: IndexedLineReader<BufReader<File>>, sleep_duration: Duration) -> Scanner {
         let (send, recv) = channel();
-        log.open_line_reader().and_then(|reader| {
-            ScannerThread::new(reader, recv).run(sleep_duration);
-            Ok(Scanner {
-                send: send
-            })
-        })
+        ScannerThread::new(reader, recv).run(sleep_duration);
+        Scanner {
+            send: send
+        }
     }
 
     pub fn handle_subscription(&self, subscription: Subscription) -> Result<(), DatabaseError> {
@@ -34,13 +32,6 @@ impl Scanner {
 
     pub fn add_line_index(&self, line: usize, byte_count: usize) -> Result<(), DatabaseError> {
         match self.send.send(ScannerAction::AddLineIndex(line, byte_count)) {
-            Ok(()) => Ok(()),
-            Err(_) => Err(DatabaseError::EventStreamError(EventStreamError::Closed))
-        }
-    }
-
-    pub fn update_index(&self, index: LinesIndex) -> Result<(), DatabaseError> {
-        match self.send.send(ScannerAction::UpdateIndex(index)) {
             Ok(()) => Ok(()),
             Err(_) => Err(DatabaseError::EventStreamError(EventStreamError::Closed))
         }
@@ -102,10 +93,6 @@ impl ScannerThread {
                         ScannerAction::HandleSubscription(subscription) => self.subscriptions.push(subscription),
                         ScannerAction::AddLineIndex(line, byte_count) => {
                             self.index.insert(line as u64, byte_count as u64);
-                            self.reader.restore_index(self.index.clone());
-                        },
-                        ScannerAction::UpdateIndex(index) => {
-                            self.index = index;
                             self.reader.restore_index(self.index.clone());
                         },
                         ScannerAction::SetLiveSender(send) => {
@@ -194,7 +181,6 @@ impl ScannerThread {
 pub enum ScannerAction {
     HandleSubscription(Subscription),
     AddLineIndex(usize, usize),
-    UpdateIndex(LinesIndex),
     SetLiveSender(Sender<ScannerAction>),
     Stop
 }
@@ -206,9 +192,15 @@ mod tests {
 
     use indexed_line_reader::*;
 
+    use std::fs::*;
+    use std::io::BufReader;
     use std::sync::mpsc::{channel, TryRecvError};
     use std::thread;
     use std::time::Duration;
+
+    fn sleep_duration() -> Duration {
+        Duration::from_millis(10)
+    }
 
     fn create_log() -> Log {
         let ref collection_name = random_collection_name();
@@ -217,33 +209,26 @@ mod tests {
         log
     }
 
+    fn create_log_and_line_reader() -> (Log, IndexedLineReader<BufReader<File>>) {
+        let log = create_log();
+        let line_reader = log.open_line_reader().expect("Unable to open line reader");
+        (log, line_reader)
+    }
+
     #[test]
     fn test_scanner_constructor() {
-        let log = create_log();
-        let sleep_duration = Duration::from_millis(10);
+        let (log, line_reader) = create_log_and_line_reader();
 
-        assert!(Scanner::new(log.clone(), sleep_duration).is_ok());
+        let _ = Scanner::new(line_reader, sleep_duration());
 
         assert!(log.remove().is_ok());
     }
 
     #[test]
-    fn test_scanner_constructor_failure() {
-        let ref collection_name = random_collection_name();
-        let log = Log::new("", collection_name, 100);
-        let sleep_duration = Duration::from_millis(10);
-
-        assert!(Scanner::new(log.clone(), sleep_duration).is_err());
-
-        assert!(log.remove().is_err());
-    }
-
-    #[test]
     fn test_scanner_message_passing() {
-        let log = create_log();
-        let sleep_duration = Duration::from_millis(10);
+        let (log, line_reader) = create_log_and_line_reader();
 
-        let mut scanner = Scanner::new(log.clone(), sleep_duration).expect("Unable to run scanner");
+        let mut scanner = Scanner::new(line_reader, sleep_duration());
 
         assert!(scanner.stop().is_ok());
 
@@ -272,15 +257,6 @@ mod tests {
             _ => panic!("Expected to receive an HandleSubscription message")
         }
 
-        assert!(scanner.update_index(LinesIndex::new(100)).is_ok());
-
-        match recv.recv() {
-            Ok(ScannerAction::UpdateIndex(index)) => {
-                assert_eq!(index, LinesIndex::new(100));
-            },
-            _ => panic!("Expected to receive an HandleSubscription message")
-        }
-
         assert!(scanner.stop().is_ok());
 
         match recv.recv() {
@@ -297,13 +273,11 @@ mod tests {
 
     #[test]
     fn test_scanner_thread_stop() {
-        let log = create_log();
-        let line_reader = log.open_line_reader().expect("Unable to open line reader");
-        let sleep_duration = Duration::from_millis(10);
+        let (log, line_reader) = create_log_and_line_reader();
 
         let (send, recv) = channel();
         let scanner_thread = ScannerThread::new(line_reader, recv);
-        let handle = scanner_thread.run(sleep_duration);
+        let handle = scanner_thread.run(sleep_duration());
 
         assert!(send.send(ScannerAction::Stop).is_ok());
 
@@ -314,34 +288,12 @@ mod tests {
     }
 
     #[test]
-    fn test_scanner_thread_index_updates() {
-        let log = create_log();
-        let line_reader = log.open_line_reader().expect("Unable to open line reader");
-        let sleep_duration = Duration::from_millis(10);
-
-        let (send, recv) = channel();
-        let scanner_thread = ScannerThread::new(line_reader, recv);
-        let handle = scanner_thread.run(sleep_duration);
-
-        assert!(send.send(ScannerAction::UpdateIndex(LinesIndex::new(100))).is_ok());
-        assert!(send.send(ScannerAction::Stop).is_ok());
-
-        let scanner_thread = handle.join().expect("Unable to join scanner thread");
-        assert_eq!(scanner_thread.index, LinesIndex::new(100));
-        assert_eq!(scanner_thread.reader.get_index().clone(), LinesIndex::new(100));
-
-        assert!(log.remove().is_ok());
-    }
-
-    #[test]
     fn test_scanner_thread_new_indexed_line() {
-        let log = create_log();
-        let line_reader = log.open_line_reader().expect("Unable to open line reader");
-        let sleep_duration = Duration::from_millis(10);
+        let (log, line_reader) = create_log_and_line_reader();
 
         let (send, recv) = channel();
         let scanner_thread = ScannerThread::new(line_reader, recv);
-        let handle = scanner_thread.run(sleep_duration);
+        let handle = scanner_thread.run(sleep_duration());
 
         assert!(send.send(ScannerAction::AddLineIndex(100, 1234)).is_ok());
         assert!(send.send(ScannerAction::Stop).is_ok());

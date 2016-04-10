@@ -23,14 +23,14 @@ impl Collection {
             Logger::new(log.clone()).and_then(|logger| {
                 let scanners_sleep_duration = Duration::from_millis(config.scanners_sleep_ms as u64);
 
-                let live_scanner = try!(Scanner::new(log.clone(), scanners_sleep_duration));
-                try!(live_scanner.update_index(index.clone()));
+                let line_reader = try!(log.open_line_reader_with_index(index.clone()));
+                let live_scanner = Scanner::new(line_reader, scanners_sleep_duration);
 
                 let mut scanners = vec![];
                 for _ in 0..config.scanners {
-                    let mut scanner = try!(Scanner::new(log.clone(), scanners_sleep_duration));
+                    let line_reader = try!(log.open_line_reader_with_index(index.clone()));
+                    let mut scanner = Scanner::new(line_reader, scanners_sleep_duration);
                     try!(scanner.set_live_sender(live_scanner.clone_sender()));
-                    try!(scanner.update_index(index.clone()));
                     scanners.push(scanner);
                 }
                 Ok(Collection {

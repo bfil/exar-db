@@ -4,7 +4,6 @@ use indexed_line_reader::LinesIndex;
 use rand;
 use rand::Rng;
 use std::sync::mpsc::channel;
-use std::time::Duration;
 
 #[derive(Debug)]
 pub struct Collection {
@@ -17,22 +16,11 @@ pub struct Collection {
 }
 
 impl Collection {
-    pub fn new(collection_name: &str, config: CollectionConfig) -> Result<Collection, DatabaseError> {
+    pub fn new(collection_name: &str, config: &CollectionConfig) -> Result<Collection, DatabaseError> {
         let log = Log::new(&config.logs_path, collection_name, config.index_granularity);
         log.restore_index().and_then(|index| {
             Logger::new(log.clone()).and_then(|logger| {
-                let scanners_sleep_duration = Duration::from_millis(config.scanners_sleep_ms as u64);
-
-                let line_reader = try!(log.open_line_reader_with_index(index.clone()));
-                let live_scanner = Scanner::new(line_reader, scanners_sleep_duration);
-
-                let mut scanners = vec![];
-                for _ in 0..config.scanners {
-                    let line_reader = try!(log.open_line_reader_with_index(index.clone()));
-                    let mut scanner = Scanner::new(line_reader, scanners_sleep_duration);
-                    try!(scanner.set_live_sender(live_scanner.clone_sender()));
-                    scanners.push(scanner);
-                }
+                let (live_scanner, scanners) = try!(Collection::run_scanners(&log, &index, &config));
                 Ok(Collection {
                     index: index,
                     log: log,
@@ -69,6 +57,20 @@ impl Collection {
     pub fn drop(&mut self) -> Result<(), DatabaseError> {
         self.scanners.truncate(0);
         self.log.remove()
+    }
+
+    fn run_scanners(log: &Log, index: &LinesIndex, config: &CollectionConfig) -> Result<(Scanner, Vec<Scanner>), DatabaseError> {
+        let line_reader = try!(log.open_line_reader_with_index(index.clone()));
+        let live_scanner = Scanner::new(line_reader, config.get_scanners_sleep_duration());
+
+        let mut scanners = vec![];
+        for _ in 0..config.scanners {
+            let line_reader = try!(log.open_line_reader_with_index(index.clone()));
+            let mut scanner = Scanner::new(line_reader, config.get_scanners_sleep_duration());
+            try!(scanner.set_live_sender(live_scanner.clone_sender()));
+            scanners.push(scanner);
+        }
+        Ok((live_scanner, scanners))
     }
 
     fn apply_routing_strategy(&mut self, subscription: Subscription) -> Result<RoutingStrategy, DatabaseError> {
@@ -108,7 +110,7 @@ mod tests {
     fn test_constructor() {
         let ref collection_name = random_collection_name();
         let config = CollectionConfig::default();
-        let mut collection = Collection::new(collection_name, config).expect("Unable to create collection");
+        let mut collection = Collection::new(collection_name, &config).expect("Unable to create collection");
 
         assert_eq!(collection.log, Log::new("", collection_name, 100000));
         assert_eq!(collection.scanners.len(), 2);
@@ -120,14 +122,14 @@ mod tests {
     #[test]
     fn test_constructor_error() {
         let ref collection_name = invalid_collection_name();
-        assert!(Collection::new(collection_name, CollectionConfig::default()).is_err());
+        assert!(Collection::new(collection_name, &CollectionConfig::default()).is_err());
     }
 
     #[test]
     fn test_publish_and_subscribe() {
         let ref collection_name = random_collection_name();
         let config = CollectionConfig::default();
-        let mut collection = Collection::new(collection_name, config).expect("Unable to create collection");
+        let mut collection = Collection::new(collection_name, &config).expect("Unable to create collection");
 
         let test_event = Event::new("data", vec!["tag1", "tag2"]);
         assert!(collection.publish(test_event.clone()).is_ok());
@@ -144,7 +146,7 @@ mod tests {
     fn test_drop() {
         let ref collection_name = random_collection_name();
         let config = CollectionConfig::default();
-        let mut collection = Collection::new(collection_name, config).expect("Unable to create collection");
+        let mut collection = Collection::new(collection_name, &config).expect("Unable to create collection");
 
         assert_eq!(collection.scanners.len(), 2);
 
@@ -157,7 +159,7 @@ mod tests {
     fn test_apply_round_robin_routing_strategy() {
         let ref collection_name = random_collection_name();
         let config = CollectionConfig::default();
-        let mut collection = Collection::new(collection_name, config)
+        let mut collection = Collection::new(collection_name, &config)
                                         .expect("Unable to create collection");
 
         let (send, _) = channel();

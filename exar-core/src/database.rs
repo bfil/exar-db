@@ -37,7 +37,7 @@ impl Database {
 
     pub fn create_collection(&mut self, collection_name: &str) -> Result<Arc<Mutex<Collection>>, DatabaseError> {
         let collection_config = self.config.get_collection_config(collection_name);
-        Collection::new(collection_name, collection_config).and_then(|collection| {
+        Collection::new(collection_name, &collection_config).and_then(|collection| {
             let collection = Arc::new(Mutex::new(collection));
             self.collections.insert(collection_name.to_owned(), collection.clone());
             Ok(collection)

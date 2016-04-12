@@ -1,6 +1,7 @@
 use super::*;
 
 use std::collections::BTreeMap;
+use std::time::Duration;
 
 #[cfg_attr(feature = "rustc-serialization", derive(RustcEncodable, RustcDecodable))]
 #[cfg_attr(feature = "serde-serialization", derive(Serialize, Deserialize))]
@@ -49,6 +50,9 @@ impl DatabaseConfig {
             }
         }
     }
+    pub fn get_scanners_sleep_duration(&self) -> Duration {
+        Duration::from_millis(self.scanners_sleep_ms as u64)
+    }
 }
 
 #[cfg_attr(feature = "rustc-serialization", derive(RustcEncodable, RustcDecodable))]
@@ -72,6 +76,12 @@ impl Default for CollectionConfig {
             scanners_sleep_ms: db_defaults.scanners_sleep_ms,
             routing_strategy: db_defaults.routing_strategy
         }
+    }
+}
+
+impl CollectionConfig {
+    pub fn get_scanners_sleep_duration(&self) -> Duration {
+        Duration::from_millis(self.scanners_sleep_ms as u64)
     }
 }
 

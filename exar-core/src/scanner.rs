@@ -118,10 +118,7 @@ impl ScannerThread {
         match self.live_send {
             Some(ref live_send) => {
                 for subscription in self.subscriptions.iter().filter(|s| s.query.is_live()) {
-                    match live_send.send(ScannerAction::HandleSubscription(subscription.clone())) {
-                        Ok(()) => (),
-                        Err(err) => println!("Unable to send the live subscription to the live scanner: {}", err)
-                    }
+                    let _ = live_send.send(ScannerAction::HandleSubscription(subscription.clone()));
                 }
                 self.subscriptions.truncate(0);
             },

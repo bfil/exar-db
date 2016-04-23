@@ -33,10 +33,10 @@ impl Collection {
         })
     }
 
-    pub fn publish(&mut self, event: Event) -> Result<usize, DatabaseError> {
+    pub fn publish(&mut self, event: Event) -> Result<u64, DatabaseError> {
         self.logger.log(event).and_then(|event_id| {
-            if (event_id + 1) % (self.log.get_index_granularity() as usize) == 0 {
-                self.index.insert(event_id as u64 + 1, self.logger.bytes_written() as u64);
+            if (event_id + 1) % (self.log.get_index_granularity()) == 0 {
+                self.index.insert(event_id + 1, self.logger.bytes_written());
                 let _ = self.log.persist_index(&self.index);
                 for scanner in &self.scanners {
                     try!(scanner.add_line_index(event_id + 1, self.logger.bytes_written()))

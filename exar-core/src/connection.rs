@@ -14,7 +14,7 @@ impl Connection {
         }
     }
 
-    pub fn publish(&self, event: Event) -> Result<usize, DatabaseError> {
+    pub fn publish(&self, event: Event) -> Result<u64, DatabaseError> {
         self.collection.lock().unwrap().publish(event)
     }
 

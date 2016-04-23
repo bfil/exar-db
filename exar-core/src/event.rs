@@ -9,7 +9,7 @@ use time;
 #[cfg_attr(feature = "serde-serialization", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Event {
-    pub id: usize,
+    pub id: u64,
     pub data: String,
     pub tags: Vec<String>,
     pub timestamp: u64
@@ -25,7 +25,7 @@ impl Event {
         }
     }
 
-    pub fn with_id(mut self, id: usize) -> Self {
+    pub fn with_id(mut self, id: u64) -> Self {
         self.id = id;
         self
     }

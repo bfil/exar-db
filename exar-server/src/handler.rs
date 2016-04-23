@@ -125,7 +125,7 @@ impl ToString for State {
 
 pub enum ActionResult {
     Connected,
-    Published(usize),
+    Published(u64),
     EventStream(EventStream)
 }
 

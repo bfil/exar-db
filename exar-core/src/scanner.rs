@@ -30,7 +30,7 @@ impl Scanner {
         }
     }
 
-    pub fn add_line_index(&self, line: usize, byte_count: usize) -> Result<(), DatabaseError> {
+    pub fn add_line_index(&self, line: u64, byte_count: u64) -> Result<(), DatabaseError> {
         match self.action_sender.send(ScannerAction::AddLineIndex(line, byte_count)) {
             Ok(()) => Ok(()),
             Err(_) => Err(DatabaseError::EventStreamError(EventStreamError::Closed))
@@ -92,7 +92,7 @@ impl ScannerThread {
                     match action {
                         ScannerAction::HandleSubscription(subscription) => self.subscriptions.push(subscription),
                         ScannerAction::AddLineIndex(line, byte_count) => {
-                            self.index.insert(line as u64, byte_count as u64);
+                            self.index.insert(line, byte_count);
                             self.reader.restore_index(self.index.clone());
                         },
                         ScannerAction::SetTailScannerSender(sender) => {
@@ -145,7 +145,7 @@ impl ScannerThread {
                                     for subscription in self.subscriptions.iter_mut().filter(|s| s.matches_event(event)) {
                                         let _ = subscription.send(event.clone());
                                     }
-                                    if interval.end as usize == event.id {
+                                    if interval.end == event.id {
                                         break;
                                     }
                                 },
@@ -165,7 +165,7 @@ impl ScannerThread {
 #[derive(Clone, Debug)]
 pub enum ScannerAction {
     HandleSubscription(Subscription),
-    AddLineIndex(usize, usize),
+    AddLineIndex(u64, u64),
     SetTailScannerSender(Sender<ScannerAction>),
     Stop
 }

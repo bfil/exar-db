@@ -37,7 +37,7 @@ impl Client {
         }
     }
 
-    pub fn publish(&mut self, event: Event) -> Result<usize, DatabaseError> {
+    pub fn publish(&mut self, event: Event) -> Result<u64, DatabaseError> {
         try!(self.stream.send_message(TcpMessage::Publish(event)));
         match self.stream.recv_message() {
             Ok(TcpMessage::Published(event_id)) => Ok(event_id),

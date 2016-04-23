@@ -2,16 +2,16 @@ use super::*;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Query {
-    pub offset: usize,
-    pub limit: Option<usize>,
+    pub offset: u64,
+    pub limit: Option<u64>,
     pub tag: Option<String>,
     pub live_stream: bool,
-    position: usize,
-    count: usize
+    position: u64,
+    count: u64
 }
 
 impl Query {
-    pub fn new(live_stream: bool, offset: usize, limit: Option<usize>, tag: Option<String>) -> Query {
+    pub fn new(live_stream: bool, offset: u64, limit: Option<u64>, tag: Option<String>) -> Query {
         Query {
             offset: offset,
             limit: limit,
@@ -30,13 +30,13 @@ impl Query {
         Query::new(true, 0, None, None)
     }
 
-    pub fn offset(mut self, offset: usize) -> Query {
+    pub fn offset(mut self, offset: u64) -> Query {
         self.offset = offset;
         self.position = offset;
         self
     }
 
-    pub fn limit(mut self, limit: usize) -> Query {
+    pub fn limit(mut self, limit: u64) -> Query {
         self.limit = Some(limit);
         self
     }
@@ -60,17 +60,17 @@ impl Query {
         }
     }
 
-    pub fn update(&mut self, event_id: usize) {
+    pub fn update(&mut self, event_id: u64) {
         self.position = event_id;
         self.count += 1;
     }
 
     pub fn interval(&self) -> Interval<u64> {
-        let start = self.position as u64;
+        let start = self.position;
         let end = if self.live_stream || self.limit.is_none() {
             u64::max_value()
         } else {
-            start + self.limit.unwrap() as u64
+            start + self.limit.unwrap()
         };
         Interval::new(start, end)
     }

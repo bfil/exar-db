@@ -56,7 +56,7 @@ impl DatabaseConfig {
         }
     }
     pub fn scanners_sleep_duration(&self) -> Duration {
-        Duration::from_millis(self.scanners.sleep_time_in_ms as u64)
+        Duration::from_millis(self.scanners.sleep_time_in_ms)
     }
 }
 
@@ -65,7 +65,7 @@ impl DatabaseConfig {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ScannersConfig {
     pub nr_of_scanners: u8,
-    pub sleep_time_in_ms: u8
+    pub sleep_time_in_ms: u64
 }
 
 impl Default for ScannersConfig {
@@ -82,7 +82,7 @@ impl Default for ScannersConfig {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PartialScannersConfig {
     pub nr_of_scanners: Option<u8>,
-    pub sleep_time_in_ms: Option<u8>
+    pub sleep_time_in_ms: Option<u64>
 }
 
 #[cfg_attr(feature = "rustc-serialization", derive(RustcEncodable, RustcDecodable))]
@@ -109,7 +109,7 @@ impl Default for CollectionConfig {
 
 impl CollectionConfig {
     pub fn scanners_sleep_duration(&self) -> Duration {
-        Duration::from_millis(self.scanners.sleep_time_in_ms as u64)
+        Duration::from_millis(self.scanners.sleep_time_in_ms)
     }
 }
 

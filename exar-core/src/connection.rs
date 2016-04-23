@@ -42,7 +42,7 @@ mod tests {
         let connection = Connection::new(collection);
 
         let test_event = Event::new("data", vec!["tag1", "tag2"]);
-        assert!(connection.publish(test_event.clone()).is_ok());
+        assert_eq!(connection.publish(test_event.clone()), Ok(1));
 
         let query = Query::current();
         let retrieved_events: Vec<_> = connection.subscribe(query).unwrap().take(1).collect();

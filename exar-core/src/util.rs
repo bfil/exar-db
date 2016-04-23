@@ -40,18 +40,20 @@ impl<T> Interval<T> {
 
 impl Merge for Vec<Interval<u64>> {
     fn merge(&mut self) {
-        self.sort_by(|a, b| a.start.cmp(&b.start));
-        let mut merged_intervals = vec![ self[0].clone() ];
-        for interval in self.iter().skip(1) {
-            let last_pos = merged_intervals.len() - 1;
-            if merged_intervals[last_pos].end < interval.start {
-                merged_intervals.push(interval.clone());
-            } else if merged_intervals[last_pos].end >= interval.start &&
-                      merged_intervals[last_pos].end <= interval.end {
-                merged_intervals[last_pos].end = interval.end;
+        if self.len() > 0 {
+            self.sort_by(|a, b| a.start.cmp(&b.start));
+            let mut merged_intervals = vec![ self[0].clone() ];
+            for interval in self.iter().skip(1) {
+                let last_pos = merged_intervals.len() - 1;
+                if merged_intervals[last_pos].end < interval.start {
+                    merged_intervals.push(interval.clone());
+                } else if merged_intervals[last_pos].end >= interval.start &&
+                          merged_intervals[last_pos].end <= interval.end {
+                    merged_intervals[last_pos].end = interval.end;
+                }
             }
+            *self = merged_intervals;
         }
-        *self = merged_intervals;
     }
 }
 

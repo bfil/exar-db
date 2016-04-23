@@ -142,7 +142,7 @@ mod tests {
             logs_path: Some("test".to_owned()),
             index_granularity: Some(1000),
             scanners: Some(PartialScannersConfig {
-                nr_of_scanners: Some(2),
+                nr_of_scanners: Some(3),
                 sleep_time_in_ms: Some(5)
             }),
             routing_strategy: Some(RoutingStrategy::Random)
@@ -153,7 +153,7 @@ mod tests {
         assert_eq!(collection_config.logs_path, "test".to_owned());
         assert_eq!(collection_config.index_granularity, 1000);
         assert_eq!(collection_config.scanners, ScannersConfig {
-            nr_of_scanners: 2,
+            nr_of_scanners: 3,
             sleep_time_in_ms: 5
         });
         assert_eq!(collection_config.routing_strategy, RoutingStrategy::Random);

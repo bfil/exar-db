@@ -2,10 +2,10 @@ use super::*;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Query {
+    pub live_stream: bool,
     pub offset: u64,
     pub limit: Option<u64>,
     pub tag: Option<String>,
-    pub live_stream: bool,
     position: u64,
     count: u64
 }
@@ -67,7 +67,7 @@ impl Query {
 
     pub fn interval(&self) -> Interval<u64> {
         let start = self.position;
-        let end = if self.live_stream || self.limit.is_none() {
+        let end = if self.limit.is_none() {
             u64::max_value()
         } else {
             start + self.limit.unwrap()

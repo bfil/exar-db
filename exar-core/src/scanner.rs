@@ -129,9 +129,7 @@ impl ScannerThread {
     }
 
     fn subscriptions_intervals(&self) -> Vec<Interval<u64>> {
-        self.subscriptions.iter().map(|s| {
-            s.query.interval()
-        }).collect()
+        self.subscriptions.iter().map(|s| s.query.interval()).collect()
     }
 
     fn scan(&mut self) -> Result<(), DatabaseError> {
@@ -242,6 +240,23 @@ mod tests {
             _ => panic!("Expected to receive an HandleSubscription message")
         }
 
+        let (tail_scanner_sender, tail_scanner_receiver) = channel();
+        assert!(scanner.set_tail_scanner_sender(tail_scanner_sender).is_ok());
+
+        match receiver.recv() {
+            Ok(ScannerAction::SetTailScannerSender(sender)) => {
+                assert!(sender.send(ScannerAction::HandleSubscription(subscription.clone())).is_ok())
+            },
+            _ => panic!("Expected to receive a SetTailScannerSender message")
+        }
+
+        match tail_scanner_receiver.recv() {
+            Ok(ScannerAction::HandleSubscription(s)) => {
+                assert_eq!(s.query, subscription.query);
+            },
+            _ => panic!("Expected to receive an HandleSubscription message")
+        }
+
         assert!(scanner.stop().is_ok());
 
         match receiver.recv() {
@@ -291,6 +306,25 @@ mod tests {
     }
 
     #[test]
+    fn test_scanner_thread_set_tail_scanner_sender() {
+        let (log, line_reader) = create_log_and_line_reader();
+
+        let (sender, receiver) = channel();
+        let scanner_thread = ScannerThread::new(line_reader, receiver);
+        let handle = scanner_thread.run(sleep_duration());
+
+        let (tail_scanner_sender, _) = channel();
+
+        assert!(sender.send(ScannerAction::SetTailScannerSender(tail_scanner_sender)).is_ok());
+        assert!(sender.send(ScannerAction::Stop).is_ok());
+
+        let scanner_thread = handle.join().expect("Unable to join scanner thread");
+        assert!(scanner_thread.tail_scanner_sender.is_some());
+
+        assert!(log.remove().is_ok());
+    }
+
+    #[test]
     fn test_scanner_thread_subscriptions_management() {
         let log = create_log();
         let mut logger = Logger::new(log.clone()).expect("Unable to create logger");
@@ -329,5 +363,20 @@ mod tests {
         assert_eq!(receiver.try_recv().err(), Some(TryRecvError::Disconnected));
 
         assert!(log.remove().is_ok());
+    }
+
+    #[test]
+    fn test_scanner_thread_subscriptions_intervals_merging() {
+
+        let (sender, _) = channel();
+        let subscriptions = vec![
+            Subscription::new(sender.clone(), Query::live().offset(0).limit(10)),
+            Subscription::new(sender.clone(), Query::current().offset(30).limit(20)),
+            Subscription::new(sender.clone(), Query::live().offset(40).limit(30))
+        ];
+
+        let intervals: Vec<_> = subscriptions.iter().map(|s| s.query.interval()).collect();
+
+        assert_eq!(intervals.merged(), vec![Interval::new(0, 10), Interval::new(30, 70)]);
     }
 }

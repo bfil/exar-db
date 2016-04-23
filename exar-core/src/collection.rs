@@ -108,6 +108,7 @@ mod tests {
     use super::super::*;
     use exar_testkit::*;
 
+    use indexed_line_reader::LinesIndex;
     use std::sync::mpsc::channel;
 
     #[test]
@@ -116,8 +117,10 @@ mod tests {
         let config = CollectionConfig::default();
         let mut collection = Collection::new(collection_name, &config).expect("Unable to create collection");
 
+        assert_eq!(collection.index, LinesIndex::new(100000));
         assert_eq!(collection.log, Log::new("", collection_name, 100000));
         assert_eq!(collection.scanners.len(), 2);
+        assert_eq!(collection.tail_scanners.len(), 2);
         assert_eq!(collection.routing_strategy, RoutingStrategy::default());
 
         assert!(collection.drop().is_ok());
@@ -136,7 +139,7 @@ mod tests {
         let mut collection = Collection::new(collection_name, &config).expect("Unable to create collection");
 
         let test_event = Event::new("data", vec!["tag1", "tag2"]);
-        assert!(collection.publish(test_event.clone()).is_ok());
+        assert_eq!(collection.publish(test_event.clone()), Ok(1));
 
         let query = Query::current();
         let retrieved_events: Vec<_> = collection.subscribe(query).unwrap().take(1).collect();
@@ -153,10 +156,12 @@ mod tests {
         let mut collection = Collection::new(collection_name, &config).expect("Unable to create collection");
 
         assert_eq!(collection.scanners.len(), 2);
+        assert_eq!(collection.tail_scanners.len(), 2);
 
         assert!(collection.drop().is_ok());
 
         assert_eq!(collection.scanners.len(), 0);
+        assert_eq!(collection.tail_scanners.len(), 0);
     }
 
     #[test]
@@ -166,12 +171,10 @@ mod tests {
         let mut collection = Collection::new(collection_name, &config)
                                         .expect("Unable to create collection");
 
-        let (send, _) = channel();
-        let subscription = Subscription::new(send, Query::current());
+        let (sender, _) = channel();
+        let subscription = Subscription::new(sender, Query::current());
 
         collection.routing_strategy = RoutingStrategy::RoundRobin(0);
-
-        assert_eq!(collection.scanners.len(), 2);
 
         let updated_strategy = collection.apply_routing_strategy(subscription.clone())
                                          .expect("Unable to apply routing strategy");
@@ -186,7 +189,5 @@ mod tests {
         assert_eq!(updated_strategy, RoutingStrategy::RoundRobin(0));
 
         assert!(collection.drop().is_ok());
-
-        assert_eq!(collection.scanners.len(), 0);
     }
 }

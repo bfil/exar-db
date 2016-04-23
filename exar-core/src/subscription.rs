@@ -5,27 +5,27 @@ use std::sync::mpsc::Sender;
 #[derive(Clone, Debug)]
 pub struct Subscription {
     active: bool,
-    pub send: Sender<EventStreamMessage>,
+    pub event_stream_sender: Sender<EventStreamMessage>,
     pub query: Query
 }
 
 impl Subscription {
-    pub fn new(send: Sender<EventStreamMessage>, query: Query) -> Subscription {
+    pub fn new(sender: Sender<EventStreamMessage>, query: Query) -> Subscription {
         Subscription {
             active: true,
-            send: send,
+            event_stream_sender: sender,
             query: query
         }
     }
 
     pub fn send(&mut self, event: Event) -> Result<(), DatabaseError> {
         let event_id = event.id;
-        match self.send.send(EventStreamMessage::Event(event)) {
+        match self.event_stream_sender.send(EventStreamMessage::Event(event)) {
             Ok(_) => {
                 self.query.update(event_id);
                 if !self.is_active() || !self.query.is_active() {
                     self.active = false;
-                    match self.send.send(EventStreamMessage::End) {
+                    match self.event_stream_sender.send(EventStreamMessage::End) {
                         Ok(_) => Ok(()),
                         Err(_) => Err(DatabaseError::EventStreamError(EventStreamError::Closed))
                     }
@@ -57,20 +57,20 @@ mod tests {
 
     #[test]
     fn test_subscription() {
-        let (send, recv) = channel();
+        let (sender, receiver) = channel();
         let event = Event::new("data", vec!["tag1", "tag2"]).with_id(1);
 
-        let mut subscription = Subscription::new(send, Query::current());
+        let mut subscription = Subscription::new(sender, Query::current());
 
         assert!(subscription.send(event.clone()).is_ok());
-        assert_eq!(recv.recv(), Ok(EventStreamMessage::Event(event.clone())));
-        assert_eq!(subscription.query.position, 1);
+        assert_eq!(receiver.recv(), Ok(EventStreamMessage::Event(event.clone())));
+        assert_eq!(subscription.query.interval().start, 1);
         assert!(subscription.is_active());
 
-        drop(recv);
+        drop(receiver);
 
         assert!(subscription.send(event.clone()).is_err());
-        assert_eq!(subscription.query.position, 1);
+        assert_eq!(subscription.query.interval().start, 1);
         assert!(!subscription.is_active());
     }
 }

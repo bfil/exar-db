@@ -11,45 +11,45 @@ use std::time::Duration;
 
 #[derive(Clone, Debug)]
 pub struct Scanner {
-    send: Sender<ScannerAction>
+    action_sender: Sender<ScannerAction>
 }
 
 impl Scanner {
     pub fn new(reader: IndexedLineReader<BufReader<File>>, sleep_duration: Duration) -> Scanner {
-        let (send, recv) = channel();
-        ScannerThread::new(reader, recv).run(sleep_duration);
+        let (sender, receiver) = channel();
+        ScannerThread::new(reader, receiver).run(sleep_duration);
         Scanner {
-            send: send
+            action_sender: sender
         }
     }
 
     pub fn handle_subscription(&self, subscription: Subscription) -> Result<(), DatabaseError> {
-        match self.send.send(ScannerAction::HandleSubscription(subscription)) {
+        match self.action_sender.send(ScannerAction::HandleSubscription(subscription)) {
             Ok(()) => Ok(()),
             Err(_) => Err(DatabaseError::EventStreamError(EventStreamError::Closed))
         }
     }
 
     pub fn add_line_index(&self, line: usize, byte_count: usize) -> Result<(), DatabaseError> {
-        match self.send.send(ScannerAction::AddLineIndex(line, byte_count)) {
+        match self.action_sender.send(ScannerAction::AddLineIndex(line, byte_count)) {
             Ok(()) => Ok(()),
             Err(_) => Err(DatabaseError::EventStreamError(EventStreamError::Closed))
         }
     }
 
-    pub fn set_live_sender(&mut self, send: Sender<ScannerAction>) -> Result<(), DatabaseError> {
-        match self.send.send(ScannerAction::SetLiveSender(send)) {
+    pub fn set_tail_scanner_sender(&mut self, sender: Sender<ScannerAction>) -> Result<(), DatabaseError> {
+        match self.action_sender.send(ScannerAction::SetTailScannerSender(sender)) {
             Ok(()) => Ok(()),
             Err(_) => Err(DatabaseError::EventStreamError(EventStreamError::Closed))
         }
     }
 
-    pub fn clone_sender(&self) -> Sender<ScannerAction> {
-        self.send.clone()
+    pub fn clone_action_sender(&self) -> Sender<ScannerAction> {
+        self.action_sender.clone()
     }
 
     fn stop(&self) -> Result<(), DatabaseError> {
-        match self.send.send(ScannerAction::Stop) {
+        match self.action_sender.send(ScannerAction::Stop) {
             Ok(()) => Ok(()),
             Err(_) => Err(DatabaseError::EventStreamError(EventStreamError::Closed))
         }
@@ -69,18 +69,18 @@ impl Drop for Scanner {
 pub struct ScannerThread {
     index: LinesIndex,
     reader: IndexedLineReader<BufReader<File>>,
-    recv: Receiver<ScannerAction>,
-    live_send: Option<Sender<ScannerAction>>,
+    action_receiver: Receiver<ScannerAction>,
+    tail_scanner_sender: Option<Sender<ScannerAction>>,
     subscriptions: Vec<Subscription>
 }
 
 impl ScannerThread {
-    fn new(reader: IndexedLineReader<BufReader<File>>, recv: Receiver<ScannerAction>) -> ScannerThread {
+    fn new(reader: IndexedLineReader<BufReader<File>>, receiver: Receiver<ScannerAction>) -> ScannerThread {
         ScannerThread {
-            index: LinesIndex::new(100000),
+            index: reader.get_index().clone(),
             reader: reader,
-            recv: recv,
-            live_send: None,
+            action_receiver: receiver,
+            tail_scanner_sender: None,
             subscriptions: vec![]
         }
     }
@@ -88,15 +88,15 @@ impl ScannerThread {
     fn run(mut self, sleep_duration: Duration) -> JoinHandle<Self> {
         thread::spawn(move || {
             'main: loop {
-                while let Ok(action) = self.recv.try_recv() {
+                while let Ok(action) = self.action_receiver.try_recv() {
                     match action {
                         ScannerAction::HandleSubscription(subscription) => self.subscriptions.push(subscription),
                         ScannerAction::AddLineIndex(line, byte_count) => {
                             self.index.insert(line as u64, byte_count as u64);
                             self.reader.restore_index(self.index.clone());
                         },
-                        ScannerAction::SetLiveSender(send) => {
-                            self.live_send = Some(send);
+                        ScannerAction::SetTailScannerSender(sender) => {
+                            self.tail_scanner_sender = Some(sender);
                         },
                         ScannerAction::Stop => break 'main
                     }
@@ -115,39 +115,27 @@ impl ScannerThread {
     }
 
     fn retain_active_subscriptions(&mut self) {
-        match self.live_send {
-            Some(ref live_send) => {
-                for subscription in self.subscriptions.iter().filter(|s| s.query.is_live()) {
-                    let _ = live_send.send(ScannerAction::HandleSubscription(subscription.clone()));
+        match self.tail_scanner_sender {
+            Some(ref tail_scanner_sender) => {
+                for subscription in self.subscriptions.iter().filter(|s| s.query.live_stream) {
+                    let _ = tail_scanner_sender.send(ScannerAction::HandleSubscription(subscription.clone()));
                 }
                 self.subscriptions.truncate(0);
             },
             None => self.subscriptions.retain(|s| {
-                s.is_active() && s.query.is_live() && s.query.is_active()
+                s.is_active() && s.query.live_stream && s.query.is_active()
             })
         }
     }
 
     fn subscriptions_intervals(&self) -> Vec<Interval<u64>> {
         self.subscriptions.iter().map(|s| {
-            let start = s.query.position as u64;
-            let end = if s.query.is_live() || s.query.limit.is_none() {
-                u64::max_value()
-            } else {
-                start + s.query.limit.unwrap() as u64
-            };
-            Interval::new(start, end)
+            s.query.interval()
         }).collect()
     }
 
-    fn merged_intervals(&self) -> Vec<Interval<u64>> {
-        let mut intervals = self.subscriptions_intervals();
-        intervals.merge();
-        intervals
-    }
-
     fn scan(&mut self) -> Result<(), DatabaseError> {
-        for interval in self.merged_intervals() {
+        for interval in self.subscriptions_intervals().merged() {
             match self.reader.seek(SeekFrom::Start(interval.start)) {
                 Ok(_) => {
                     for line in (&mut self.reader).lines() {
@@ -178,7 +166,7 @@ impl ScannerThread {
 pub enum ScannerAction {
     HandleSubscription(Subscription),
     AddLineIndex(usize, usize),
-    SetLiveSender(Sender<ScannerAction>),
+    SetTailScannerSender(Sender<ScannerAction>),
     Stop
 }
 
@@ -229,15 +217,15 @@ mod tests {
 
         assert!(scanner.stop().is_ok());
 
-        let (send, _) = channel();
-        let subscription = Subscription::new(send, Query::live());
+        let (sender, _) = channel();
+        let subscription = Subscription::new(sender, Query::live());
 
-        let (send, recv) = channel();
-        scanner.send = send;
+        let (sender, receiver) = channel();
+        scanner.action_sender = sender;
 
         assert!(scanner.handle_subscription(subscription.clone()).is_ok());
 
-        match recv.recv() {
+        match receiver.recv() {
             Ok(ScannerAction::HandleSubscription(s)) => {
                 assert_eq!(s.query, subscription.query);
             },
@@ -246,7 +234,7 @@ mod tests {
 
         assert!(scanner.add_line_index(100, 1000).is_ok());
 
-        match recv.recv() {
+        match receiver.recv() {
             Ok(ScannerAction::AddLineIndex(pos, byte_count)) => {
                 assert_eq!(pos, 100);
                 assert_eq!(byte_count, 1000);
@@ -256,12 +244,12 @@ mod tests {
 
         assert!(scanner.stop().is_ok());
 
-        match recv.recv() {
+        match receiver.recv() {
             Ok(ScannerAction::Stop) => (),
             _ => panic!("Expected to receive a Stop message")
         }
 
-        drop(recv);
+        drop(receiver);
 
         assert!(scanner.stop().is_err());
 
@@ -272,11 +260,11 @@ mod tests {
     fn test_scanner_thread_stop() {
         let (log, line_reader) = create_log_and_line_reader();
 
-        let (send, recv) = channel();
-        let scanner_thread = ScannerThread::new(line_reader, recv);
+        let (sender, receiver) = channel();
+        let scanner_thread = ScannerThread::new(line_reader, receiver);
         let handle = scanner_thread.run(sleep_duration());
 
-        assert!(send.send(ScannerAction::Stop).is_ok());
+        assert!(sender.send(ScannerAction::Stop).is_ok());
 
         let scanner_thread = handle.join().expect("Unable to join scanner thread");
         assert_eq!(scanner_thread.subscriptions.len(), 0);
@@ -288,12 +276,12 @@ mod tests {
     fn test_scanner_thread_new_indexed_line() {
         let (log, line_reader) = create_log_and_line_reader();
 
-        let (send, recv) = channel();
-        let scanner_thread = ScannerThread::new(line_reader, recv);
+        let (sender, receiver) = channel();
+        let scanner_thread = ScannerThread::new(line_reader, receiver);
         let handle = scanner_thread.run(sleep_duration());
 
-        assert!(send.send(ScannerAction::AddLineIndex(100, 1234)).is_ok());
-        assert!(send.send(ScannerAction::Stop).is_ok());
+        assert!(sender.send(ScannerAction::AddLineIndex(100, 1234)).is_ok());
+        assert!(sender.send(ScannerAction::Stop).is_ok());
 
         let scanner_thread = handle.join().expect("Unable to join scanner thread");
         assert_eq!(scanner_thread.index.byte_count_at_pos(&100), Some(1234));
@@ -312,33 +300,33 @@ mod tests {
 
         assert!(logger.log(event).is_ok());
 
-        let (thread_send, thread_recv) = channel();
-        let scanner_thread = ScannerThread::new(line_reader, thread_recv);
+        let (thread_sender, thread_receiver) = channel();
+        let scanner_thread = ScannerThread::new(line_reader, thread_receiver);
         scanner_thread.run(sleep_duration);
 
-        let (send, recv) = channel();
-        let live_subscription = Subscription::new(send, Query::live());
+        let (sender, receiver) = channel();
+        let live_subscription = Subscription::new(sender, Query::live());
 
-        assert!(thread_send.send(ScannerAction::HandleSubscription(live_subscription)).is_ok());
+        assert!(thread_sender.send(ScannerAction::HandleSubscription(live_subscription)).is_ok());
         thread::sleep(sleep_duration * 2);
 
-        assert_eq!(recv.try_recv().map(|e| match e {
+        assert_eq!(receiver.try_recv().map(|e| match e {
             EventStreamMessage::Event(e) => e.id,
             message => panic!("Unexpected event stream message: {:?}", message),
         }), Ok(1));
-        assert_eq!(recv.try_recv().err(), Some(TryRecvError::Empty));
+        assert_eq!(receiver.try_recv().err(), Some(TryRecvError::Empty));
 
-        let (send, recv) = channel();
-        let current_subscription = Subscription::new(send, Query::current());
+        let (sender, receiver) = channel();
+        let current_subscription = Subscription::new(sender, Query::current());
 
-        assert!(thread_send.send(ScannerAction::HandleSubscription(current_subscription)).is_ok());
+        assert!(thread_sender.send(ScannerAction::HandleSubscription(current_subscription)).is_ok());
         thread::sleep(sleep_duration * 2);
 
-        assert_eq!(recv.try_recv().map(|e| match e {
+        assert_eq!(receiver.try_recv().map(|e| match e {
             EventStreamMessage::Event(e) => e.id,
             message => panic!("Unexpected event stream message: {:?}", message),
         }), Ok(1));
-        assert_eq!(recv.try_recv().err(), Some(TryRecvError::Disconnected));
+        assert_eq!(receiver.try_recv().err(), Some(TryRecvError::Disconnected));
 
         assert!(log.remove().is_ok());
     }

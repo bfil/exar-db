@@ -82,24 +82,24 @@ impl Validation for Event {
 }
 
 pub struct EventStream {
-    recv: Receiver<EventStreamMessage>
+    event_stream_receiver: Receiver<EventStreamMessage>
 }
 
 impl EventStream {
-    pub fn new(recv: Receiver<EventStreamMessage>) -> EventStream {
+    pub fn new(receiver: Receiver<EventStreamMessage>) -> EventStream {
         EventStream {
-            recv: recv
+            event_stream_receiver: receiver
         }
     }
     pub fn recv(&self) -> Result<Event, EventStreamError> {
-        match self.recv.recv() {
+        match self.event_stream_receiver.recv() {
             Ok(EventStreamMessage::Event(event)) => Ok(event),
             Ok(EventStreamMessage::End) => Err(EventStreamError::Closed),
             Err(_) => Err(EventStreamError::Closed)
         }
     }
     pub fn try_recv(&self) -> Result<Event, EventStreamError> {
-        match self.recv.try_recv() {
+        match self.event_stream_receiver.try_recv() {
             Ok(EventStreamMessage::Event(event)) => Ok(event),
             Ok(EventStreamMessage::End) => Err(EventStreamError::Closed),
             Err(err) => match err {
@@ -189,16 +189,16 @@ mod tests {
     fn test_event_stream() {
         let event = Event::new("data", vec![""]);
 
-        let (send, recv) = channel();
+        let (sender, receiver) = channel();
 
-        let mut event_stream = EventStream::new(recv);
+        let mut event_stream = EventStream::new(receiver);
 
-        assert!(send.send(EventStreamMessage::Event(event.clone())).is_ok());
+        assert!(sender.send(EventStreamMessage::Event(event.clone())).is_ok());
 
         assert_eq!(event_stream.next(), Some(event));
         assert_eq!(event_stream.try_recv(), Err(EventStreamError::Empty));
 
-        drop(send);
+        drop(sender);
 
         assert_eq!(event_stream.next(), None);
         assert_eq!(event_stream.try_recv(), Err(EventStreamError::Closed));

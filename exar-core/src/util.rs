@@ -21,8 +21,12 @@ pub struct Interval<T> {
     pub end: T
 }
 
-pub trait Merge {
+pub trait Merge: Sized {
     fn merge(&mut self);
+    fn merged(mut self) -> Self {
+        self.merge();
+        self
+    }
 }
 
 impl<T> Interval<T> {

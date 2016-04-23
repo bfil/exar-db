@@ -9,7 +9,7 @@ use std::sync::mpsc::channel;
 pub struct Collection {
     index: LinesIndex,
     log: Log,
-    live_scanner: Scanner,
+    tail_scanner: Scanner,
     scanners: Vec<Scanner>,
     routing_strategy: RoutingStrategy,
     logger: Logger
@@ -20,11 +20,11 @@ impl Collection {
         let log = Log::new(&config.logs_path, collection_name, config.index_granularity);
         log.restore_index().and_then(|index| {
             Logger::new(log.clone()).and_then(|logger| {
-                let (live_scanner, scanners) = try!(Collection::run_scanners(&log, &index, &config));
+                let (tail_scanner, scanners) = try!(Collection::run_scanners(&log, &index, &config));
                 Ok(Collection {
                     index: index,
                     log: log,
-                    live_scanner: live_scanner,
+                    tail_scanner: tail_scanner,
                     scanners: scanners,
                     routing_strategy: config.routing_strategy.clone(),
                     logger: logger
@@ -47,10 +47,10 @@ impl Collection {
     }
 
     pub fn subscribe(&mut self, query: Query) -> Result<EventStream, DatabaseError> {
-        let (send, recv) = channel();
-        self.apply_routing_strategy(Subscription::new(send, query)).and_then(|updated_strategy| {
+        let (sender, receiver) = channel();
+        self.apply_routing_strategy(Subscription::new(sender, query)).and_then(|updated_strategy| {
             self.routing_strategy = updated_strategy;
-            Ok(EventStream::new(recv))
+            Ok(EventStream::new(receiver))
         })
     }
 
@@ -61,16 +61,16 @@ impl Collection {
 
     fn run_scanners(log: &Log, index: &LinesIndex, config: &CollectionConfig) -> Result<(Scanner, Vec<Scanner>), DatabaseError> {
         let line_reader = try!(log.open_line_reader_with_index(index.clone()));
-        let live_scanner = Scanner::new(line_reader, config.get_scanners_sleep_duration());
+        let tail_scanner = Scanner::new(line_reader, config.get_scanners_sleep_duration());
 
         let mut scanners = vec![];
         for _ in 0..config.scanners {
             let line_reader = try!(log.open_line_reader_with_index(index.clone()));
             let mut scanner = Scanner::new(line_reader, config.get_scanners_sleep_duration());
-            try!(scanner.set_live_sender(live_scanner.clone_sender()));
+            try!(scanner.set_tail_scanner_sender(tail_scanner.clone_action_sender()));
             scanners.push(scanner);
         }
-        Ok((live_scanner, scanners))
+        Ok((tail_scanner, scanners))
     }
 
     fn apply_routing_strategy(&mut self, subscription: Subscription) -> Result<RoutingStrategy, DatabaseError> {

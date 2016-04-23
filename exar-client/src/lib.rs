@@ -48,22 +48,22 @@ impl Client {
     }
 
     pub fn subscribe(&mut self, query: Query) -> Result<EventStream, DatabaseError> {
-        let subscribe_message = TcpMessage::Subscribe(query.live, query.offset, query.limit, query.tag);
+        let subscribe_message = TcpMessage::Subscribe(query.live_stream, query.offset, query.limit, query.tag);
         self.stream.send_message(subscribe_message).and_then(|_| {
             self.stream.recv_message().and_then(|message| {
                 match message {
                     TcpMessage::Subscribed => {
-                        let (send, recv) = channel();
+                        let (sender, receiver) = channel();
                         self.stream.try_clone().and_then(|cloned_stream| {
                             thread::spawn(move || {
                                 for message in cloned_stream.messages() {
                                     match message {
-                                        Ok(TcpMessage::Event(event)) => match send.send(EventStreamMessage::Event(event)) {
+                                        Ok(TcpMessage::Event(event)) => match sender.send(EventStreamMessage::Event(event)) {
                                             Ok(_) => continue,
                                             Err(err) => println!("Unable to send event to the event stream: {}", err)
                                         },
                                         Ok(TcpMessage::EndOfEventStream) => {
-                                            let _ = send.send(EventStreamMessage::End);
+                                            let _ = sender.send(EventStreamMessage::End);
                                         },
                                         Ok(TcpMessage::Error(error)) => println!("Received error from TCP stream: {}", error),
                                         Ok(message) => println!("Unexpected TCP message: {}", message),
@@ -72,7 +72,7 @@ impl Client {
                                     break
                                 }
                             });
-                            Ok(EventStream::new(recv))
+                            Ok(EventStream::new(receiver))
                         })
                     },
                     TcpMessage::Error(err) => Err(err),

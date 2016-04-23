@@ -5,18 +5,18 @@ pub struct Query {
     pub offset: usize,
     pub limit: Option<usize>,
     pub tag: Option<String>,
-    pub live: bool,
-    pub position: usize,
-    pub count: usize
+    pub live_stream: bool,
+    position: usize,
+    count: usize
 }
 
 impl Query {
-    pub fn new(live: bool, offset: usize, limit: Option<usize>, tag: Option<String>) -> Query {
+    pub fn new(live_stream: bool, offset: usize, limit: Option<usize>, tag: Option<String>) -> Query {
         Query {
             offset: offset,
             limit: limit,
             tag: tag,
-            live: live,
+            live_stream: live_stream,
             position: offset,
             count: 0
         }
@@ -60,13 +60,19 @@ impl Query {
         }
     }
 
-    pub fn is_live(&self) -> bool {
-        self.live
-    }
-
     pub fn update(&mut self, event_id: usize) {
         self.position = event_id;
         self.count += 1;
+    }
+
+    pub fn interval(&self) -> Interval<u64> {
+        let start = self.position as u64;
+        let end = if self.live_stream || self.limit.is_none() {
+            u64::max_value()
+        } else {
+            start + self.limit.unwrap() as u64
+        };
+        Interval::new(start, end)
     }
 }
 
@@ -77,21 +83,19 @@ mod tests {
     #[test]
     fn test_constructors_and_modifiers() {
         let query = Query::new(true, 100, Some(20), Some("tag".to_owned()));
-        assert_eq!(query.live, true);
+        assert_eq!(query.live_stream, true);
         assert_eq!(query.offset, 100);
         assert_eq!(query.limit, Some(20));
         assert_eq!(query.tag, Some("tag".to_owned()));
-        assert_eq!(query.is_live(), true);
 
         let query = Query::current();
-        assert_eq!(query.live, false);
+        assert_eq!(query.live_stream, false);
         assert_eq!(query.offset, 0);
         assert_eq!(query.limit, None);
         assert_eq!(query.tag, None);
-        assert_eq!(query.is_live(), false);
 
         let query = Query::live();
-        assert_eq!(query.live, true);
+        assert_eq!(query.live_stream, true);
         assert_eq!(query.offset, 0);
         assert_eq!(query.limit, None);
         assert_eq!(query.tag, None);

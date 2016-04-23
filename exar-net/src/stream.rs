@@ -123,13 +123,13 @@ mod tests {
     }
 
     impl Read for LogStream {
-        fn read(&mut self, buf: &mut [u8]) -> Result<u64, Error> {
+        fn read(&mut self, buf: &mut [u8]) -> Result<usize, Error> {
             self.reader.read(buf)
         }
     }
 
     impl Write for LogStream {
-        fn write(&mut self, buf: &[u8]) -> Result<u64, Error> {
+        fn write(&mut self, buf: &[u8]) -> Result<usize, Error> {
             self.writer.write(buf)
         }
         fn flush(&mut self) -> Result<(), Error> {

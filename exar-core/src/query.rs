@@ -67,7 +67,7 @@ impl Query {
 
     pub fn interval(&self) -> Interval<u64> {
         let start = self.position;
-        let end = if self.limit.is_none() {
+        let end = if self.limit.is_none() || self.tag.is_some() {
             u64::max_value()
         } else {
             start + self.limit.unwrap()

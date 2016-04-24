@@ -90,7 +90,9 @@ impl ScannerThread {
             'main: loop {
                 while let Ok(action) = self.action_receiver.try_recv() {
                     match action {
-                        ScannerAction::HandleSubscription(subscription) => self.subscriptions.push(subscription),
+                        ScannerAction::HandleSubscription(subscription) => {
+                            self.subscriptions.push(subscription);
+                        },
                         ScannerAction::AddLineIndex(line, byte_count) => {
                             self.index.insert(line, byte_count);
                             self.reader.restore_index(self.index.clone());
@@ -117,7 +119,9 @@ impl ScannerThread {
     fn retain_active_subscriptions(&mut self) {
         match self.tail_scanner_sender {
             Some(ref tail_scanner_sender) => {
-                for subscription in self.subscriptions.iter().filter(|s| s.query.live_stream) {
+                for subscription in self.subscriptions.iter().filter(|s| {
+                    s.is_active() && s.query.live_stream && s.query.is_active()
+                }) {
                     let _ = tail_scanner_sender.send(ScannerAction::HandleSubscription(subscription.clone()));
                 }
                 self.subscriptions.truncate(0);
@@ -143,7 +147,7 @@ impl ScannerThread {
                                     for subscription in self.subscriptions.iter_mut().filter(|s| s.matches_event(event)) {
                                         let _ = subscription.send(event.clone());
                                     }
-                                    if interval.end == event.id {
+                                    if interval.end == event.id || self.subscriptions.iter().all(|s| !s.query.is_active()) {
                                         break;
                                     }
                                 },

@@ -403,20 +403,7 @@ mod tests {
             message => panic!("Unexpected event stream message: {:?}", message),
         }), Ok(1));
         assert_eq!(receiver.try_recv().err(), Some(TryRecvError::Empty));
-    }
 
-    #[test]
-    fn test_scanner_thread_subscriptions_intervals_merging() {
-
-        let (sender, _) = channel();
-        let subscriptions = vec![
-            Subscription::new(sender.clone(), Query::live().offset(0).limit(10)),
-            Subscription::new(sender.clone(), Query::current().offset(30).limit(20)),
-            Subscription::new(sender.clone(), Query::live().offset(40).limit(30))
-        ];
-
-        let intervals: Vec<_> = subscriptions.iter().map(|s| s.query.interval()).collect();
-
-        assert_eq!(intervals.merged(), vec![Interval::new(0, 10), Interval::new(30, 70)]);
+        assert!(log.remove().is_ok());
     }
 }

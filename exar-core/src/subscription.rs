@@ -56,7 +56,7 @@ mod tests {
     use std::sync::mpsc::channel;
 
     #[test]
-    fn test_subscription() {
+    fn test_simple_subscription() {
         let (sender, receiver) = channel();
         let event = Event::new("data", vec!["tag1", "tag2"]).with_id(1);
 
@@ -69,7 +69,27 @@ mod tests {
 
         drop(receiver);
 
-        assert!(subscription.send(event.clone()).is_err());
+        assert_eq!(subscription.send(event.clone()), Err(DatabaseError::EventStreamError(EventStreamError::Closed)));
+        assert_eq!(subscription.query.interval().start, 1);
+        assert!(!subscription.is_active());
+    }
+
+    #[test]
+    fn test_subscription_event_stream_end() {
+        let (sender, receiver) = channel();
+        let event = Event::new("data", vec!["tag1", "tag2"]).with_id(1);
+
+        let mut subscription = Subscription::new(sender, Query::current().limit(1));
+
+        assert!(subscription.send(event.clone()).is_ok());
+        assert_eq!(receiver.recv(), Ok(EventStreamMessage::Event(event.clone())));
+        assert_eq!(receiver.recv(), Ok(EventStreamMessage::End));
+        assert_eq!(subscription.query.interval().start, 1);
+        assert!(!subscription.is_active());
+
+        drop(receiver);
+
+        assert_eq!(subscription.send(event.clone()), Err(DatabaseError::EventStreamError(EventStreamError::Closed)));
         assert_eq!(subscription.query.interval().start, 1);
         assert!(!subscription.is_active());
     }

@@ -89,4 +89,17 @@ mod tests {
 
         assert!(remove_file("buf-writer.log").is_ok());
     }
+
+    #[test]
+    fn test_intervals_merging() {
+        let intervals = vec![];
+        assert_eq!(intervals.merged(), vec![]);
+
+        let intervals = vec![
+            Interval::new(0, 10),
+            Interval::new(30, 50),
+            Interval::new(40, 70)
+        ];
+        assert_eq!(intervals.merged(), vec![Interval::new(0, 10), Interval::new(30, 70)]);
+    }
 }

@@ -37,7 +37,7 @@ impl Collection {
         self.logger.log(event).and_then(|event_id| {
             if (event_id + 1) % (self.log.get_index_granularity()) == 0 {
                 self.index.insert(event_id + 1, self.logger.bytes_written());
-                let _ = self.log.persist_index(&self.index);
+                try!(self.log.persist_index(&self.index));
                 for scanner in &self.scanners {
                     try!(scanner.add_line_index(event_id + 1, self.logger.bytes_written()))
                 }

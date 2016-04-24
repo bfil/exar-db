@@ -127,7 +127,7 @@ impl ScannerThread {
                 self.subscriptions.truncate(0);
             },
             None => self.subscriptions.retain(|s| {
-                s.is_active() && s.query.live_stream && s.query.is_active()
+                s.is_active() && s.query.is_active()
             })
         }
     }
@@ -345,13 +345,22 @@ mod tests {
         let (sender, receiver) = channel();
         let live_subscription = Subscription::new(sender, Query::live());
 
-        assert!(thread_sender.send(ScannerAction::HandleSubscription(live_subscription)).is_ok());
+        let (tail_scanner_sender, tail_scanner_receiver) = channel();
+        assert!(thread_sender.send(ScannerAction::SetTailScannerSender(tail_scanner_sender)).is_ok());
+        thread::sleep(sleep_duration * 2);
+
+        assert!(thread_sender.send(ScannerAction::HandleSubscription(live_subscription.clone())).is_ok());
         thread::sleep(sleep_duration * 2);
 
         assert_eq!(receiver.try_recv().map(|e| match e {
             EventStreamMessage::Event(e) => e.id,
             message => panic!("Unexpected event stream message: {:?}", message),
         }), Ok(1));
+        if let Ok(ScannerAction::HandleSubscription(s)) = tail_scanner_receiver.try_recv() {
+            assert_eq!(s.query.live_stream, true);
+        } else {
+            panic!("Unable to receive live subscription from the tail scanner receiver");
+        }
         assert_eq!(receiver.try_recv().err(), Some(TryRecvError::Empty));
 
         let (sender, receiver) = channel();
@@ -367,6 +376,33 @@ mod tests {
         assert_eq!(receiver.try_recv().err(), Some(TryRecvError::Disconnected));
 
         assert!(log.remove().is_ok());
+    }
+
+    #[test]
+    fn test_tail_scanner_thread_subscriptions_management() {
+        let log = create_log();
+        let mut logger = Logger::new(log.clone()).expect("Unable to create logger");
+        let line_reader = log.open_line_reader().expect("Unable to open line reader");
+        let event = Event::new("data", vec!["tag1", "tag2"]);
+        let sleep_duration = Duration::from_millis(10);
+
+        assert!(logger.log(event).is_ok());
+
+        let (thread_sender, thread_receiver) = channel();
+        let scanner_thread = ScannerThread::new(line_reader, thread_receiver);
+        scanner_thread.run(sleep_duration);
+
+        let (sender, receiver) = channel();
+        let live_subscription = Subscription::new(sender, Query::live());
+
+        assert!(thread_sender.send(ScannerAction::HandleSubscription(live_subscription.clone())).is_ok());
+        thread::sleep(sleep_duration * 2);
+
+        assert_eq!(receiver.try_recv().map(|e| match e {
+            EventStreamMessage::Event(e) => e.id,
+            message => panic!("Unexpected event stream message: {:?}", message),
+        }), Ok(1));
+        assert_eq!(receiver.try_recv().err(), Some(TryRecvError::Empty));
     }
 
     #[test]

@@ -2,13 +2,15 @@ import {autoinject} from 'aurelia-framework';
 
 import * as $ from 'jquery';
 
+import {ExarClient} from '../exar/client';
+import {Event, Query} from '../exar/model';
+
 @autoinject
 export class Home {
     
-    encoder: TextEncoding.TextEncoder;
-    decoder: TextEncoding.TextDecoder;
-    
     connections: Connection[] = [];
+    
+    exarClient: ExarClient;
     
     addConnection() {
         this.connections.push(new Connection());
@@ -20,16 +22,7 @@ export class Home {
     }
     
     constructor() {
-        this.encoder = new TextEncoder("utf8");
-        this.decoder = new TextDecoder("utf8");
-    }
-    
-    encode(data: string) {
-        return this.encoder.encode(data);
-    }
-    
-    decode(data: ArrayBufferView) {
-        return this.decoder.decode(data);
+        this.exarClient = new ExarClient();
     }
     
     activate() {
@@ -37,59 +30,38 @@ export class Home {
     }
     
     connect(connection: Connection) {
-        connection.socket = navigator.TCPSocket.open("localhost", 38580);
-        connection.socket.onopen = () => {
-            connection.socket.send(this.encode(`Connect\t${connection.collection}\tadmin\tsecret\n`));
-        };
-        
-        connection.socket.ondata = this.awaitingConnection(connection).bind(this);
-        
-        connection.socket.onerror = event => {
-            let error = event.data;
-            connection.logMessage(`Error: ${error.message}`);
-        };
-        
-        connection.socket.onclose = () => {
+        this.exarClient.connect(connection.collection, () => {
             connection.connected = false;
-            connection.logMessage("Disconnected");
-        };
-    }
-    
-    awaitingConnection(connection: Connection) {
-        return event => {
+            connection.logMessage(`Disconnected`);
+        })
+        .then(connected => {
             connection.connected = true;
-            connection.logMessage(this.decode(event.data));
-        };
-    }
-    
-    awaitingPublished(connection: Connection) {
-        return event => {
-            connection.logMessage(this.decode(event.data));
-        };
-    }
-    
-    awaitingEvents(connection: Connection) {
-        return event => {
-            let events = this.decode(event.data).split('\n');
-            for(event of events) {
-                if(event) connection.logMessage(event);    
-            }
-        }
-    }
-    
-    disconnect(connection: Connection) {
-        connection.socket.close();
+            connection.logMessage(connected);
+        }, error => {
+            connection.logMessage(`Error: ${error.message}`);
+        })
     }
     
     publish(connection: Connection) {
-        connection.socket.ondata = this.awaitingPublished(connection).bind(this);
-        connection.socket.send(this.encode(`Publish\t${connection.tags || ''}\t0\t${connection.data || ''}\n`));
+        let event = new Event(connection.tags.split(' '), connection.data);
+        this.exarClient.publish(event).then(
+            published => connection.logMessage(published), 
+            error => connection.logMessage(`Error: ${error.message}`)
+        )
     }
     
     subscribe(connection: Connection) {
-        connection.socket.ondata = this.awaitingEvents(connection).bind(this);
-        let optionalTag = connection.tag ? `\t${connection.tag}`: '';
-        connection.socket.send(this.encode(`Subscribe\tfalse\t${connection.offset || 0}\t${connection.limit || 0}${optionalTag}\n`));
+        let query = new Query(false, parseInt(connection.offset), parseInt(connection.limit), connection.tag);
+        this.exarClient.subscribe(query, event => {
+            connection.logMessage(event);
+        }).then(
+            subscribed => connection.logMessage(subscribed), 
+            error => connection.logMessage(`Error: ${error.message}`)
+        )
+    }
+    
+    disconnect() {
+        this.exarClient.disconnect();
     }
 }
 

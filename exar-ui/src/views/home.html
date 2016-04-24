@@ -25,7 +25,7 @@
                     <div if.bind="connection.connected">
                         <div>
                             Connected to <b>${connection.collection}</b>
-                            <button type="submit" class="btn btn-default" click.delegate="disconnect(connection)">Disconnect</button>
+                            <button type="submit" class="btn btn-default" click.delegate="disconnect()">Disconnect</button>
                         </div>
                         <hr>
                         <form class="form-inline">

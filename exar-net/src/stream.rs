@@ -147,7 +147,7 @@ mod tests {
     }
 
     #[test]
-    fn test_constructor() {
+    fn test_tcp_message_stream() {
 
         let log_stream = LogStream::new("message-stream.log").expect("Unable to create log stream");
         let mut stream = TcpMessageStream::new(log_stream).expect("Unable to create message stream");

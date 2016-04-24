@@ -160,6 +160,8 @@ mod tests {
     use super::super::*;
     use exar_testkit::*;
 
+    use indexed_line_reader::*;
+
     #[test]
     fn test_get_path() {
         let ref collection_name = random_collection_name();
@@ -170,21 +172,45 @@ mod tests {
     }
 
     #[test]
-    fn test_log() {
+    fn test_log_and_index_management() {
         let ref collection_name = random_collection_name();
-        let log = Log::new("", collection_name, 100);
+        let log = Log::new("", collection_name, 10);
 
+        assert!(log.ensure_exists().is_ok());
         assert!(log.open_writer().is_ok());
         assert!(log.open_reader().is_ok());
 
         let index = log.compute_index().expect("Unable to compute index");
         assert_eq!(index.line_count(), 0);
 
-        let mut file_writer = log.open_writer().expect("Unable to open file writer");
-        assert!(file_writer.write_line("data").is_ok());
+        let mut writer = log.open_writer().expect("Unable to open writer");
+        for _ in 0..100 {
+            assert!(writer.write_line("data").is_ok());
+        }
 
         let index = log.compute_index().expect("Unable to compute index");
-        assert_eq!(index.line_count(), 1);
+        assert_eq!(index.line_count(), 100);
+
+        let reader = log.open_line_reader().expect("Unable to open reader");
+        assert_eq!(*reader.get_index(), LinesIndex::new(10));
+
+        let reader = log.open_line_reader_with_index(index.clone()).expect("Unable to open reader");
+        assert_eq!(*reader.get_index(), index);
+
+        assert!(log.open_index_reader().is_err());
+
+        let restored_index = log.restore_index().expect("Unable to compute, persist and restore index");
+        assert_eq!(restored_index, index);
+
+        assert!(log.open_index_reader().is_ok());
+
+        let restored_index = log.restore_index().expect("Unable to restore persisted index");
+        assert_eq!(restored_index, index);
+
+        assert!(log.persist_index(&LinesIndex::new(10)).is_ok());
+
+        let restored_index = log.restore_index().expect("Unable to restore persisted index");
+        assert_eq!(restored_index, index);
 
         assert!(log.remove().is_ok());
 

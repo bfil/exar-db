@@ -71,6 +71,7 @@ mod tests {
 
         assert_eq!(logger.writer.get_ref().metadata().unwrap().is_file(), true);
         assert_eq!(logger.offset, 1);
+        assert_eq!(logger.bytes_written, 0);
 
         assert_eq!(logger.log(event), Ok(1));
 
@@ -78,6 +79,7 @@ mod tests {
 
         assert_eq!(logger.writer.get_ref().metadata().unwrap().is_file(), true);
         assert_eq!(logger.offset, 2);
+        assert_eq!(logger.bytes_written, 31);
 
         assert!(log.remove().is_ok());
     }
@@ -85,7 +87,7 @@ mod tests {
     #[test]
     fn test_constructor_failure() {
         let ref collection_name = invalid_collection_name();
-        let log = Log::new("", collection_name, 100);
+        let log = Log::new("", collection_name, 10);
 
         assert!(Logger::new(log.clone()).is_err());
 
@@ -93,7 +95,7 @@ mod tests {
     }
 
     #[test]
-    fn test_append() {
+    fn test_log() {
         let log = create_log();
         let event = Event::new("data", vec!["tag1", "tag2"]);
 
@@ -101,8 +103,10 @@ mod tests {
 
         assert_eq!(logger.log(event.clone()), Ok(1));
         assert_eq!(logger.offset, 2);
+        assert_eq!(logger.bytes_written, 31);
         assert_eq!(logger.log(event.clone()), Ok(2));
         assert_eq!(logger.offset, 3);
+        assert_eq!(logger.bytes_written, 62);
 
         let reader = log.open_reader().expect("Unable to open reader");
 
@@ -129,6 +133,19 @@ mod tests {
         assert!(event.timestamp > 0);
 
         assert!(lines.next().is_none());
+
+        assert!(log.remove().is_ok());
+    }
+
+    #[test]
+    fn test_event_validation_failure() {
+        let log = create_log();
+        let event = Event::new("data", vec![]);
+
+        let mut logger = Logger::new(log.clone()).expect("Unable to create logger");
+
+        let expected_validation_error = ValidationError::new("event must contain at least one tag");
+        assert_eq!(logger.log(event.clone()), Err(DatabaseError::ValidationError(expected_validation_error)));
 
         assert!(log.remove().is_ok());
     }

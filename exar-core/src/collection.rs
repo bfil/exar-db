@@ -150,6 +150,24 @@ mod tests {
     }
 
     #[test]
+    fn test_index_updates_on_publish() {
+        let ref collection_name = random_collection_name();
+        let mut config = CollectionConfig::default();
+        config.index_granularity = 10;
+        let mut collection = Collection::new(collection_name, &config).expect("Unable to create collection");
+
+        let test_event = Event::new("data", vec!["tag1", "tag2"]);
+        for i in 0..100 {
+            assert_eq!(collection.publish(test_event.clone()), Ok(i+1));
+        }
+
+        let restored_index = collection.log.restore_index().expect("Unable to restore persisted index");
+        assert_eq!(restored_index.line_count(), 100);
+
+        assert!(collection.drop().is_ok());
+    }
+
+    #[test]
     fn test_drop() {
         let ref collection_name = random_collection_name();
         let config = CollectionConfig::default();

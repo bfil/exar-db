@@ -4,6 +4,7 @@ import * as $ from 'jquery';
 
 import {ExarClient} from '../exar/client';
 import {Event, Query} from '../exar/model';
+import {TcpMessage} from '../exar/net';
 
 @autoinject
 export class Home {
@@ -30,33 +31,33 @@ export class Home {
     }
     
     connect(connection: Connection) {
-        this.exarClient.connect(connection.collection, () => {
+        this.exarClient.connect(connection.collection)
+            .then(connected => {
+                connection.connected = true;
+                connection.logTcpMessage(connected);
+            }, connection.onError.bind(this));
+        this.exarClient.onClose(() => {
             connection.connected = false;
             connection.logMessage(`Disconnected`);
-        })
-        .then(connected => {
-            connection.connected = true;
-            connection.logMessage(connected);
-        }, error => {
-            connection.logMessage(`Error: ${error.message}`);
-        })
+        });
     }
     
     publish(connection: Connection) {
-        let event = new Event(connection.tags.split(' '), connection.data);
+        let event = new Event(connection.data, (connection.tags || "").split(' '));
         this.exarClient.publish(event).then(
-            published => connection.logMessage(published), 
-            error => connection.logMessage(`Error: ${error.message}`)
+            published => connection.logTcpMessage(published), 
+            connection.onError.bind(this)
         )
     }
     
     subscribe(connection: Connection) {
         let query = new Query(false, parseInt(connection.offset), parseInt(connection.limit), connection.tag);
         this.exarClient.subscribe(query, event => {
-            connection.logMessage(event);
+            if (event) connection.logTcpMessage(event);
+            else connection.logMessage("EndOfEventStream");
         }).then(
-            subscribed => connection.logMessage(subscribed), 
-            error => connection.logMessage(`Error: ${error.message}`)
+            subscribed => connection.logTcpMessage(subscribed), 
+            connection.onError.bind(this)
         )
     }
     
@@ -86,8 +87,16 @@ export class Connection {
         this.socket = undefined;
     }
     
+    onError(error: any) {
+        this.logMessage(`Error: ${error.message}`);
+    }
+    
     logMessage(message: string) {
         this.messages.push(message);
+    }
+    
+    logTcpMessage(message: TcpMessage) {
+        this.messages.push(message.toTabSeparatedString());
     }
     
     clearMessages() {

@@ -3,11 +3,11 @@ interface TCPSocketStatic {
 }
 
 interface TCPSocket {
-    send(data: any);
+    send(data: ArrayBufferView);
     close();
     
     onopen: any;
-    ondata: any;
+    ondata: (ArrayBufferView) => any;
     onerror: any;
     onclose: any;
     ondrain: any;

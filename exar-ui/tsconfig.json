@@ -21,7 +21,8 @@
     "./jspm_packages/**/*.d.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "Exar UI-darwin-x64"
   ],
   "atom": {
     "rewriteTsconfig": false

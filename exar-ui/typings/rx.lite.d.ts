@@ -418,13 +418,16 @@ declare module Rx {
         schedulePeriodic<TState>(state: TState, period: number, action: (state: TState) => TState): IDisposable;
     }
 
-    export interface IScheduler {
-        /**
-         * Returns a scheduler that wraps the original scheduler, adding exception handling for scheduled actions.
-         * @param {Function} handler Handler that's run if an exception is caught. The exception will be rethrown if the handler returns false.
-         * @returns {Scheduler} Wrapper around the original scheduler, enforcing exception handling.
-         */
-        catch(handler: Function): IScheduler;
+    export interface SchedulerStatic {
+        immediate: IScheduler;
+    }
+
+    export interface ICurrentThreadScheduler extends IScheduler {
+        scheduleRequired(): boolean;
+    }
+
+    export interface SchedulerStatic {
+        currentThread: ICurrentThreadScheduler;
     }
 
     export module internals {
@@ -437,18 +440,6 @@ declare module Rx {
         }
 
         export var SchedulePeriodicRecursive: SchedulePeriodicRecursiveStatic;
-    }
-
-    export interface SchedulerStatic {
-        immediate: IScheduler;
-    }
-
-    export interface ICurrentThreadScheduler extends IScheduler {
-        scheduleRequired(): boolean;
-    }
-
-    export interface SchedulerStatic {
-        currentThread: ICurrentThreadScheduler;
     }
 
     export interface SchedulerStatic {
@@ -597,10 +588,6 @@ declare module Rx {
 
     export var Notification : NotificationStatic;
 
-	export interface Observer<T> {
-        makeSafe(disposable: IDisposable): Observer<T>;
-	}
-
     export module internals {
         /**
         * Abstract base class for implementations of the Observer class.
@@ -676,77 +663,10 @@ declare module Rx {
 
     export var AnonymousObserver : AnonymousObserverStatic;
 
-    export interface CheckedObserver<T> extends Observer<T> {
-        checkAccess(): void;
-    }
-
     export module internals {
         export interface ScheduledObserver<T> extends Observer<T> {
             ensureActive(): void;
         }
-    }
-
-    export interface Observable<T> {
-        /**
-        *  Wraps the source sequence in order to run its observer callbacks on the specified scheduler.
-        *
-        *  This only invokes observer callbacks on a scheduler. In case the subscription and/or unsubscription actions have side-effects
-        *  that require to be run on a scheduler, use subscribeOn.
-        *
-        *  @param {Scheduler} scheduler Scheduler to notify observers on.
-        *  @returns {Observable} The source sequence whose observations happen on the specified scheduler.
-        */
-        observeOn(scheduler: IScheduler): Observable<T>;
-    }
-
-    export interface Observable<T> {
-        /**
-        *  Wraps the source sequence in order to run its subscription and unsubscription logic on the specified scheduler. This operation is not commonly used;
-        *  see the remarks section for more information on the distinction between subscribeOn and observeOn.
-
-        *  This only performs the side-effects of subscription and unsubscription on the specified scheduler. In order to invoke observer
-        *  callbacks on a scheduler, use observeOn.
-
-        *  @param {Scheduler} scheduler Scheduler to perform subscription and unsubscription actions on.
-        *  @returns {Observable} The source sequence whose subscriptions and unsubscriptions happen on the specified scheduler.
-        */
-        subscribeOn(scheduler: IScheduler): Observable<T>;
-    }
-
-    export interface ObservableStatic {
-        /**
-        * Converts a Promise to an Observable sequence
-        * @param {Promise} An ES6 Compliant promise.
-        * @returns {Observable} An Observable sequence which wraps the existing promise success and failure.
-        */
- 		fromPromise<T>(promise: Promise<T>): Observable<T>;
-    }
-
-    export interface Observable<T> {
-        /*
-         * Converts an existing observable sequence to an ES6 Compatible Promise
-         * @example
-         * var promise = Rx.Observable.return(42).toPromise(RSVP.Promise);
-         *
-         * // With config
-         * Rx.config.Promise = RSVP.Promise;
-         * var promise = Rx.Observable.return(42).toPromise();
-         * @param {Function} [promiseCtor] The constructor of the promise. If not provided, it looks for it in Rx.config.Promise.
-         * @returns {Promise} An ES6 compatible promise with the last value from the observable sequence.
-         */
-        toPromise(promiseCtor?: { new (resolver: (resolvePromise: (value: T) => void, rejectPromise: (reason: any) => void) => void): IPromise<T>; }): IPromise<T>;
-        /*
-         * Converts an existing observable sequence to an ES6 Compatible Promise
-         * @example
-         * var promise = Rx.Observable.return(42).toPromise(RSVP.Promise);
-         *
-         * // With config
-         * Rx.config.Promise = RSVP.Promise;
-         * var promise = Rx.Observable.return(42).toPromise();
-         * @param {Function} [promiseCtor] The constructor of the promise. If not provided, it looks for it in Rx.config.Promise.
-         * @returns {Promise} An ES6 compatible promise with the last value from the observable sequence.
-         */
-        toPromise<TPromise extends IPromise<T>>(promiseCtor: { new (resolver: (resolvePromise: (value: T) => void, rejectPromise: (reason: any) => void) => void): TPromise; }): TPromise;
     }
 
     export interface Observable<T> {
@@ -822,23 +742,6 @@ declare module Rx {
          * @returns {Observable} The observable sequence whose elements are pulled from the given enumerable sequence.
          */
         fromArray<T>(array: ArrayLike<T>, scheduler?: IScheduler): Observable<T>;
-    }
-
-    export interface ObservableStatic {
-        /**
-         *  Generates an observable sequence by running a state-driven loop producing the sequence's elements, using the specified scheduler to send out observer messages.
-         *
-         * @example
-         *  var res = Rx.Observable.generate(0, function (x) { return x < 10; }, function (x) { return x + 1; }, function (x) { return x; });
-         *  var res = Rx.Observable.generate(0, function (x) { return x < 10; }, function (x) { return x + 1; }, function (x) { return x; }, Rx.Scheduler.timeout);
-         * @param {Mixed} initialState Initial state.
-         * @param {Function} condition Condition to terminate generation (upon returning false).
-         * @param {Function} iterate Iteration step function.
-         * @param {Function} resultSelector Selector function for results produced in the sequence.
-         * @param {Scheduler} [scheduler] Scheduler on which to run the generator loop. If not provided, defaults to Scheduler.currentThread.
-         * @returns {Observable} The generated sequence.
-         */
-        generate<TState, TResult>(initialState: TState, condition: (state: TState) => boolean, iterate: (state: TState) => TState, resultSelector: (state: TState) => TResult, scheduler?: IScheduler): Observable<TResult>;
     }
 
     export interface ObservableStatic {
@@ -947,38 +850,6 @@ declare module Rx {
         * @returns {Observable} The observable sequence that terminates exceptionally with the specified exception object.
         */
         throw<T>(exception: any, scheduler?: IScheduler): Observable<T>;
-    }
-
-    export interface ObservableStatic {
-        /**
-         * Constructs an observable sequence that depends on a resource object, whose lifetime is tied to the resulting observable sequence's lifetime.
-         * @param {Function} resourceFactory Factory function to obtain a resource object.
-         * @param {Function} observableFactory Factory function to obtain an observable sequence that depends on the obtained resource.
-         * @returns {Observable} An observable sequence whose lifetime controls the lifetime of the dependent resource object.
-         */
-        using<TSource, TResource extends IDisposable>(resourceFactory: () => TResource, observableFactory: (resource: TResource) => Observable<TSource>): Observable<TSource>;
-    }
-
-    export interface Observable<T> {
-        /**
-        * Propagates the observable sequence or Promise that reacts first.
-        * @param {Observable} rightSource Second observable sequence or Promise.
-        * @returns {Observable} {Observable} An observable sequence that surfaces either of the given sequences, whichever reacted first.
-        */
-        amb(observable: ObservableOrPromise<T>): Observable<T>;
-    }
-
-    export interface ObservableStatic {
-        /**
-        * Propagates the observable sequence or Promise that reacts first.
-        * @returns {Observable} An observable sequence that surfaces any of the given sequences, whichever reacted first.
-        */
-        amb<T>(observables: ObservableOrPromise<T>[]): Observable<T>;
-        /**
-        * Propagates the observable sequence or Promise that reacts first.
-        * @returns {Observable} An observable sequence that surfaces any of the given sequences, whichever reacted first.
-        */
-        amb<T>(...observables: ObservableOrPromise<T>[]): Observable<T>;
     }
 
     export interface Observable<T> {
@@ -1308,36 +1179,6 @@ declare module Rx {
 
     export interface Observable<T> {
         /**
-        * Continues an observable sequence that is terminated normally or by an exception with the next observable sequence.
-        * @param {Observable} second Second observable sequence used to produce results after the first sequence terminates.
-        * @returns {Observable} An observable sequence that concatenates the first and second sequence, even if the first sequence terminates exceptionally.
-        */
-        onErrorResumeNext(second: ObservableOrPromise<T>): Observable<T>;
-    }
-
-    export interface ObservableStatic {
-        /**
-        * Continues an observable sequence that is terminated normally or by an exception with the next observable sequence.
-        *
-        * @example
-        * 1 - res = Rx.Observable.onErrorResumeNext(xs, ys, zs);
-        * 1 - res = Rx.Observable.onErrorResumeNext([xs, ys, zs]);
-        * @returns {Observable} An observable sequence that concatenates the source sequences, even if a sequence terminates exceptionally.
-        */
-        onErrorResumeNext<T>(...sources: ObservableOrPromise<T>[]): Observable<T>;
-        /**
-        * Continues an observable sequence that is terminated normally or by an exception with the next observable sequence.
-        *
-        * @example
-        * 1 - res = Rx.Observable.onErrorResumeNext(xs, ys, zs);
-        * 1 - res = Rx.Observable.onErrorResumeNext([xs, ys, zs]);
-        * @returns {Observable} An observable sequence that concatenates the source sequences, even if a sequence terminates exceptionally.
-        */
-        onErrorResumeNext<T>(sources: ObservableOrPromise<T>[]): Observable<T>;
-    }
-
-    export interface Observable<T> {
-        /**
         * Returns the values from the source observable sequence only after the other observable sequence produces a value.
         * @param {Observable | Promise} other The observable sequence or Promise that triggers propagation of elements of the source sequence.
         * @returns {Observable} An observable sequence containing the elements of the source sequence starting from the point the other sequence triggered propagation.
@@ -1559,16 +1400,6 @@ declare module Rx {
        * @returns {Observable} An observable sequence that hides the identity of the source sequence.
        */
         asObservable(): Observable<T>;
-    }
-
-    export interface Observable<T> {
-        /**
-        *  Projects each element of an observable sequence into zero or more buffers which are produced based on element count information.
-        * @param {Number} count Length of each buffer.
-        * @param {Number} [skip] Number of elements to skip between creation of consecutive buffers. If not provided, defaults to the count.
-        * @returns {Observable} An observable sequence of buffers.
-        */
-        bufferWithCount(count: number, skip?: number): Observable<T[]>;
     }
 
     export interface Observable<T> {
@@ -1825,32 +1656,6 @@ declare module Rx {
 
     export interface Observable<T> {
         /**
-        *  Returns an array with the specified number of contiguous elements from the end of an observable sequence.
-        *
-        * @description
-        *  This operator accumulates a buffer with a length enough to store count elements. Upon completion of the
-        *  source sequence, this buffer is produced on the result sequence.
-        * @param {Number} count Number of elements to take from the end of the source sequence.
-        * @returns {Observable} An observable sequence containing a single array with the specified number of elements from the end of the source sequence.
-        */
-        takeLastBuffer(count: number): Observable<T[]>;
-    }
-
-    export interface Observable<T> {
-        /**
-        *  Projects each element of an observable sequence into zero or more windows which are produced based on element count information.
-        *
-        *  var res = xs.windowWithCount(10);
-        *  var res = xs.windowWithCount(10, 1);
-        * @param {Number} count Length of each window.
-        * @param {Number} [skip] Number of elements to skip between creation of consecutive windows. If not specified, defaults to the count.
-        * @returns {Observable} An observable sequence of windows.
-        */
-        windowWithCount(count: number, skip?: number): Observable<Observable<T>>;
-    }
-
-    export interface Observable<T> {
-        /**
         *  One of the Following:
         *  Projects each element of an observable sequence to an observable sequence and merges the resulting observable sequences into one observable sequence.
         *
@@ -2014,57 +1819,6 @@ declare module Rx {
 
     export interface Observable<T> {
         /**
-        * Projects each notification of an observable sequence to an observable sequence and concats the resulting observable sequences into one observable sequence.
-        * @param {Function} onNext A transform function to apply to each element; the second parameter of the function represents the index of the source element.
-        * @param {Function} onError A transform function to apply when an error occurs in the source sequence.
-        * @param {Function} onCompleted A transform function to apply when the end of the source sequence is reached.
-        * @param {Any} [thisArg] An optional "this" to use to invoke each transform.
-        * @returns {Observable} An observable sequence whose elements are the result of invoking the one-to-many transform function corresponding to each notification in the input sequence.
-        */
-        concatMapObserver<T, TResult>(onNext: (value: T, i: number) => ObservableOrPromise<TResult>, onError: (error: any) => ObservableOrPromise<any>, onCompleted: () => ObservableOrPromise<any>, thisArg?: any): Observable<TResult>;
-        /**
-        * Projects each notification of an observable sequence to an observable sequence and concats the resulting observable sequences into one observable sequence.
-        * @param {Function} onNext A transform function to apply to each element; the second parameter of the function represents the index of the source element.
-        * @param {Function} onError A transform function to apply when an error occurs in the source sequence.
-        * @param {Function} onCompleted A transform function to apply when the end of the source sequence is reached.
-        * @param {Any} [thisArg] An optional "this" to use to invoke each transform.
-        * @returns {Observable} An observable sequence whose elements are the result of invoking the one-to-many transform function corresponding to each notification in the input sequence.
-        */
-        selectConcatObserver<T, TResult>(onNext: (value: T, i: number) => ObservableOrPromise<TResult>, onError: (error: any) => ObservableOrPromise<any>, onCompleted: () => ObservableOrPromise<any>, thisArg?: any): Observable<TResult>;
-    }
-
-    export interface Observable<T> {
-        /**
-        *  Returns the elements of the specified sequence or the specified value in a singleton sequence if the sequence is empty.
-        *
-        *  var res = obs = xs.defaultIfEmpty();
-        *  2 - obs = xs.defaultIfEmpty(false);
-        *
-        * @memberOf Observable#
-        * @param defaultValue The value to return if the sequence is empty. If not provided, this defaults to null.
-        * @returns {Observable} An observable sequence that contains the specified default value if the source is empty; otherwise, the elements of the source itself.
-        */
-        defaultIfEmpty(defaultValue?: T): Observable<T>;
-    }
-
-    export interface Observable<T> {
-        /**
-        *  Returns an observable sequence that contains only distinct elements according to the keySelector and the comparer.
-        *  Usage of this operator should be considered carefully due to the maintenance of an internal lookup structure which can grow large.
-        *
-        * @example
-        *  var res = obs = xs.distinct();
-        *  2 - obs = xs.distinct(function (x) { return x.id; });
-        *  2 - obs = xs.distinct(function (x) { return x.id; }, function (a,b) { return a === b; });
-        * @param {Function} [keySelector]  A function to compute the comparison key for each element.
-        * @param {Function} [comparer]  Used to compare items in the collection.
-        * @returns {Observable} An observable sequence only containing the distinct elements, based on a computed key value, from the source sequence.
-        */
-        distinct<TKey>(keySelector?: (value: T) => TKey, keySerializer?: (key: TKey) => string): Observable<T>;
-    }
-
-    export interface Observable<T> {
-        /**
         * Projects each element of an observable sequence into a new form by incorporating the element's index.
         * @param {Function} selector A transform function to apply to each source element; the second parameter of the function represents the index of the source element.
         * @param {Any} [thisArg] Object to use as this when executing callback.
@@ -2088,27 +1842,6 @@ declare module Rx {
         * @returns {Observable} Returns a new Observable sequence of property values.
         */
         pluck<TResult>(prop: string): Observable<TResult>;
-    }
-
-    export interface Observable<T> {
-        /**
-        * Projects each notification of an observable sequence to an observable sequence and merges the resulting observable sequences into one observable sequence.
-        * @param {Function} onNext A transform function to apply to each element; the second parameter of the function represents the index of the source element.
-        * @param {Function} onError A transform function to apply when an error occurs in the source sequence.
-        * @param {Function} onCompleted A transform function to apply when the end of the source sequence is reached.
-        * @param {Any} [thisArg] An optional "this" to use to invoke each transform.
-        * @returns {Observable} An observable sequence whose elements are the result of invoking the one-to-many transform function corresponding to each notification in the input sequence.
-        */
-        selectManyObserver<T2, T3, T4>(onNext: (value: T, index: number) => Observable<T2>, onError: (exception: any) => Observable<T3>, onCompleted: () => Observable<T4>, thisArg?: any): Observable<T2 | T3 | T4>;
-        /**
-        * Projects each notification of an observable sequence to an observable sequence and merges the resulting observable sequences into one observable sequence.
-        * @param {Function} onNext A transform function to apply to each element; the second parameter of the function represents the index of the source element.
-        * @param {Function} onError A transform function to apply when an error occurs in the source sequence.
-        * @param {Function} onCompleted A transform function to apply when the end of the source sequence is reached.
-        * @param {Any} [thisArg] An optional "this" to use to invoke each transform.
-        * @returns {Observable} An observable sequence whose elements are the result of invoking the one-to-many transform function corresponding to each notification in the input sequence.
-        */
-        flatMapObserver<T2, T3, T4>(onNext: (value: T, index: number) => Observable<T2>, onError: (exception: any) => Observable<T3>, onCompleted: () => Observable<T4>, thisArg?: any): Observable<T2 | T3 | T4>;
     }
 
 
@@ -2422,17 +2155,256 @@ declare module Rx {
         filter(predicate: _Predicate<T>, thisArg?: any): Observable<T>;
     }
 
-    export interface Observable<T> {
+    export interface ObservableStatic {
         /**
-         * Executes a transducer to transform the observable sequence
-         * @param {Transducer} transducer A transducer to execute
-         * @returns {Observable} An Observable sequence containing the results from the transducer.
+         * Converts a callback function to an observable sequence.
+         *
+         * @param {Function} function Function with a callback as the last parameter to convert to an Observable sequence.
+         * @param {Mixed} [context] The context for the func parameter to be executed.  If not specified, defaults to undefined.
+         * @param {Function} [selector] A selector which takes the arguments from the callback to produce a single item to yield on next.
+         * @returns {Function} A function, when executed with the required parameters minus the callback, produces an Observable sequence with a single value of the arguments to the callback as an array.
          */
-        transduce(transducer: any): any;
-        //TODO: Setup transducer
+        fromCallback<TResult>(func: Function, context: any, selector: Function): (...args: any[]) => Observable<TResult>;
+        /**
+         * Converts a callback function to an observable sequence.
+         *
+         * @param {Function} function Function with a callback as the last parameter to convert to an Observable sequence.
+         * @param {Mixed} [context] The context for the func parameter to be executed.  If not specified, defaults to undefined.
+         * @param {Function} [selector] A selector which takes the arguments from the callback to produce a single item to yield on next.
+         * @returns {Function} A function, when executed with the required parameters minus the callback, produces an Observable sequence with a single value of the arguments to the callback as an array.
+         */
+        fromCallback<TResult, T1>(func: (arg1: T1, callback: (result: TResult) => any) => any, context?: any, selector?: Function): (arg1: T1) => Observable<TResult>;
+        /**
+         * Converts a callback function to an observable sequence.
+         *
+         * @param {Function} function Function with a callback as the last parameter to convert to an Observable sequence.
+         * @param {Mixed} [context] The context for the func parameter to be executed.  If not specified, defaults to undefined.
+         * @param {Function} [selector] A selector which takes the arguments from the callback to produce a single item to yield on next.
+         * @returns {Function} A function, when executed with the required parameters minus the callback, produces an Observable sequence with a single value of the arguments to the callback as an array.
+         */
+        fromCallback<TResult, T1, T2>(func: (arg1: T1, arg2: T2, callback: (result: TResult) => any) => any, context?: any, selector?: Function): (arg1: T1, arg2: T2) => Observable<TResult>;
+        /**
+         * Converts a callback function to an observable sequence.
+         *
+         * @param {Function} function Function with a callback as the last parameter to convert to an Observable sequence.
+         * @param {Mixed} [context] The context for the func parameter to be executed.  If not specified, defaults to undefined.
+         * @param {Function} [selector] A selector which takes the arguments from the callback to produce a single item to yield on next.
+         * @returns {Function} A function, when executed with the required parameters minus the callback, produces an Observable sequence with a single value of the arguments to the callback as an array.
+         */
+        fromCallback<TResult, T1, T2, T3>(func: (arg1: T1, arg2: T2, arg3: T3, callback: (result: TResult) => any) => any, context?: any, selector?: Function): (arg1: T1, arg2: T2, arg3: T3) => Observable<TResult>;
+        /**
+         * Converts a callback function to an observable sequence.
+         *
+         * @param {Function} function Function with a callback as the last parameter to convert to an Observable sequence.
+         * @param {Mixed} [context] The context for the func parameter to be executed.  If not specified, defaults to undefined.
+         * @param {Function} [selector] A selector which takes the arguments from the callback to produce a single item to yield on next.
+         * @returns {Function} A function, when executed with the required parameters minus the callback, produces an Observable sequence with a single value of the arguments to the callback as an array.
+         */
+        fromCallback<TResult, T1, T2, T3, T4>(func: (arg1: T1, arg2: T2, arg3: T3, arg4: T4, callback: (result: TResult) => any) => any, context?: any, selector?: Function): (arg1: T1, arg2: T2, arg3: T3, arg4: T4) => Observable<TResult>;
+        /**
+         * Converts a callback function to an observable sequence.
+         *
+         * @param {Function} function Function with a callback as the last parameter to convert to an Observable sequence.
+         * @param {Mixed} [context] The context for the func parameter to be executed.  If not specified, defaults to undefined.
+         * @param {Function} [selector] A selector which takes the arguments from the callback to produce a single item to yield on next.
+         * @returns {Function} A function, when executed with the required parameters minus the callback, produces an Observable sequence with a single value of the arguments to the callback as an array.
+         */
+        fromCallback<TResult, T1, T2, T3, T4, T5>(func: (arg1: T1, arg2: T2, arg3: T3, arg4: T4, arg5: T5, callback: (result: TResult) => any) => any, context?: any, selector?: Function): (arg1: T1, arg2: T2, arg3: T3, arg4: T4, arg5: T5) => Observable<TResult>;
+        /**
+         * Converts a callback function to an observable sequence.
+         *
+         * @param {Function} function Function with a callback as the last parameter to convert to an Observable sequence.
+         * @param {Mixed} [context] The context for the func parameter to be executed.  If not specified, defaults to undefined.
+         * @param {Function} [selector] A selector which takes the arguments from the callback to produce a single item to yield on next.
+         * @returns {Function} A function, when executed with the required parameters minus the callback, produces an Observable sequence with a single value of the arguments to the callback as an array.
+         */
+        fromCallback<TResult, T1, T2, T3, T4, T5, T6>(func: (arg1: T1, arg2: T2, arg3: T3, arg4: T4, arg5: T5, arg6: T6, callback: (result: TResult) => any) => any, context?: any, selector?: Function): (arg1: T1, arg2: T2, arg3: T3, arg4: T4, arg5: T5, arg6: T6) => Observable<TResult>;
+        /**
+         * Converts a callback function to an observable sequence.
+         *
+         * @param {Function} function Function with a callback as the last parameter to convert to an Observable sequence.
+         * @param {Mixed} [context] The context for the func parameter to be executed.  If not specified, defaults to undefined.
+         * @param {Function} [selector] A selector which takes the arguments from the callback to produce a single item to yield on next.
+         * @returns {Function} A function, when executed with the required parameters minus the callback, produces an Observable sequence with a single value of the arguments to the callback as an array.
+         */
+        fromCallback<TResult, T1, T2, T3, T4, T5, T6, T7>(func: (arg1: T1, arg2: T2, arg3: T3, arg4: T4, arg5: T5, arg6: T6, arg7: T7, callback: (result: TResult) => any) => any, context?: any, selector?: Function): (arg1: T1, arg2: T2, arg3: T3, arg4: T4, arg5: T5, arg6: T6, arg7: T7) => Observable<TResult>;
+        /**
+         * Converts a callback function to an observable sequence.
+         *
+         * @param {Function} function Function with a callback as the last parameter to convert to an Observable sequence.
+         * @param {Mixed} [context] The context for the func parameter to be executed.  If not specified, defaults to undefined.
+         * @param {Function} [selector] A selector which takes the arguments from the callback to produce a single item to yield on next.
+         * @returns {Function} A function, when executed with the required parameters minus the callback, produces an Observable sequence with a single value of the arguments to the callback as an array.
+         */
+        fromCallback<TResult, T1, T2, T3, T4, T5, T6, T7, T8>(func: (arg1: T1, arg2: T2, arg3: T3, arg4: T4, arg5: T5, arg6: T6, arg7: T7, arg8: T8, callback: (result: TResult) => any) => any, context?: any, selector?: Function): (arg1: T1, arg2: T2, arg3: T3, arg4: T4, arg5: T5, arg6: T6, arg7: T7, arg8: T8) => Observable<TResult>;
+        /**
+         * Converts a callback function to an observable sequence.
+         *
+         * @param {Function} function Function with a callback as the last parameter to convert to an Observable sequence.
+         * @param {Mixed} [context] The context for the func parameter to be executed.  If not specified, defaults to undefined.
+         * @param {Function} [selector] A selector which takes the arguments from the callback to produce a single item to yield on next.
+         * @returns {Function} A function, when executed with the required parameters minus the callback, produces an Observable sequence with a single value of the arguments to the callback as an array.
+         */
+        fromCallback<TResult, T1, T2, T3, T4, T5, T6, T7, T8, T9>(func: (arg1: T1, arg2: T2, arg3: T3, arg4: T4, arg5: T5, arg6: T6, arg7: T7, arg8: T8, arg9: T9, callback: (result: TResult) => any) => any, context?: any, selector?: Function): (arg1: T1, arg2: T2, arg3: T3, arg4: T4, arg5: T5, arg6: T6, arg7: T7, arg8: T8, arg9: T9) => Observable<TResult>;
     }
 
-    export interface AnonymousObservable<T> extends Observable<T> { }
+    export interface ObservableStatic {
+        /**
+         * Converts a Node.js callback style function to an observable sequence.  This must be in function (err, ...) format.
+         * @param {Function} func The function to call
+         * @param {Mixed} [context] The context for the func parameter to be executed.  If not specified, defaults to undefined.
+         * @param {Function} [selector] A selector which takes the arguments from the callback minus the error to produce a single item to yield on next.
+         * @returns {Function} An async function which when applied, returns an observable sequence with the callback arguments as an array.
+         */
+        fromNodeCallback<TResult>(func: Function, context?: any, selector?: Function): (...args: any[]) => Observable<TResult>;
+        /**
+         * Converts a Node.js callback style function to an observable sequence.  This must be in function (err, ...) format.
+         * @param {Function} func The function to call
+         * @param {Mixed} [context] The context for the func parameter to be executed.  If not specified, defaults to undefined.
+         * @param {Function} [selector] A selector which takes the arguments from the callback minus the error to produce a single item to yield on next.
+         * @returns {Function} An async function which when applied, returns an observable sequence with the callback arguments as an array.
+         */
+        fromNodeCallback<TResult, T1>(func: (arg1: T1, callback: (err: any, result: TResult) => any) => any, context?: any, selector?: Function): (arg1: T1) => Observable<TResult>;
+        /**
+         * Converts a Node.js callback style function to an observable sequence.  This must be in function (err, ...) format.
+         * @param {Function} func The function to call
+         * @param {Mixed} [context] The context for the func parameter to be executed.  If not specified, defaults to undefined.
+         * @param {Function} [selector] A selector which takes the arguments from the callback minus the error to produce a single item to yield on next.
+         * @returns {Function} An async function which when applied, returns an observable sequence with the callback arguments as an array.
+         */
+        fromNodeCallback<TResult, T1, T2>(func: (arg1: T1, arg2: T2, callback: (err: any, result: TResult) => any) => any, context?: any, selector?: Function): (arg1: T1, arg2: T2) => Observable<TResult>;
+        /**
+         * Converts a Node.js callback style function to an observable sequence.  This must be in function (err, ...) format.
+         * @param {Function} func The function to call
+         * @param {Mixed} [context] The context for the func parameter to be executed.  If not specified, defaults to undefined.
+         * @param {Function} [selector] A selector which takes the arguments from the callback minus the error to produce a single item to yield on next.
+         * @returns {Function} An async function which when applied, returns an observable sequence with the callback arguments as an array.
+         */
+        fromNodeCallback<TResult, T1, T2, T3>(func: (arg1: T1, arg2: T2, arg3: T3, callback: (err: any, result: TResult) => any) => any, context?: any, selector?: Function): (arg1: T1, arg2: T2, arg3: T3) => Observable<TResult>;
+        /**
+         * Converts a Node.js callback style function to an observable sequence.  This must be in function (err, ...) format.
+         * @param {Function} func The function to call
+         * @param {Mixed} [context] The context for the func parameter to be executed.  If not specified, defaults to undefined.
+         * @param {Function} [selector] A selector which takes the arguments from the callback minus the error to produce a single item to yield on next.
+         * @returns {Function} An async function which when applied, returns an observable sequence with the callback arguments as an array.
+         */
+        fromNodeCallback<TResult, T1, T2, T3, T4>(func: (arg1: T1, arg2: T2, arg3: T3, arg4: T4, callback: (err: any, result: TResult) => any) => any, context?: any, selector?: Function): (arg1: T1, arg2: T2, arg3: T3, arg4: T4) => Observable<TResult>;
+        /**
+         * Converts a Node.js callback style function to an observable sequence.  This must be in function (err, ...) format.
+         * @param {Function} func The function to call
+         * @param {Mixed} [context] The context for the func parameter to be executed.  If not specified, defaults to undefined.
+         * @param {Function} [selector] A selector which takes the arguments from the callback minus the error to produce a single item to yield on next.
+         * @returns {Function} An async function which when applied, returns an observable sequence with the callback arguments as an array.
+         */
+        fromNodeCallback<TResult, T1, T2, T3, T4, T5>(func: (arg1: T1, arg2: T2, arg3: T3, arg4: T4, arg5: T5, callback: (err: any, result: TResult) => any) => any, context?: any, selector?: Function): (arg1: T1, arg2: T2, arg3: T3, arg4: T4, arg5: T5) => Observable<TResult>;
+        /**
+         * Converts a Node.js callback style function to an observable sequence.  This must be in function (err, ...) format.
+         * @param {Function} func The function to call
+         * @param {Mixed} [context] The context for the func parameter to be executed.  If not specified, defaults to undefined.
+         * @param {Function} [selector] A selector which takes the arguments from the callback minus the error to produce a single item to yield on next.
+         * @returns {Function} An async function which when applied, returns an observable sequence with the callback arguments as an array.
+         */
+        fromNodeCallback<TResult, T1, T2, T3, T4, T5, T6>(func: (arg1: T1, arg2: T2, arg3: T3, arg4: T4, arg5: T5, arg6: T6, callback: (err: any, result: TResult) => any) => any, context?: any, selector?: Function): (arg1: T1, arg2: T2, arg3: T3, arg4: T4, arg5: T5, arg6: T6) => Observable<TResult>;
+        /**
+         * Converts a Node.js callback style function to an observable sequence.  This must be in function (err, ...) format.
+         * @param {Function} func The function to call
+         * @param {Mixed} [context] The context for the func parameter to be executed.  If not specified, defaults to undefined.
+         * @param {Function} [selector] A selector which takes the arguments from the callback minus the error to produce a single item to yield on next.
+         * @returns {Function} An async function which when applied, returns an observable sequence with the callback arguments as an array.
+         */
+        fromNodeCallback<TResult, T1, T2, T3, T4, T5, T6, T7>(func: (arg1: T1, arg2: T2, arg3: T3, arg4: T4, arg5: T5, arg6: T6, arg7: T7, callback: (err: any, result: TResult) => any) => any, context?: any, selector?: Function): (arg1: T1, arg2: T2, arg3: T3, arg4: T4, arg5: T5, arg6: T6, arg7: T7) => Observable<TResult>;
+        /**
+         * Converts a Node.js callback style function to an observable sequence.  This must be in function (err, ...) format.
+         * @param {Function} func The function to call
+         * @param {Mixed} [context] The context for the func parameter to be executed.  If not specified, defaults to undefined.
+         * @param {Function} [selector] A selector which takes the arguments from the callback minus the error to produce a single item to yield on next.
+         * @returns {Function} An async function which when applied, returns an observable sequence with the callback arguments as an array.
+         */
+        fromNodeCallback<TResult, T1, T2, T3, T4, T5, T6, T7, T8>(func: (arg1: T1, arg2: T2, arg3: T3, arg4: T4, arg5: T5, arg6: T6, arg7: T7, arg8: T8, callback: (err: any, result: TResult) => any) => any, context?: any, selector?: Function): (arg1: T1, arg2: T2, arg3: T3, arg4: T4, arg5: T5, arg6: T6, arg7: T7, arg8: T8) => Observable<TResult>;
+        /**
+         * Converts a Node.js callback style function to an observable sequence.  This must be in function (err, ...) format.
+         * @param {Function} func The function to call
+         * @param {Mixed} [context] The context for the func parameter to be executed.  If not specified, defaults to undefined.
+         * @param {Function} [selector] A selector which takes the arguments from the callback minus the error to produce a single item to yield on next.
+         * @returns {Function} An async function which when applied, returns an observable sequence with the callback arguments as an array.
+         */
+        fromNodeCallback<TResult, T1, T2, T3, T4, T5, T6, T7, T8, T9>(func: (arg1: T1, arg2: T2, arg3: T3, arg4: T4, arg5: T5, arg6: T6, arg7: T7, arg8: T8, arg9: T9, callback: (err: any, result: TResult) => any) => any, context?: any, selector?: Function): (arg1: T1, arg2: T2, arg3: T3, arg4: T4, arg5: T5, arg6: T6, arg7: T7, arg8: T8, arg9: T9) => Observable<TResult>;
+    }
+
+    export interface ObservableStatic {
+        /**
+         * Creates an observable sequence by adding an event listener to the matching DOMElement or each item in the NodeList.
+         * @param {Object} element The DOMElement or NodeList to attach a listener.
+         * @param {String} eventName The event name to attach the observable sequence.
+         * @param {Function} [selector] A selector which takes the arguments from the event handler to produce a single item to yield on next.
+         * @returns {Observable} An observable sequence of events from the specified element and the specified event.
+         */
+        fromEvent<T>(element: EventTarget, eventName: string, selector?: (arguments: any[]) => T): Observable<T>;
+        /**
+         * Creates an observable sequence by adding an event listener to the matching DOMElement or each item in the NodeList.
+         * @param {Object} element The DOMElement or NodeList to attach a listener.
+         * @param {String} eventName The event name to attach the observable sequence.
+         * @param {Function} [selector] A selector which takes the arguments from the event handler to produce a single item to yield on next.
+         * @returns {Observable} An observable sequence of events from the specified element and the specified event.
+         */
+        fromEvent<T>(element: { on: (name: string, cb: (e: any) => any) => void; off: (name: string, cb: (e: any) => any) => void }, eventName: string, selector?: (arguments: any[]) => T): Observable<T>;
+    }
+
+    export interface ObservableStatic {
+        /**
+        * Creates an observable sequence from an event emitter via an addHandler/removeHandler pair.
+        * @param {Function} addHandler The function to add a handler to the emitter.
+        * @param {Function} [removeHandler] The optional function to remove a handler from an emitter.
+        * @param {Function} [selector] A selector which takes the arguments from the event handler to produce a single item to yield on next.
+        * @returns {Observable} An observable sequence which wraps an event from an event emitter
+        */
+        fromEventPattern<T>(addHandler: (handler: Function) => void, removeHandler: (handler: Function) => void, selector?: (arguments: any[]) => T): Observable<T>;
+    }
+
+    export interface ObservableStatic {
+        /**
+        * Converts a Promise to an Observable sequence
+        * @param {Promise} An ES6 Compliant promise.
+        * @returns {Observable} An Observable sequence which wraps the existing promise success and failure.
+        */
+ 		fromPromise<T>(promise: Promise<T>): Observable<T>;
+    }
+
+    export interface Observable<T> {
+        /*
+         * Converts an existing observable sequence to an ES6 Compatible Promise
+         * @example
+         * var promise = Rx.Observable.return(42).toPromise(RSVP.Promise);
+         *
+         * // With config
+         * Rx.config.Promise = RSVP.Promise;
+         * var promise = Rx.Observable.return(42).toPromise();
+         * @param {Function} [promiseCtor] The constructor of the promise. If not provided, it looks for it in Rx.config.Promise.
+         * @returns {Promise} An ES6 compatible promise with the last value from the observable sequence.
+         */
+        toPromise(promiseCtor?: { new (resolver: (resolvePromise: (value: T) => void, rejectPromise: (reason: any) => void) => void): IPromise<T>; }): IPromise<T>;
+        /*
+         * Converts an existing observable sequence to an ES6 Compatible Promise
+         * @example
+         * var promise = Rx.Observable.return(42).toPromise(RSVP.Promise);
+         *
+         * // With config
+         * Rx.config.Promise = RSVP.Promise;
+         * var promise = Rx.Observable.return(42).toPromise();
+         * @param {Function} [promiseCtor] The constructor of the promise. If not provided, it looks for it in Rx.config.Promise.
+         * @returns {Promise} An ES6 compatible promise with the last value from the observable sequence.
+         */
+        toPromise<TPromise extends IPromise<T>>(promiseCtor: { new (resolver: (resolvePromise: (value: T) => void, rejectPromise: (reason: any) => void) => void): TPromise; }): TPromise;
+    }
+
+    export interface ObservableStatic {
+        /**
+        * Invokes the asynchronous function, surfacing the result through an observable sequence.
+        * @param {Function} functionAsync Asynchronous function which returns a Promise to run.
+        * @returns {Observable} An observable sequence exposing the function's result value, or an exception.
+        */
+        startAsync<T>(functionAsync: () => IPromise<T>): Observable<T>;
+    }
 
     /**
      *  Represents an object that is both an observable sequence as well as an observer.
@@ -2469,6 +2441,530 @@ declare module Rx {
      */
     export var Subject: SubjectStatic;
 
+        export interface ConnectableObservable<T> extends Observable<T> {
+    		connect(): IDisposable;
+    		refCount(): Observable<T>;
+        }
+
+    export interface Observable<T> {
+        /**
+        * Multicasts the source sequence notifications through an instantiated subject into all uses of the sequence within a selector function. Each
+        * subscription to the resulting sequence causes a separate multicast invocation, exposing the sequence resulting from the selector function's
+        * invocation. For specializations with fixed subject types, see Publish, PublishLast, and Replay.
+        *
+        * @example
+        * 1 - res = source.multicast(observable);
+        * 2 - res = source.multicast(function () { return new Subject(); }, function (x) { return x; });
+        *
+        * @param {Function|Subject} subjectOrSubjectSelector
+        * Factory function to create an intermediate subject through which the source sequence's elements will be multicast to the selector function.
+        * Or:
+        * Subject to push source elements into.
+        *
+        * @param {Function} [selector] Optional selector function which can use the multicasted source sequence subject to the policies enforced by the created subject. Specified only if <paramref name="subjectOrSubjectSelector" is a factory function.
+        * @returns {Observable} An observable sequence that contains the elements of a sequence produced by multicasting the source sequence within a selector function.
+        */
+        multicast(subject: ISubject<T> | (() => ISubject<T>)): ConnectableObservable<T>;
+        /**
+        * Multicasts the source sequence notifications through an instantiated subject into all uses of the sequence within a selector function. Each
+        * subscription to the resulting sequence causes a separate multicast invocation, exposing the sequence resulting from the selector function's
+        * invocation. For specializations with fixed subject types, see Publish, PublishLast, and Replay.
+        *
+        * @example
+        * 1 - res = source.multicast(observable);
+        * 2 - res = source.multicast(function () { return new Subject(); }, function (x) { return x; });
+        *
+        * @param {Function|Subject} subjectOrSubjectSelector
+        * Factory function to create an intermediate subject through which the source sequence's elements will be multicast to the selector function.
+        * Or:
+        * Subject to push source elements into.
+        *
+        * @param {Function} [selector] Optional selector function which can use the multicasted source sequence subject to the policies enforced by the created subject. Specified only if <paramref name="subjectOrSubjectSelector" is a factory function.
+        * @returns {Observable} An observable sequence that contains the elements of a sequence produced by multicasting the source sequence within a selector function.
+        */
+        multicast<TResult>(subjectSelector: ISubject<T> | (() => ISubject<T>), selector: (source: ConnectableObservable<T>) => Observable<T>): Observable<T>;
+    }
+
+    export interface Observable<T> {
+        /**
+        * Returns an observable sequence that is the result of invoking the selector on a connectable observable sequence that shares a single subscription to the underlying sequence.
+        * This operator is a specialization of Multicast using a regular Subject.
+        *
+        * @example
+        * var resres = source.publish();
+        * var res = source.publish(function (x) { return x; });
+        *
+        * @param {Function} [selector] Selector function which can use the multicasted source sequence as many times as needed, without causing multiple subscriptions to the source sequence. Subscribers to the given source will receive all notifications of the source from the time of the subscription on.
+        * @returns {Observable} An observable sequence that contains the elements of a sequence produced by multicasting the source sequence within a selector function.
+        */
+        publish(): ConnectableObservable<T>;
+        /**
+        * Returns an observable sequence that is the result of invoking the selector on a connectable observable sequence that shares a single subscription to the underlying sequence.
+        * This operator is a specialization of Multicast using a regular Subject.
+        *
+        * @example
+        * var resres = source.publish();
+        * var res = source.publish(function (x) { return x; });
+        *
+        * @param {Function} [selector] Selector function which can use the multicasted source sequence as many times as needed, without causing multiple subscriptions to the source sequence. Subscribers to the given source will receive all notifications of the source from the time of the subscription on.
+        * @returns {Observable} An observable sequence that contains the elements of a sequence produced by multicasting the source sequence within a selector function.
+        */
+        publish<TResult>(selector: (source: ConnectableObservable<T>) => Observable<TResult>): Observable<TResult>;
+    }
+
+    export interface Observable<T> {
+        /**
+        * Returns an observable sequence that shares a single subscription to the underlying sequence.
+        * This operator is a specialization of publish which creates a subscription when the number of observers goes from zero to one, then shares that subscription with all subsequent observers until the number of observers returns to zero, at which point the subscription is disposed.
+        * @returns {Observable} An observable sequence that contains the elements of a sequence produced by multicasting the source sequence.
+        */
+        share(): Observable<T>;
+    }
+
+    export interface Observable<T> {
+        /**
+        * Returns an observable sequence that is the result of invoking the selector on a connectable observable sequence that shares a single subscription to the underlying sequence containing only the last notification.
+        * This operator is a specialization of Multicast using a AsyncSubject.
+        *
+        * @example
+        * var res = source.publishLast();
+        * var res = source.publishLast(function (x) { return x; });
+        *
+        * @param selector [Optional] Selector function which can use the multicasted source sequence as many times as needed, without causing multiple subscriptions to the source sequence. Subscribers to the given source will only receive the last notification of the source.
+        * @returns {Observable} An observable sequence that contains the elements of a sequence produced by multicasting the source sequence within a selector function.
+        */
+        publishLast(): ConnectableObservable<T>;
+        /**
+        * Returns an observable sequence that is the result of invoking the selector on a connectable observable sequence that shares a single subscription to the underlying sequence containing only the last notification.
+        * This operator is a specialization of Multicast using a AsyncSubject.
+        *
+        * @example
+        * var res = source.publishLast();
+        * var res = source.publishLast(function (x) { return x; });
+        *
+        * @param selector [Optional] Selector function which can use the multicasted source sequence as many times as needed, without causing multiple subscriptions to the source sequence. Subscribers to the given source will only receive the last notification of the source.
+        * @returns {Observable} An observable sequence that contains the elements of a sequence produced by multicasting the source sequence within a selector function.
+        */
+        publishLast<TResult>(selector: (source: ConnectableObservable<T>) => Observable<TResult>): Observable<TResult>;
+    }
+
+    export interface Observable<T> {
+        /**
+        * Returns an observable sequence that is the result of invoking the selector on a connectable observable sequence that shares a single subscription to the underlying sequence and starts with initialValue.
+        * This operator is a specialization of Multicast using a BehaviorSubject.
+        *
+        * @example
+        * var res = source.publishValue(42);
+        * var res = source.publishValue(function (x) { return x.select(function (y) { return y * y; }) }, 42);
+        *
+        * @param {Function} [selector] Optional selector function which can use the multicasted source sequence as many times as needed, without causing multiple subscriptions to the source sequence. Subscribers to the given source will receive immediately receive the initial value, followed by all notifications of the source from the time of the subscription on.
+        * @param {Mixed} initialValue Initial value received by observers upon subscription.
+        * @returns {Observable} An observable sequence that contains the elements of a sequence produced by multicasting the source sequence within a selector function.
+        */
+        publishValue(initialValue: T): ConnectableObservable<T>;
+        /**
+        * Returns an observable sequence that is the result of invoking the selector on a connectable observable sequence that shares a single subscription to the underlying sequence and starts with initialValue.
+        * This operator is a specialization of Multicast using a BehaviorSubject.
+        *
+        * @example
+        * var res = source.publishValue(42);
+        * var res = source.publishValue(function (x) { return x.select(function (y) { return y * y; }) }, 42);
+        *
+        * @param {Function} [selector] Optional selector function which can use the multicasted source sequence as many times as needed, without causing multiple subscriptions to the source sequence. Subscribers to the given source will receive immediately receive the initial value, followed by all notifications of the source from the time of the subscription on.
+        * @param {Mixed} initialValue Initial value received by observers upon subscription.
+        * @returns {Observable} An observable sequence that contains the elements of a sequence produced by multicasting the source sequence within a selector function.
+        */
+        publishValue<TResult>(selector: (source: ConnectableObservable<T>) => Observable<TResult>, initialValue: T): Observable<TResult>;
+    }
+
+    export interface Observable<T> {
+        /**
+        * Returns an observable sequence that shares a single subscription to the underlying sequence and starts with an initialValue.
+        * This operator is a specialization of publishValue which creates a subscription when the number of observers goes from zero to one, then shares that subscription with all subsequent observers until the number of observers returns to zero, at which point the subscription is disposed.
+        * @param {Mixed} initialValue Initial value received by observers upon subscription.
+        * @returns {Observable} An observable sequence that contains the elements of a sequence produced by multicasting the source sequence.
+        */
+        shareValue(initialValue: T): Observable<T>;
+    }
+
+    export interface Observable<T> {
+        /**
+        * Returns an observable sequence that is the result of invoking the selector on a connectable observable sequence that shares a single subscription to the underlying sequence replaying notifications subject to a maximum time length for the replay buffer.
+        * This operator is a specialization of Multicast using a ReplaySubject.
+        *
+        * @example
+        * var res = source.replay(null, 3);
+        * var res = source.replay(null, 3, 500);
+        * var res = source.replay(null, 3, 500, scheduler);
+        * var res = source.replay(function (x) { return x.take(6).repeat(); }, 3, 500, scheduler);
+        *
+        * @param selector [Optional] Selector function which can use the multicasted source sequence as many times as needed, without causing multiple subscriptions to the source sequence. Subscribers to the given source will receive all the notifications of the source subject to the specified replay buffer trimming policy.
+        * @param bufferSize [Optional] Maximum element count of the replay buffer.
+        * @param windowSize [Optional] Maximum time length of the replay buffer.
+        * @param scheduler [Optional] Scheduler where connected observers within the selector function will be invoked on.
+        * @returns {Observable} An observable sequence that contains the elements of a sequence produced by multicasting the source sequence within a selector function.
+        */
+        replay(selector?: void, bufferSize?: number, window?: number, scheduler?: IScheduler): ConnectableObservable<T>;	// hack to catch first omitted parameter
+        /**
+        * Returns an observable sequence that is the result of invoking the selector on a connectable observable sequence that shares a single subscription to the underlying sequence replaying notifications subject to a maximum time length for the replay buffer.
+        * This operator is a specialization of Multicast using a ReplaySubject.
+        *
+        * @example
+        * var res = source.replay(null, 3);
+        * var res = source.replay(null, 3, 500);
+        * var res = source.replay(null, 3, 500, scheduler);
+        * var res = source.replay(function (x) { return x.take(6).repeat(); }, 3, 500, scheduler);
+        *
+        * @param selector [Optional] Selector function which can use the multicasted source sequence as many times as needed, without causing multiple subscriptions to the source sequence. Subscribers to the given source will receive all the notifications of the source subject to the specified replay buffer trimming policy.
+        * @param bufferSize [Optional] Maximum element count of the replay buffer.
+        * @param windowSize [Optional] Maximum time length of the replay buffer.
+        * @param scheduler [Optional] Scheduler where connected observers within the selector function will be invoked on.
+        * @returns {Observable} An observable sequence that contains the elements of a sequence produced by multicasting the source sequence within a selector function.
+        */
+        replay(selector: (source: ConnectableObservable<T>) => Observable<T>, bufferSize?: number, window?: number, scheduler?: IScheduler): Observable<T>;
+    }
+
+    export interface Observable<T> {
+        /**
+        * Returns an observable sequence that shares a single subscription to the underlying sequence replaying notifications subject to a maximum time length for the replay buffer.
+        * This operator is a specialization of replay which creates a subscription when the number of observers goes from zero to one, then shares that subscription with all subsequent observers until the number of observers returns to zero, at which point the subscription is disposed.
+        *
+        * @example
+        * var res = source.shareReplay(3);
+        * var res = source.shareReplay(3, 500);
+        * var res = source.shareReplay(3, 500, scheduler);
+        *
+
+        * @param bufferSize [Optional] Maximum element count of the replay buffer.
+        * @param window [Optional] Maximum time length of the replay buffer.
+        * @param scheduler [Optional] Scheduler where connected observers within the selector function will be invoked on.
+        * @returns {Observable} An observable sequence that contains the elements of a sequence produced by multicasting the source sequence.
+        */
+        shareReplay(bufferSize?: number, window?: number, scheduler?: IScheduler): Observable<T>;
+    }
+
+    export interface ObservableStatic {
+        /**
+         *  Returns an observable sequence that produces a value after each period.
+         *
+         * @example
+         *  1 - res = Rx.Observable.interval(1000);
+         *  2 - res = Rx.Observable.interval(1000, Rx.Scheduler.timeout);
+         *
+         * @param {Number} period Period for producing the values in the resulting sequence (specified as an integer denoting milliseconds).
+         * @param {Scheduler} [scheduler] Scheduler to run the timer on. If not specified, Rx.Scheduler.timeout is used.
+         * @returns {Observable} An observable sequence that produces a value after each period.
+         */
+        interval(period: number, scheduler?: IScheduler): Observable<number>;
+    }
+
+    export interface ObservableStatic {
+        /**
+         *  Returns an observable sequence that produces a value after dueTime has elapsed and then after each period.
+         * @param {Number} dueTime Absolute (specified as a Date object) or relative time (specified as an integer denoting milliseconds) at which to produce the first value.
+         * @param {Mixed} [periodOrScheduler]  Period to produce subsequent values (specified as an integer denoting milliseconds), or the scheduler to run the timer on. If not specified, the resulting timer is not recurring.
+         * @param {Scheduler} [scheduler]  Scheduler to run the timer on. If not specified, the timeout scheduler is used.
+         * @returns {Observable} An observable sequence that produces a value after due time has elapsed and then each period.
+         */
+        timer(dueTime: number, period: number, scheduler?: IScheduler): Observable<number>;
+        /**
+         *  Returns an observable sequence that produces a value after dueTime has elapsed and then after each period.
+         * @param {Number} dueTime Absolute (specified as a Date object) or relative time (specified as an integer denoting milliseconds) at which to produce the first value.
+         * @param {Mixed} [periodOrScheduler]  Period to produce subsequent values (specified as an integer denoting milliseconds), or the scheduler to run the timer on. If not specified, the resulting timer is not recurring.
+         * @param {Scheduler} [scheduler]  Scheduler to run the timer on. If not specified, the timeout scheduler is used.
+         * @returns {Observable} An observable sequence that produces a value after due time has elapsed and then each period.
+         */
+        timer(dueTime: number, scheduler?: IScheduler): Observable<number>;
+    }
+
+    export interface Observable<T> {
+        /**
+        *  Time shifts the observable sequence by dueTime. The relative time intervals between the values are preserved.
+        *
+        * @example
+        *  1 - res = Rx.Observable.delay(new Date());
+        *  2 - res = Rx.Observable.delay(new Date(), Rx.Scheduler.timeout);
+        *
+        *  3 - res = Rx.Observable.delay(5000);
+        *  4 - res = Rx.Observable.delay(5000, 1000, Rx.Scheduler.timeout);
+        * @memberOf Observable#
+        * @param {Number} dueTime Absolute (specified as a Date object) or relative time (specified as an integer denoting milliseconds) by which to shift the observable sequence.
+        * @param {Scheduler} [scheduler] Scheduler to run the delay timers on. If not specified, the timeout scheduler is used.
+        * @returns {Observable} Time-shifted sequence.
+        */
+        delay(dueTime: Date, scheduler?: IScheduler): Observable<T>;
+        /**
+        *  Time shifts the observable sequence by dueTime. The relative time intervals between the values are preserved.
+        *
+        * @example
+        *  1 - res = Rx.Observable.delay(new Date());
+        *  2 - res = Rx.Observable.delay(new Date(), Rx.Scheduler.timeout);
+        *
+        *  3 - res = Rx.Observable.delay(5000);
+        *  4 - res = Rx.Observable.delay(5000, 1000, Rx.Scheduler.timeout);
+        * @memberOf Observable#
+        * @param {Number} dueTime Absolute (specified as a Date object) or relative time (specified as an integer denoting milliseconds) by which to shift the observable sequence.
+        * @param {Scheduler} [scheduler] Scheduler to run the delay timers on. If not specified, the timeout scheduler is used.
+        * @returns {Observable} Time-shifted sequence.
+        */
+        delay(dueTime: number, scheduler?: IScheduler): Observable<T>;
+
+        /**
+        *  Time shifts the observable sequence based on a subscription delay and a delay selector function for each element.
+        *
+        * @example
+        *  1 - res = source.delayWithSelector(function (x) { return Rx.Scheduler.timer(5000); }); // with selector only
+        *  1 - res = source.delayWithSelector(Rx.Observable.timer(2000), function (x) { return Rx.Observable.timer(x); }); // with delay and selector
+        *
+        * @param {Observable} [subscriptionDelay]  Sequence indicating the delay for the subscription to the source.
+        * @param {Function} delayDurationSelector Selector function to retrieve a sequence indicating the delay for each given element.
+        * @returns {Observable} Time-shifted sequence.
+        */
+        delay(delayDurationSelector: (item: T) => ObservableOrPromise<number>): Observable<T>;
+
+        /**
+        *  Time shifts the observable sequence based on a subscription delay and a delay selector function for each element.
+        *
+        * @example
+        *  1 - res = source.delayWithSelector(function (x) { return Rx.Scheduler.timer(5000); }); // with selector only
+        *  1 - res = source.delayWithSelector(Rx.Observable.timer(2000), function (x) { return Rx.Observable.timer(x); }); // with delay and selector
+        *
+        * @param {Observable} [subscriptionDelay]  Sequence indicating the delay for the subscription to the source.
+        * @param {Function} delayDurationSelector Selector function to retrieve a sequence indicating the delay for each given element.
+        * @returns {Observable} Time-shifted sequence.
+        */
+        delay(subscriptionDelay: Observable<number>, delayDurationSelector: (item: T) => ObservableOrPromise<number>): Observable<T>;
+    }
+
+    export interface Observable<T> {
+        /**
+        *  Ignores values from an observable sequence which are followed by another value before dueTime.
+        * @param {Number} dueTime Duration of the debounce period for each value (specified as an integer denoting milliseconds).
+        * @param {Scheduler} [scheduler]  Scheduler to run the debounce timers on. If not specified, the timeout scheduler is used.
+        * @returns {Observable} The debounced sequence.
+        */
+        debounce(dueTime: number, scheduler?: IScheduler): Observable<T>;
+
+        /**
+        * Ignores values from an observable sequence which are followed by another value within a computed throttle duration.
+        * @param {Function} durationSelector Selector function to retrieve a sequence indicating the throttle duration for each given element.
+        * @returns {Observable} The debounced sequence.
+        */
+        debounce(debounceDurationSelector: (item: T) => ObservableOrPromise<any>): Observable<T>;
+    }
+
+    export interface Timestamp<T> {
+        value: T;
+        timestamp: number;
+    }
+
+    export interface Observable<T> {
+        /**
+        *  Records the timestamp for each value in an observable sequence.
+        *
+        * @example
+        *  1 - res = source.timestamp(); // produces { value: x, timestamp: ts }
+        *  2 - res = source.timestamp(Rx.Scheduler.default);
+        *
+        * @param {Scheduler} [scheduler]  Scheduler used to compute timestamps. If not specified, the default scheduler is used.
+        * @returns {Observable} An observable sequence with timestamp information on values.
+        */
+        timestamp(scheduler?: IScheduler): Observable<Timestamp<T>>;
+    }
+
+    export interface Observable<T> {
+        /**
+        *  Samples the observable sequence at each interval.
+        *
+        * @example
+        *  1 - res = source.sample(sampleObservable); // Sampler tick sequence
+        *  2 - res = source.sample(5000); // 5 seconds
+        *  2 - res = source.sample(5000, Rx.Scheduler.timeout); // 5 seconds
+        *
+        * @param {Mixed} intervalOrSampler Interval at which to sample (specified as an integer denoting milliseconds) or Sampler Observable.
+        * @param {Scheduler} [scheduler]  Scheduler to run the sampling timer on. If not specified, the timeout scheduler is used.
+        * @returns {Observable} Sampled observable sequence.
+        */
+        sample(intervalOrSampler: number, scheduler?: IScheduler): Observable<T>;
+        /**
+        *  Samples the observable sequence at each interval.
+        *
+        * @example
+        *  1 - res = source.sample(sampleObservable); // Sampler tick sequence
+        *  2 - res = source.sample(5000); // 5 seconds
+        *  2 - res = source.sample(5000, Rx.Scheduler.timeout); // 5 seconds
+        *
+        * @param {Mixed} intervalOrSampler Interval at which to sample (specified as an integer denoting milliseconds) or Sampler Observable.
+        * @param {Scheduler} [scheduler]  Scheduler to run the sampling timer on. If not specified, the timeout scheduler is used.
+        * @returns {Observable} Sampled observable sequence.
+        */
+        sample<TSample>(sampler: Observable<TSample>, scheduler?: IScheduler): Observable<T>;
+        /**
+        *  Samples the observable sequence at each interval.
+        *
+        * @example
+        *  1 - res = source.sample(sampleObservable); // Sampler tick sequence
+        *  2 - res = source.sample(5000); // 5 seconds
+        *  2 - res = source.sample(5000, Rx.Scheduler.timeout); // 5 seconds
+        *
+        * @param {Mixed} intervalOrSampler Interval at which to sample (specified as an integer denoting milliseconds) or Sampler Observable.
+        * @param {Scheduler} [scheduler]  Scheduler to run the sampling timer on. If not specified, the timeout scheduler is used.
+        * @returns {Observable} Sampled observable sequence.
+        */
+        throttleLatest(interval: number, scheduler?: IScheduler): Observable<T>;
+        /**
+        *  Samples the observable sequence at each interval.
+        *
+        * @example
+        *  1 - res = source.sample(sampleObservable); // Sampler tick sequence
+        *  2 - res = source.sample(5000); // 5 seconds
+        *  2 - res = source.sample(5000, Rx.Scheduler.timeout); // 5 seconds
+        *
+        * @param {Mixed} intervalOrSampler Interval at which to sample (specified as an integer denoting milliseconds) or Sampler Observable.
+        * @param {Scheduler} [scheduler]  Scheduler to run the sampling timer on. If not specified, the timeout scheduler is used.
+        * @returns {Observable} Sampled observable sequence.
+        */
+        throttleLatest<TSample>(sampler: Observable<TSample>, scheduler?: IScheduler): Observable<T>;
+    }
+
+    export interface Observable<T> {
+        /**
+        *  Returns the source observable sequence or the other observable sequence if dueTime elapses.
+        * @param {Number} dueTime Absolute (specified as a Date object) or relative time (specified as an integer denoting milliseconds) when a timeout occurs.
+        * @param {Scheduler} [scheduler]  Scheduler to run the timeout timers on. If not specified, the timeout scheduler is used.
+        * @returns {Observable} The source sequence switching to the other sequence in case of a timeout.
+        */
+        timeout(dueTime: Date, scheduler?: IScheduler): Observable<T>;
+
+        /**
+        *  Returns the source observable sequence or the other observable sequence if dueTime elapses.
+        * @param {Number} dueTime Absolute (specified as a Date object) or relative time (specified as an integer denoting milliseconds) when a timeout occurs.
+        * @param {Observable} [other]  Sequence to return in case of a timeout. If not specified, a timeout error throwing sequence will be used.
+        * @param {Scheduler} [scheduler]  Scheduler to run the timeout timers on. If not specified, the timeout scheduler is used.
+        * @returns {Observable} The source sequence switching to the other sequence in case of a timeout.
+        */
+        timeout(dueTime: Date, other?: Observable<T>, scheduler?: IScheduler): Observable<T>;
+        /**
+        *  Returns the source observable sequence or the other observable sequence if dueTime elapses.
+        * @param {Number} dueTime Absolute (specified as a Date object) or relative time (specified as an integer denoting milliseconds) when a timeout occurs.
+        * @param {Observable} [other]  Sequence to return in case of a timeout. If not specified, a timeout error throwing sequence will be used.
+        * @param {Scheduler} [scheduler]  Scheduler to run the timeout timers on. If not specified, the timeout scheduler is used.
+        * @returns {Observable} The source sequence switching to the other sequence in case of a timeout.
+        */
+        timeout(dueTime: number, scheduler?: IScheduler): Observable<T>;
+        /**
+        *  Returns the source observable sequence or the other observable sequence if dueTime elapses.
+        * @param {Number} dueTime Absolute (specified as a Date object) or relative time (specified as an integer denoting milliseconds) when a timeout occurs.
+        * @param {Observable} [other]  Sequence to return in case of a timeout. If not specified, a timeout error throwing sequence will be used.
+        * @param {Scheduler} [scheduler]  Scheduler to run the timeout timers on. If not specified, the timeout scheduler is used.
+        * @returns {Observable} The source sequence switching to the other sequence in case of a timeout.
+        */
+        timeout(dueTime: number, other?: Observable<T>, scheduler?: IScheduler): Observable<T>;
+
+        /**
+        *  Returns the source observable sequence, switching to the other observable sequence if a timeout is signaled.
+        * @param {Function} timeoutDurationSelector Selector to retrieve an observable sequence that represents the timeout between the current element and the next element.
+        * @returns {Observable} The source sequence switching to the other sequence in case of a timeout.
+        */
+        timeout<TTimeout>(timeoutdurationSelector: (item: T) => Observable<TTimeout>): Observable<T>;
+
+        /**
+        *  Returns the source observable sequence, switching to the other observable sequence if a timeout is signaled.
+        * @param {Function} timeoutDurationSelector Selector to retrieve an observable sequence that represents the timeout between the current element and the next element.
+        * @param {Observable} other  Sequence to return in case of a timeout. If not provided, this is set to Observable.throwException().
+        * @returns {Observable} The source sequence switching to the other sequence in case of a timeout.
+        */
+        timeout<TTimeout>(timeoutdurationSelector: (item: T) => Observable<TTimeout>, other: Observable<T>): Observable<T>;
+
+        /**
+        *  Returns the source observable sequence, switching to the other observable sequence if a timeout is signaled.
+        * @param {Observable} [firstTimeout]  Observable sequence that represents the timeout for the first element. If not provided, this defaults to Observable.never().
+        * @param {Function} timeoutDurationSelector Selector to retrieve an observable sequence that represents the timeout between the current element and the next element.
+        * @param {Observable} [other]  Sequence to return in case of a timeout. If not provided, this is set to Observable.throwException().
+        * @returns {Observable} The source sequence switching to the other sequence in case of a timeout.
+        */
+        timeout<TTimeout>(firstTimeout: Observable<TTimeout>, timeoutdurationSelector: (item: T) => Observable<TTimeout>, other?: Observable<T>): Observable<T>;
+    }
+
+    export interface Observable<T> {
+        /**
+        * Returns an Observable that emits only the first item emitted by the source Observable during sequential time windows of a specified duration.
+        * @param {Number} windowDuration time to wait before emitting another item after emitting the last item
+        * @param {Scheduler} [scheduler] the Scheduler to use internally to manage the timers that handle timeout for each item. If not provided, defaults to Scheduler.timeout.
+        * @returns {Observable} An Observable that performs the throttle operation.
+        */
+        throttle(windowDuration: number, scheduler?: IScheduler): Observable<T>;
+    }
+
+    export interface Observable<T> {
+        /**
+         * Pauses the underlying observable sequence based upon the observable sequence which yields true/false.
+         * @example
+         * var pauser = new Rx.Subject();
+         * var source = Rx.Observable.interval(100).pausable(pauser);
+         * @param {Observable} pauser The observable sequence used to pause the underlying sequence.
+         * @returns {Observable} The observable sequence which is paused based upon the pauser.
+         */
+        pausable(pauser?: Observable<boolean>): PausableObservable<T>;
+    }
+
+    export interface PausableObservable<T> extends Observable<T> {
+        pause(): void;
+        resume(): void;
+    }
+
+    export interface Observable<T> {
+        /**
+         * Pauses the underlying observable sequence based upon the observable sequence which yields true/false,
+         * and yields the values that were buffered while paused.
+         * @example
+         * var pauser = new Rx.Subject();
+         * var source = Rx.Observable.interval(100).pausableBuffered(pauser);
+         * @param {Observable} pauser The observable sequence used to pause the underlying sequence.
+         * @returns {Observable} The observable sequence which is paused based upon the pauser.
+         */
+        pausableBuffered(pauser?: Observable<boolean>): PausableObservable<T>;
+    }
+
+    export interface Observable<T> {
+        /**
+        * Attaches a controller to the observable sequence with the ability to queue.
+        * @example
+        * var source = Rx.Observable.interval(100).controlled();
+        * source.request(3); // Reads 3 values
+        * @param {bool} enableQueue truthy value to determine if values should be queued pending the next request
+        * @param {Scheduler} scheduler determines how the requests will be scheduled
+        * @returns {Observable} The observable sequence which only propagates values on request.
+        */
+        controlled(enableQueue?: boolean, scheduler?: IScheduler): ControlledObservable<T>;
+    }
+
+    export interface ControlledObservable<T> extends Observable<T> {
+        request(numberOfItems?: number): IDisposable;
+    }
+
+    export interface Observable<T> {
+        /**
+        * Pipes the existing Observable sequence into a Node.js Stream.
+        * @param {Stream} dest The destination Node.js stream.
+        * @returns {Stream} The destination stream.
+        */
+        pipe<TDest>(dest: TDest): TDest;
+        // TODO: Add link to node.d.ts some where
+    }
+
+    export interface Observable<T> {
+        /**
+         * Executes a transducer to transform the observable sequence
+         * @param {Transducer} transducer A transducer to execute
+         * @returns {Observable} An Observable sequence containing the results from the transducer.
+         */
+        transduce(transducer: any): any;
+        //TODO: Setup transducer
+    }
+
+    export interface AnonymousObservable<T> extends Observable<T> { }
+
     export interface AsyncSubject<T> extends Subject<T> { }
 
     interface AsyncSubjectStatic {
@@ -2501,7 +2997,65 @@ declare module Rx {
      */
     export var AnonymousSubject: AnonymousSubjectStatic;
 
+    export interface BehaviorSubject<T> extends Subject<T> {
+        /**
+         * Gets the current value or throws an exception.
+         * Value is frozen after onCompleted is called.
+         * After onError is called always throws the specified exception.
+         * An exception is always thrown after dispose is called.
+         * @returns {Mixed} The initial value passed to the constructor until onNext is called; after which, the last value passed to onNext.
+         */
+        getValue(): T;
+    }
+
+    interface BehaviorSubjectStatic {
+        /**
+         *  Initializes a new instance of the BehaviorSubject class which creates a subject that caches its last value and starts with the specified value.
+         *  @param {Mixed} value Initial value sent to observers when no other value has been received by the subject yet.
+         */
+        new <T>(initialValue: T): BehaviorSubject<T>;
+    }
+
+    /**
+     *  Represents a value that changes over time.
+     *  Observers can subscribe to the subject to receive the last (or initial) value and all subsequent notifications.
+     */
+    export var BehaviorSubject: BehaviorSubjectStatic;
+
+    export interface ReplaySubject<T> extends Subject<T> { }
+
+    interface ReplaySubjectStatic {
+        /**
+         *  Initializes a new instance of the ReplaySubject class with the specified buffer size, window size and scheduler.
+         *  @param {Number} [bufferSize] Maximum element count of the replay buffer.
+         *  @param {Number} [windowSize] Maximum time length of the replay buffer.
+         *  @param {Scheduler} [scheduler] Scheduler the observers are invoked on.
+         */
+        new <T>(bufferSize?: number, window?: number, scheduler?: IScheduler): ReplaySubject<T>;
+    }
+
+    /**
+    * Represents an object that is both an observable sequence as well as an observer.
+    * Each notification is broadcasted to all subscribed and future observers, subject to buffer trimming policies.
+    */
+    export var ReplaySubject: ReplaySubjectStatic;
+
+    /**
+    * Used to pause and resume streams.
+    */
+    export interface Pauser {
+        /**
+         * Pauses the underlying sequence.
+         */
+        pause(): void;
+
+        /**
+        * Resumes the underlying sequence.
+        */
+        resume(): void;
+    }
+
 }
 
 declare module "rx" { export = Rx; }
-
+declare module "rx.lite" { export = Rx; }

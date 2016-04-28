@@ -33,9 +33,9 @@ export class ExarClient {
             this.socket.ondata = message => {
                 let messages = this.decode(message.data).split('\n').filter(m => !!m);
                 for(let message of messages) {
-                    if(message.startsWith("Error")) observer.onError(new Error(message))
-                    else if(message) observer.onNext(message);
-                }    
+                    if (message.startsWith('Error')) observer.onError(new Error(message));
+                    else if (message) observer.onNext(message);
+                }
             };
             this.socket.onerror = error => observer.onError(error.data);
         });
@@ -46,9 +46,8 @@ export class ExarClient {
             this.socket = navigator.TCPSocket.open("localhost", 38580);
             this.socket.onopen = () => this.send(new Connect(collection, 'admin', 'secret'));
             this.createSocketObservable();
-            
             let subscription = this.socketObservable.take(1).subscribe(message => {
-                if(message.startsWith("Error")) reject(new Error(message))
+                if (message.startsWith('Error')) reject(new Error(message));
                 else resolve(Connected.fromTabSeparatedString(message));
                 subscription.dispose();
             }, reject);
@@ -66,8 +65,8 @@ export class ExarClient {
     publish(event: Event) {
         return new Promise<Published>((resolve, reject) => {
             let subscription = this.socketObservable.take(1).subscribe(message => {
-                if(message.startsWith("Error")) reject(new Error(message))
-                else resolve(Published.fromTabSeparatedString(message))
+                if (message.startsWith('Error')) reject(new Error(message));
+                else resolve(Published.fromTabSeparatedString(message));
                 subscription.dispose();
             }, reject);
             this.send(new Publish(event));
@@ -77,24 +76,38 @@ export class ExarClient {
     subscribe(query: Query) {
         return new Promise<Rx.Observable<Event>>((resolve, reject) => {
             
-            let subscription = this.socketObservable.take(1).subscribe(message => {
-                 resolve(observable);
-                 subscription.dispose();
-             }, reject);
-            this.send(new Subscribe(query));
+            let buffer = [];
             
-            let observable = Rx.Observable.create<Event>(observer => {
-                let subscription = this.socketObservable.subscribe(message => {
-                    if(message.startsWith("Error")) {
-                        observer.onError(new Error(message));
-                        subscription.dispose();
-                    } else if(message === 'EndOfEventStream') {
-                        observer.onCompleted();
-                        subscription.dispose();
-                    } else if(message) observer.onNext(Event.fromTabSeparatedString(message));     
-                });
-            }); 
-                       
+            let initialSubscription = this.socketObservable.subscribe(message => {
+                if (message.startsWith('Error')) reject(new Error(message));
+                else {
+                    if(message !== 'Subscribed') buffer.push(message);
+                    let observable = Rx.Observable.create<Event>(observer => {
+                        for(let message of buffer) {
+                            if (message.startsWith('Error')) {
+                                observer.onError(new Error(message));
+                            } else if (message === 'EndOfEventStream') {
+                                observer.onCompleted();
+                            } else if (message) observer.onNext(Event.fromTabSeparatedString(message)); 
+                        }
+                        let subscription = this.socketObservable.subscribe(message => {
+                            initialSubscription.dispose();
+                            if (message.startsWith('Error')) {
+                                observer.onError(new Error(message));
+                                subscription.dispose();
+                            } else if (message === 'EndOfEventStream') {
+                                observer.onCompleted();
+                                subscription.dispose();
+                            } else if (message) observer.onNext(Event.fromTabSeparatedString(message));     
+                        });
+                    });
+                    if (message.startsWith('Error')) reject(new Error(message));
+                    else if(message === 'Subscribed') resolve(observable);
+                    else reject(new Error(`Unexpected message: ${message}`))
+                }
+            }, reject);
+            
+            this.send(new Subscribe(query));
         });
     }
     

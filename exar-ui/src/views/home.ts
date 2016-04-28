@@ -56,7 +56,7 @@ export class Home {
             eventStream => {
                 connection.logMessage('Subscribed');
                 eventStream.subscribe(
-                    event => connection.logTcpMessage(event), 
+                    connection.logTcpMessage.bind(connection), 
                     connection.onError.bind(connection),
                     () => connection.logMessage('EndOfEventStream') 
                 );

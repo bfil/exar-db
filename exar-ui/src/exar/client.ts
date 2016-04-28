@@ -1,6 +1,8 @@
 import {Event, Query} from './model';
 import {Connect, Connected, Publish, Published, Subscribe, Subscribed, TcpMessage} from './net';
 
+import * as Rx from 'rx';
+
 export class ExarClient {
     
     private socket: TCPSocket;
@@ -50,17 +52,19 @@ export class ExarClient {
         });
     }
     
-    subscribe(query: Query, onEvent: (e?: Event) => any) {
-        return new Promise<Subscribed>((resolve, reject) => {
+    subscribe(query: Query) {
+        return new Promise<Rx.Observable<Event>>((resolve, reject) => {
             this.socket.ondata = subscribed => {
-                resolve(Subscribed.fromTabSeparatedString(this.decode(subscribed.data)));
-                this.socket.ondata = event => {
-                    let events = this.decode(event.data).split('\n');
-                    for(event of events) {
-                        if(event === 'EndOfEventStream') onEvent();
-                        else if(event) onEvent(Event.fromTabSeparatedString(event));
-                    }
-                };
+                let observable = Rx.Observable.create<Event>(observer => {
+                    this.socket.ondata = event => {
+                        let events = this.decode(event.data).split('\n');
+                        for(event of events) {
+                            if(event === 'EndOfEventStream') observer.onCompleted();
+                            else if(event) observer.onNext(Event.fromTabSeparatedString(event));
+                        }
+                    };
+                });
+                resolve(observable);
             };
             
             this.socket.onerror = error => reject(error.data);

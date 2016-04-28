@@ -52,11 +52,15 @@ export class Home {
     
     subscribe(connection: Connection) {
         let query = new Query(false, parseInt(connection.offset), parseInt(connection.limit), connection.tag);
-        this.exarClient.subscribe(query, event => {
-            if (event) connection.logTcpMessage(event);
-            else connection.logMessage("EndOfEventStream");
-        }).then(
-            subscribed => connection.logTcpMessage(subscribed), 
+        this.exarClient.subscribe(query).then(
+            eventStream => {
+                connection.logMessage('Subscribed');
+                eventStream.subscribe(
+                    event => connection.logTcpMessage(event), 
+                    connection.onError.bind(this),
+                    () => connection.logMessage('EndOfEventStream') 
+                );
+            }, 
             connection.onError.bind(this)
         )
     }

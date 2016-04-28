@@ -7,17 +7,13 @@ export class TcpMessageEncoder {
 }
 
 export class TcpMessageDecoder {
-    static fromTabSeparatedString(data: string, numberOfParts: number): string[] {
+    static parseTabSeparatedString(data: string, numberOfParts: number): string[] {
         return data.split('\t', numberOfParts);
     }
 }
 
 export interface TcpMessage {
     toTabSeparatedString(): string;
-}
-
-export interface TcpMessageStatic {
-    fromTabSeparatedString<T>(data: string): T;
 }
 
 export class Connect implements TcpMessage {
@@ -40,7 +36,7 @@ export class Connect implements TcpMessage {
     }
     
     static fromTabSeparatedString(data: string) {
-        let messageParts = TcpMessageDecoder.fromTabSeparatedString(data, 4);
+        let messageParts = TcpMessageDecoder.parseTabSeparatedString(data, 4);
         let collection = messageParts[1];
         let username = messageParts[2];
         let password = messageParts[3];
@@ -55,7 +51,7 @@ export class Connected implements TcpMessage {
     }
     
     static fromTabSeparatedString(data: string) {
-        let messageParts = TcpMessageDecoder.fromTabSeparatedString(data, 1);
+        let messageParts = TcpMessageDecoder.parseTabSeparatedString(data, 1);
         return new Connected();
     }
 }
@@ -71,12 +67,12 @@ export class Publish implements TcpMessage {
     toTabSeparatedString() {
        return TcpMessageEncoder.toTabSeparatedString('Publish',
            this.event.tags.join(' '),
-           0,
+           this.event.timestamp,
            this.event.data);
     }
     
     static fromTabSeparatedString(data: string) {
-        let messageParts = TcpMessageDecoder.fromTabSeparatedString(data, 4);
+        let messageParts = TcpMessageDecoder.parseTabSeparatedString(data, 4);
         let tags = messageParts[1].split(' ');
         let timestamp = parseInt(messageParts[2]);
         let eventData = messageParts[3];
@@ -98,7 +94,7 @@ export class Published implements TcpMessage {
     }
     
     static fromTabSeparatedString(data: string) {
-        let messageParts = TcpMessageDecoder.fromTabSeparatedString(data, 2);
+        let messageParts = TcpMessageDecoder.parseTabSeparatedString(data, 2);
         let eventId = parseInt(messageParts[1]);
         return new Published(eventId);
     }
@@ -121,7 +117,7 @@ export class Subscribe implements TcpMessage {
     }
     
     static fromTabSeparatedString(data: string) {
-        let messageParts = TcpMessageDecoder.fromTabSeparatedString(data, 5);
+        let messageParts = TcpMessageDecoder.parseTabSeparatedString(data, 5);
         let liveStream = messageParts[1] === 'true';
         let offset = parseInt(messageParts[2]);
         let limit = parseInt(messageParts[3]);
@@ -138,7 +134,7 @@ export class Subscribed implements TcpMessage {
     }
     
     static fromTabSeparatedString(data: string) {
-        let messageParts = TcpMessageDecoder.fromTabSeparatedString(data, 1);
+        let messageParts = TcpMessageDecoder.parseTabSeparatedString(data, 1);
         return new Subscribed();
     }
 }

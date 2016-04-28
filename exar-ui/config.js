@@ -29,6 +29,7 @@ System.config({
     "forge": "npm:forge@2.3.0",
     "jquery": "github:components/jquery@2.2.1",
     "moment": "npm:moment@2.12.0",
+    "rx": "npm:rx@4.1.0",
     "text": "github:systemjs/plugin-text@0.0.3",
     "traceur": "github:jmcriffey/bower-traceur@0.0.92",
     "traceur-runtime": "github:jmcriffey/bower-traceur-runtime@0.0.92",
@@ -752,6 +753,9 @@ System.config({
     },
     "npm:ripemd160@1.0.1": {
       "buffer": "github:jspm/nodelibs-buffer@0.1.0",
+      "process": "github:jspm/nodelibs-process@0.1.2"
+    },
+    "npm:rx@4.1.0": {
       "process": "github:jspm/nodelibs-process@0.1.2"
     },
     "npm:sha.js@2.4.5": {

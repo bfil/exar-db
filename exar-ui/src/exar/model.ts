@@ -30,7 +30,7 @@ export class Event implements TcpMessage {
     }
     
     static fromTabSeparatedString(data: string): Event {
-        let messageParts = TcpMessageDecoder.fromTabSeparatedString(data, 5);
+        let messageParts = TcpMessageDecoder.parseTabSeparatedString(data, 5);
         let id = parseInt(messageParts[1]);
         let timestamp = parseInt(messageParts[2]);
         let tags = messageParts[3].split(' ');

@@ -6,6 +6,7 @@ import * as Rx from 'rx';
 export class ExarClient {
     
     private socket: TCPSocket;
+    private socketObservable: Rx.Observable<string>;
     
     private encoder: TextEncoding.TextEncoder;
     private decoder: TextEncoding.TextDecoder;
@@ -27,12 +28,30 @@ export class ExarClient {
         this.socket.send(this.encode(message.toTabSeparatedString()));
     }
     
+    private createSocketObservable() {
+        this.socketObservable = Rx.Observable.create<string>(observer => {
+            this.socket.ondata = message => {
+                let messages = this.decode(message.data).split('\n').filter(m => !!m);
+                for(let message of messages) {
+                    if(message.startsWith("Error")) observer.onError(new Error(message))
+                    else if(message) observer.onNext(message);
+                }    
+            };
+            this.socket.onerror = error => observer.onError(error.data);
+        });
+    }
+    
     connect(collection: string) {
         return new Promise<Connected>((resolve, reject) => {
             this.socket = navigator.TCPSocket.open("localhost", 38580);
             this.socket.onopen = () => this.send(new Connect(collection, 'admin', 'secret'));
-            this.socket.ondata = event => resolve(Connected.fromTabSeparatedString(this.decode(event.data)));
-            this.socket.onerror = error => reject(error.data);
+            this.createSocketObservable();
+            
+            let subscription = this.socketObservable.take(1).subscribe(message => {
+                if(message.startsWith("Error")) reject(new Error(message))
+                else resolve(Connected.fromTabSeparatedString(message));
+                subscription.dispose();
+            }, reject);
         })
     }
     
@@ -46,30 +65,36 @@ export class ExarClient {
     
     publish(event: Event) {
         return new Promise<Published>((resolve, reject) => {
-            this.socket.ondata = event => resolve(Published.fromTabSeparatedString(this.decode(event.data)));
-            this.socket.onerror = error => reject(error.data);
+            let subscription = this.socketObservable.take(1).subscribe(message => {
+                if(message.startsWith("Error")) reject(new Error(message))
+                else resolve(Published.fromTabSeparatedString(message))
+                subscription.dispose();
+            }, reject);
             this.send(new Publish(event));
         });
     }
     
     subscribe(query: Query) {
         return new Promise<Rx.Observable<Event>>((resolve, reject) => {
-            this.socket.ondata = subscribed => {
-                let observable = Rx.Observable.create<Event>(observer => {
-                    this.socket.ondata = event => {
-                        let events = this.decode(event.data).split('\n');
-                        for(event of events) {
-                            if(event === 'EndOfEventStream') observer.onCompleted();
-                            else if(event) observer.onNext(Event.fromTabSeparatedString(event));
-                        }
-                    };
-                });
-                resolve(observable);
-            };
             
-            this.socket.onerror = error => reject(error.data);
-            
+            let subscription = this.socketObservable.take(1).subscribe(message => {
+                 resolve(observable);
+                 subscription.dispose();
+             }, reject);
             this.send(new Subscribe(query));
+            
+            let observable = Rx.Observable.create<Event>(observer => {
+                let subscription = this.socketObservable.subscribe(message => {
+                    if(message.startsWith("Error")) {
+                        observer.onError(new Error(message));
+                        subscription.dispose();
+                    } else if(message === 'EndOfEventStream') {
+                        observer.onCompleted();
+                        subscription.dispose();
+                    } else if(message) observer.onNext(Event.fromTabSeparatedString(message));     
+                });
+            }); 
+                       
         });
     }
     

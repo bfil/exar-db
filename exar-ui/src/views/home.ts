@@ -35,7 +35,7 @@ export class Home {
             .then(connected => {
                 connection.connected = true;
                 connection.logTcpMessage(connected);
-            }, connection.onError.bind(this));
+            }, connection.onError.bind(connection));
         this.exarClient.onClose(() => {
             connection.connected = false;
             connection.logMessage(`Disconnected`);
@@ -46,7 +46,7 @@ export class Home {
         let event = new Event(connection.data, (connection.tags || "").split(' '));
         this.exarClient.publish(event).then(
             published => connection.logTcpMessage(published), 
-            connection.onError.bind(this)
+            connection.onError.bind(connection)
         )
     }
     
@@ -57,11 +57,11 @@ export class Home {
                 connection.logMessage('Subscribed');
                 eventStream.subscribe(
                     event => connection.logTcpMessage(event), 
-                    connection.onError.bind(this),
+                    connection.onError.bind(connection),
                     () => connection.logMessage('EndOfEventStream') 
                 );
             }, 
-            connection.onError.bind(this)
+            connection.onError.bind(connection)
         )
     }
     

@@ -71,15 +71,41 @@ export class Home {
         this.exarClient.disconnect();
     }
     
+    newConnection(tab: Tab) {
+        tab.editingConnection = new SavedConnection();
+        tab.editing = true;
+    }
+    
+    editConnection(tab: Tab) {
+        tab.editingConnection = tab.selectedConnection;
+        tab.editing = true;
+    }
+    
+    deleteConnection(tab: Tab) {
+        let index = this.savedConnections.indexOf(tab.selectedConnection);
+        this.savedConnections.splice(index, 1);
+        for(let tab of this.tabs) {
+            if(this.savedConnections.length) {
+                tab.selectedConnection = this.savedConnections[0];
+            } else {
+                tab.editingConnection = new SavedConnection();
+                tab.selectedConnection = tab.editingConnection;
+            }
+        }
+        localStorage.setItem('connections.saved', JSON.stringify(this.savedConnections));
+    }
+    
     saveConnection(tab: Tab) {
-        this.savedConnections.push(tab.editingConnection);
+        if(this.savedConnections.indexOf(tab.editingConnection) === -1) {
+            this.savedConnections.push(tab.editingConnection);
+        }
         if(!tab.selectedConnection) tab.selectedConnection = tab.editingConnection;
         tab.editing = false;
         localStorage.setItem('connections.saved', JSON.stringify(this.savedConnections));
     }
     
-    cancelConnection(connection: SavedConnection) {
-        
+    cancelConnection(tab: Tab) {
+        tab.editing = false;
     }
     
     selectConnection(tab: Tab, connection: SavedConnection) {
@@ -89,6 +115,7 @@ export class Home {
 
 export class SavedConnection {
     alias: string;
+    requiresAuth: boolean;
     host: string = 'localhost';
     port: number = 38580;
     username: string;
@@ -152,6 +179,8 @@ export class Tab {
     }
     
     initializeConnection(collection: string, connection: SavedConnection): Connection {
-        return new Connection(collection, connection.host, connection.port, connection.username, connection.password);
+        let username = connection.requiresAuth ? connection.username : undefined;
+        let password = connection.requiresAuth ? connection.password : undefined;
+        return new Connection(collection, connection.host, connection.port, username, password);
     }
 }

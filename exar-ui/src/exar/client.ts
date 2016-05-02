@@ -28,9 +28,11 @@ export class ExarClient {
         this.socket.send(this.encode(message.toTabSeparatedString()));
     }
     
+    private requestSubscription: Rx.IDisposable;
     private request<T>(message: TcpMessage, handleResponse: (message: string) => T, sendOnOpen: boolean = false) {
         return new Promise<T>((resolve, reject) => {
-            let subscription = this.socketObservable.subscribe(message => {
+            if(this.requestSubscription) this.requestSubscription.dispose();
+            this.requestSubscription = this.socketObservable.subscribe(message => {
                 resolve(handleResponse(message));
             }, reject);
             if(sendOnOpen) this.socket.onopen = () => this.send(message);

@@ -3,7 +3,7 @@ import {autoinject} from 'aurelia-framework';
 import * as $ from 'jquery';
 
 import {ExarClient} from '../exar/client';
-import {Event, Query} from '../exar/model';
+import {ConnectionInfo, Event, Query} from '../exar/model';
 import {TcpMessage} from '../exar/net';
 
 @autoinject

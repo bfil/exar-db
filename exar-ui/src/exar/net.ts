@@ -138,3 +138,33 @@ export class Subscribed implements TcpMessage {
         return new Subscribed();
     }
 }
+
+export class DatabaseError implements TcpMessage {
+    
+    private type: string;
+    private subType: string;
+    private data: string;
+    
+    constructor(type: string, data: string, subType?: string) {
+        this.type = type;
+        this.subType = subType;
+        this.data = data;
+    }
+    
+    toTabSeparatedString() {
+       return TcpMessageEncoder.toTabSeparatedString('Error', this.type, this.subType, this.data); 
+    }
+    
+    toString() {
+        if(this.type === 'ParseError' && this.subType === 'MissingField') {
+            return `${this.type}: missing field at position ${this.data}`;
+        } else return `${this.type}: ${this.data}`;
+    }
+    
+    static fromTabSeparatedString(data: string) {
+        let messageParts = TcpMessageDecoder.parseTabSeparatedString(data, 4);
+        let errorData = messageParts[3] || messageParts[2];
+        let subType = messageParts[3] ? messageParts[2] : undefined;
+        return new DatabaseError(messageParts[1], errorData, subType);
+    }
+}

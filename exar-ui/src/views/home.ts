@@ -94,7 +94,7 @@ export class Connection {
     }
     
     onError(error: any) {
-        this.logMessage(`Error: ${error.message}`);
+        this.logMessage(error.toString());
     }
     
     logMessage(message: string) {

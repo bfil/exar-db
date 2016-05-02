@@ -1,5 +1,5 @@
 import {ConnectionInfo, Event, Query} from './model';
-import {Connect, Connected, Publish, Published, Subscribe, Subscribed, TcpMessage} from './net';
+import {Connect, Connected, Publish, Published, Subscribe, Subscribed, DatabaseError, TcpMessage} from './net';
 
 import * as Rx from 'rx';
 
@@ -47,7 +47,7 @@ export class ExarClient {
                 let messages = this.decode(message.data).split('\n').filter(m => !!m);
                 for(let message of messages) {
                     if (message.startsWith('Error')) {
-                        observer.onError(new Error(message));
+                        observer.onError(DatabaseError.fromTabSeparatedString(message));
                         this.createSocketObservable();
                     }
                     else if (message) observer.onNext(message);

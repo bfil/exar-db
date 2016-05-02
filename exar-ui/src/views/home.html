@@ -1,55 +1,93 @@
 <template>
     <div>
         <ul class="nav nav-tabs" role="tablist">
-            <li role="presentation" repeat.for="connection of connections">
+            <li role="presentation" repeat.for="tab of tabs">
                 <a id="${'tab-' + $index}" href="${'#tab-content-' + $index}" role="tab" data-toggle="tab">
-                    ${connection.collection || "New connection"}
-                    <span>&nbsp;&nbsp;<i class="fa fa-times" click.delegate="removeConnection($index)"></i></span>
+                    ${tab.name}
+                    <span>&nbsp;&nbsp;<i class="fa fa-times" click.delegate="removeTab($index)"></i></span>
                 </a>   
             </li>
             <li role="presentation">
-                <a href="" click.delegate="addConnection()">
+                <a href="" click.delegate="addTab()">
                     <i class="fa fa-plus"></i>
-                    <span if.bind="!connections.length">&nbsp;Add connection</span>
+                    <span if.bind="!tabs.length">&nbsp;New connection</span>
                 </a>
             </li>
         </ul>
         <div class="tab-content">
-            <div repeat.for="connection of connections" role="tabpanel" class="tab-pane" id="${'tab-content-' + $index}">
+            <div repeat.for="tab of tabs" role="tabpanel" class="tab-pane" id="${'tab-content-' + $index}">
                 <section>
-                    <h3>Parameters</h3>
-                    <form class="form-inline" if.bind="!connection.connected">
-                        <input type="text" class="form-control" value.bind="connection.collection" placeholder="Collection Name">
-                        <button type="submit" class="btn btn-default" click.delegate="connect(connection)" disabled.bind="!connection.collection">Connect</button>
+                    <h4>Connection parameters</h4>
+                    <form class="form-inline" if.bind="!tab.connected && (tab.editing || !$parent.savedConnections.length)">
+                        <p>
+                            <input type="text" class="form-control" value.bind="tab.editingConnection.alias" placeholder="Alias">
+                        </p>
+                        <p>
+                            <input type="text" class="form-control" value.bind="tab.editingConnection.host" placeholder="Host">
+                            <input type="text" class="form-control" value.bind="tab.editingConnection.port" placeholder="Port">
+                        </p>
+                        <p>
+                            <div class="checkbox">
+                                <label>
+                                    <input type="checkbox" checked.bind="tab.requiresAuth"> Requires authentication
+                                </label>
+                            </div>
+                        </p>
+                        <p if.bind="tab.requiresAuth">
+                            <input type="text" class="form-control" value.bind="tab.editingConnection.username" placeholder="Username">
+                            <input type="text" class="form-control" value.bind="tab.editingConnection.password" placeholder="Password">
+                        </p>
+                        <p>
+                            <button type="submit" class="btn btn-default" click.delegate="saveConnection(tab)">Save</button>
+                            <button class="btn btn-default" click.delegate="cancelConnection(tab)">Cancel</button>
+                        </p>
                     </form>
-                    <div if.bind="connection.connected">
+                    <form class="form-inline" if.bind="!tab.connected && (!tab.editing && $parent.savedConnections.length)">
+                        <p class="form-group">
+                            <div class="dropdown">
+                                <button class="btn btn-default dropdown-toggle" type="button" data-toggle="dropdown" aria-haspopup="true"
+                                aria-expanded="true">
+                                    ${tab.selectedConnection.alias}
+                                    <span class="caret"></span>
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li repeat.for="connection of savedConnections"><a href="" click.delegate="selectConnection(tab, connection)">${connection.alias}</a></li>
+                                </ul>
+                            </div>
+                        </p>
+                        <p>
+                            <input type="text" class="form-control" value.bind="tab.collection" placeholder="Collection Name">
+                            <button type="submit" class="btn btn-default" click.delegate="connect(tab)" disabled.bind="!tab.collection">Connect</button>
+                        </p>
+                    </form>
+                    <div if.bind="tab.connected">
                         <div>
-                            Connected to <b>${connection.collection}</b>
-                            <button type="submit" class="btn btn-default" click.delegate="disconnect()">Disconnect</button>
+                            Connected to <b>${tab.collection}</b>
+                            <button class="btn btn-default" click.delegate="disconnect()">Disconnect</button>
                         </div>
                         <hr>
                         <form class="form-inline">
                             <h3>Publish</h3>
-                            <input type="text" class="form-control" value.bind="connection.data" placeholder="Event Data">
-                            <input type="text" class="form-control" value.bind="connection.tags" placeholder="Tags">
-                            <button type="submit" class="btn btn-default" click.delegate="publish(connection)">Publish</button>
+                            <input type="text" class="form-control" value.bind="tab.data" placeholder="Event Data">
+                            <input type="text" class="form-control" value.bind="tab.tags" placeholder="Tags">
+                            <button type="submit" class="btn btn-default" click.delegate="publish(tab)">Publish</button>
                         </form>
                         <hr>
                         <form class="form-inline">
                             <h3>Subscribe</h3>
-                            <input type="number" class="form-control" value.bind="connection.offset" placeholder="Offset">
-                            <input type="number" class="form-control" value.bind="connection.limit" placeholder="Limit">
-                            <input type="text" class="form-control" value.bind="connection.tag" placeholder="Tag">
-                            <button type="submit" class="btn btn-default" click.delegate="subscribe(connection)">Subscribe</button>
+                            <input type="number" class="form-control" value.bind="tab.offset" placeholder="Offset">
+                            <input type="number" class="form-control" value.bind="tab.limit" placeholder="Limit">
+                            <input type="text" class="form-control" value.bind="tab.tag" placeholder="Tag">
+                            <button type="submit" class="btn btn-default" click.delegate="subscribe(tab)">Subscribe</button>
                         </form>
                     </div>
                     <hr>
-                    <p if.bind="connection.messages.length">
+                    <p if.bind="tab.messages.length">
                         Messages
-                        <button type="submit" class="btn btn-default btn-xs pull-right" click.delegate="connection.clearMessages()">Clear</button>
+                        <button type="submit" class="btn btn-default btn-xs pull-right" click.delegate="tab.clearMessages()">Clear</button>
                     </p>
                     <ul class="list-group">
-                        <li class="list-group-item" repeat.for="message of connection.messages">${message}</li>
+                        <li class="list-group-item" repeat.for="message of tab.messages">${message}</li>
                     </ul>
                 </section>
             </div>

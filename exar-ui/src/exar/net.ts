@@ -158,7 +158,9 @@ export class DatabaseError implements TcpMessage {
     toString() {
         if(this.type === 'ParseError' && this.subType === 'MissingField') {
             return `${this.type}: missing field at position ${this.data}`;
-        } else return `${this.type}: ${this.data}`;
+        } else if(this.type === 'AuthenticationError') {
+            return `${this.type}: missing or invalid credentials`;
+        } return `${this.type}: ${this.data}`;
     }
     
     static fromTabSeparatedString(data: string) {

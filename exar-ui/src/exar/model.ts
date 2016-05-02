@@ -1,18 +1,18 @@
 import {TcpMessage, TcpMessageEncoder, TcpMessageDecoder} from './net';
 
-export class ConnectionInfo {
+export class Connection {
     host: string;
     port: number;
     username: string;
     password: string;
     collection: string;
     
-    constructor(collection: string, info: { host?: string, port?: number, username?: string, password?: string }) {
+    constructor(collection: string, host: string = 'localhost', port: number = 38580, username?: string, password?: string) {
         this.collection = collection;
-        this.host = info.host || 'localhost';
-        this.port = info.port || 38580;
-        this.username = info.username;
-        this.password = info.password;
+        this.host = host;
+        this.port = port;
+        this.username = username;
+        this.password = password;
     }
 }
 

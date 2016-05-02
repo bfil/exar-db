@@ -1,4 +1,4 @@
-import {ConnectionInfo, Event, Query} from './model';
+import {Connection, Event, Query} from './model';
 import {Connect, Connected, Publish, Published, Subscribe, Subscribed, DatabaseError, TcpMessage} from './net';
 
 import * as Rx from 'rx';
@@ -57,7 +57,7 @@ export class ExarClient {
         }).controlled();
     }
     
-    connect(connectionInfo: ConnectionInfo) {
+    connect(connectionInfo: Connection) {
         this.socket = navigator.TCPSocket.open(connectionInfo.host, connectionInfo.port);
         this.createSocketObservable();
         return this.request(

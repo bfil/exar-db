@@ -31,12 +31,14 @@ export class Home {
     }
     
     connect(connection: Connection) {
-        this.exarClient.connect(connection.collection)
+        this.exarClient.connect(new ConnectionInfo(connection.collection, {
+                username: 'admin', password: 'secret'
+            }))
             .then(connected => {
                 connection.connected = true;
                 connection.logTcpMessage(connected);
             }, connection.onError.bind(connection));
-        this.exarClient.onClose(() => {
+        this.exarClient.onDisconnect(() => {
             connection.connected = false;
             connection.logMessage(`Disconnected`);
         });

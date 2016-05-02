@@ -1,4 +1,4 @@
-import {Event, Query} from './model';
+import {ConnectionInfo, Event, Query} from './model';
 import {Connect, Connected, Publish, Published, Subscribe, Subscribed, TcpMessage} from './net';
 
 import * as Rx from 'rx';
@@ -6,7 +6,7 @@ import * as Rx from 'rx';
 export class ExarClient {
     
     private socket: TCPSocket;
-    private socketObservable: Rx.Observable<string>;
+    private socketObservable: Rx.ControlledObservable<string>;
     
     private encoder: TextEncoding.TextEncoder;
     private decoder: TextEncoding.TextDecoder;
@@ -28,34 +28,43 @@ export class ExarClient {
         this.socket.send(this.encode(message.toTabSeparatedString()));
     }
     
+    private request<T>(message: TcpMessage, handleResponse: (message: string) => T, sendOnOpen: boolean = false) {
+        return new Promise<T>((resolve, reject) => {
+            let subscription = this.socketObservable.subscribe(message => {
+                resolve(handleResponse(message));
+            }, reject);
+            if(sendOnOpen) this.socket.onopen = () => this.send(message);
+            else this.send(message);
+            this.socketObservable.request(1);
+        });
+    }
+    
     private createSocketObservable() {
         this.socketObservable = Rx.Observable.create<string>(observer => {
             this.socket.ondata = message => {
                 let messages = this.decode(message.data).split('\n').filter(m => !!m);
                 for(let message of messages) {
-                    if (message.startsWith('Error')) observer.onError(new Error(message));
+                    if (message.startsWith('Error')) {
+                        observer.onError(new Error(message));
+                        this.createSocketObservable();
+                    }
                     else if (message) observer.onNext(message);
                 }
             };
             this.socket.onerror = error => observer.onError(error.data);
-        });
+        }).controlled();
     }
     
-    connect(collection: string) {
-        return new Promise<Connected>((resolve, reject) => {
-            this.socket = navigator.TCPSocket.open("localhost", 38580);
-            this.socket.onopen = () => this.send(new Connect(collection, 'admin', 'secret'));
-            this.createSocketObservable();
-            let subscription = this.socketObservable.take(1).subscribe(message => {
-                if (message.startsWith('Error')) reject(new Error(message));
-                else resolve(Connected.fromTabSeparatedString(message));
-                subscription.dispose();
-            }, reject);
-        })
+    connect(connectionInfo: ConnectionInfo) {
+        this.socket = navigator.TCPSocket.open(connectionInfo.host, connectionInfo.port);
+        this.createSocketObservable();
+        return this.request(
+            new Connect(connectionInfo.collection, connectionInfo.username, connectionInfo.password),
+            Connected.fromTabSeparatedString, true);
     }
     
-    onClose(onClose: () => any) {
-        this.socket.onclose = onClose;
+    onDisconnect(onDisconnect: () => any) {
+        this.socket.onclose = onDisconnect;
     }
     
     disconnect() {
@@ -63,51 +72,23 @@ export class ExarClient {
     }
     
     publish(event: Event) {
-        return new Promise<Published>((resolve, reject) => {
-            let subscription = this.socketObservable.take(1).subscribe(message => {
-                if (message.startsWith('Error')) reject(new Error(message));
-                else resolve(Published.fromTabSeparatedString(message));
-                subscription.dispose();
-            }, reject);
-            this.send(new Publish(event));
-        });
+        return this.request(new Publish(event), Published.fromTabSeparatedString);
     }
     
     subscribe(query: Query) {
-        return new Promise<Rx.Observable<Event>>((resolve, reject) => {
-            
-            let buffer = [];
-            
-            let initialSubscription = this.socketObservable.subscribe(message => {
-                if (message.startsWith('Error')) reject(new Error(message));
-                else {
-                    if(message !== 'Subscribed') buffer.push(message);
-                    let observable = Rx.Observable.create<Event>(observer => {
-                        for(let message of buffer) {
-                            if (message.startsWith('Error')) {
-                                observer.onError(new Error(message));
-                            } else if (message === 'EndOfEventStream') {
-                                observer.onCompleted();
-                            } else if (message) observer.onNext(Event.fromTabSeparatedString(message)); 
-                        }
-                        let subscription = this.socketObservable.subscribe(message => {
-                            initialSubscription.dispose();
-                            if (message.startsWith('Error')) {
-                                observer.onError(new Error(message));
-                                subscription.dispose();
-                            } else if (message === 'EndOfEventStream') {
-                                observer.onCompleted();
-                                subscription.dispose();
-                            } else if (message) observer.onNext(Event.fromTabSeparatedString(message));     
-                        });
-                    });
-                    if (message.startsWith('Error')) reject(new Error(message));
-                    else if(message === 'Subscribed') resolve(observable);
-                    else reject(new Error(`Unexpected message: ${message}`))
-                }
-            }, reject);
-            
-            this.send(new Subscribe(query));
+        return this.request(new Subscribe(query), message => {
+            return Rx.Observable.create<Event>(observer => {
+                let subscription = this.socketObservable.subscribe(message => {
+                    if (message === 'EndOfEventStream') {
+                        observer.onCompleted();
+                        subscription.dispose();
+                    } else {
+                        observer.onNext(Event.fromTabSeparatedString(message));
+                        this.socketObservable.request(1);
+                    }     
+                });
+                this.socketObservable.request(1);
+            });
         });
     }
     

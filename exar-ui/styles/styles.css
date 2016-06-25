@@ -48,6 +48,10 @@ section {
   margin: 0 20px;
 }
 
+.navbar-header {
+    width: 100%;
+}
+
 .navbar-nav {
     margin: 0px;
 }

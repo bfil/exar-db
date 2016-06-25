@@ -9,15 +9,12 @@ export function configure(aurelia: Aurelia) {
     aurelia.use
         .standardConfiguration()
         .developmentLogging()
+        plugin('aurelia-animator-css')
         .globalResources([
 			'converters/date-format',
+            'converters/obfuscate',
             'converters/upper'
 		]);
-
-    aurelia.use.plugin('aurelia-animator-css');
-
-    // Anyone wanting to use HTMLImports to load views, will need to install the following plugin.
-    // aurelia.use.plugin('aurelia-html-import-template-loader')
 
     aurelia.start().then(() => aurelia.setRoot());
 }

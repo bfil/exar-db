@@ -5,7 +5,7 @@
                 <a id="${'tab-' + $index}" href="${'#tab-content-' + $index}" role="tab" data-toggle="tab">
                     ${tab.name}
                     <span>&nbsp;&nbsp;<i class="fa fa-times" click.delegate="removeTab($index)"></i></span>
-                </a>   
+                </a>
             </li>
             <li role="presentation">
                 <a href="" click.delegate="addTab()">
@@ -17,59 +17,37 @@
         <div class="tab-content">
             <div repeat.for="tab of tabs" role="tabpanel" class="tab-pane" id="${'tab-content-' + $index}">
                 <section>
-                    <h4>Connection parameters</h4>
-                    <form class="form-inline" if.bind="!tab.connected && (tab.editing || !$parent.savedConnections.length)">
-                        <p>
-                            <input type="text" class="form-control" value.bind="tab.editingConnection.alias" placeholder="Alias">
-                        </p>
-                        <p>
-                            <input type="text" class="form-control" value.bind="tab.editingConnection.host" placeholder="Host">
-                            <input type="text" class="form-control" value.bind="tab.editingConnection.port" placeholder="Port">
-                        </p>
-                        <p>
-                            <div class="checkbox">
-                                <label>
-                                    <input type="checkbox" checked.bind="tab.editingConnection.requiresAuth"> Requires authentication
-                                </label>
-                            </div>
-                        </p>
-                        <p if.bind="tab.editingConnection.requiresAuth">
-                            <input type="text" class="form-control" value.bind="tab.editingConnection.username" placeholder="Username">
-                            <input type="password" class="form-control" value.bind="tab.editingConnection.password" placeholder="Password">
-                        </p>
-                        <p>
-                            <button type="submit" class="btn btn-default" click.delegate="saveConnection(tab)">Save</button>
-                            <button class="btn btn-default" click.delegate="cancelConnection(tab)">Cancel</button>
-                        </p>
-                    </form>
-                    <form class="form-inline" if.bind="!tab.connected && (!tab.editing && $parent.savedConnections.length)">
-                        <p class="form-group">
-                            <div class="dropdown" style="display: inline-block">
-                                <button class="btn btn-default dropdown-toggle" type="button" data-toggle="dropdown" aria-haspopup="true"
-                                aria-expanded="true">
-                                    ${tab.selectedConnection.alias}
-                                    <span class="caret"></span>
-                                </button>
-                                <ul class="dropdown-menu">
-                                    <li repeat.for="connection of savedConnections"><a href="" click.delegate="selectConnection(tab, connection)">${connection.alias}</a></li>
-                                </ul>
-                            </div>
-                            &nbsp;
-                            <a href="" click.delegate="editConnection(tab)">Edit</a>
-                            &nbsp;
-                            <a href="" click.delegate="deleteConnection(tab)">Delete</a>
-                            &nbsp;
-                            <a href="" click.delegate="newConnection(tab)">New</a>
-                        </p>
-                        <p>
+                    <h4>Connection</h4>
+                    <form class="form-inline" if.bind="!tab.connected">
+                        <div class="input-group" if.bind="savedConnections.length">
+                            <span class="input-group-btn">
+                                <div class="dropdown">
+                                    <button class="btn btn-default dropdown-toggle" type="button" data-toggle="dropdown" aria-haspopup="true"
+                                    aria-expanded="true">
+                                        ${tab.selectedConnection.alias}
+                                        <span class="caret"></span>
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li repeat.for="connection of savedConnections"><a href="" click.delegate="selectConnection(tab, connection)">${connection.alias}</a></li>
+                                    </ul>
+                                </div>
+                            </span>
                             <input type="text" class="form-control" value.bind="tab.collection" placeholder="Collection Name">
-                            <button type="submit" class="btn btn-default" click.delegate="connect(tab)" disabled.bind="!tab.collection">Connect</button>
-                        </p>
+                            <span class="input-group-btn">
+                                <button type="submit" class="btn btn-default" click.delegate="connect(tab)" disabled.bind="!tab.collection">Connect</button>
+                            </span>
+                        </div>
+                        <div if.bind="!savedConnections.length">
+                            <p>No saved connections</p>
+                            <p>
+                                <a route-href="route: settings">Manage connections</a>
+                            </p>
+                        </div>
                     </form>
                     <div if.bind="tab.connected">
                         <div>
-                            Connected to <b>${tab.collection}</b>
-                            <button class="btn btn-default" click.delegate="disconnect()">Disconnect</button>
+                            Connected to <b>${tab.collection}</b>&nbsp;
+                            <button class="btn btn-default" click.delegate="disconnect(tab)">Disconnect</button>
                         </div>
                         <hr>
                         <form class="form-inline">
@@ -100,5 +78,5 @@
         </div>
     </div>
 
-    
+
 </template>

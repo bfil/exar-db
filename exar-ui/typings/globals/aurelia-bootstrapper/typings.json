@@ -1,0 +1,8 @@
+{
+  "resolution": "main",
+  "tree": {
+    "src": "https://raw.githubusercontent.com/aurelia/bootstrapper/111ee4eb1e5df7af39305d190d635df7d93cb7e5/dist/aurelia-bootstrapper.d.ts",
+    "raw": "github:aurelia/bootstrapper/dist/aurelia-bootstrapper.d.ts#111ee4eb1e5df7af39305d190d635df7d93cb7e5",
+    "typings": "https://raw.githubusercontent.com/aurelia/bootstrapper/111ee4eb1e5df7af39305d190d635df7d93cb7e5/dist/aurelia-bootstrapper.d.ts"
+  }
+}

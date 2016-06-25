@@ -9,7 +9,7 @@ export function configure(aurelia: Aurelia) {
     aurelia.use
         .standardConfiguration()
         .developmentLogging()
-        plugin('aurelia-animator-css')
+        .plugin('aurelia-animator-css')
         .globalResources([
 			'converters/date-format',
             'converters/obfuscate',

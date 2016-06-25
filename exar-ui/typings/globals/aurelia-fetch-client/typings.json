@@ -1,0 +1,8 @@
+{
+  "resolution": "main",
+  "tree": {
+    "src": "https://raw.githubusercontent.com/aurelia/fetch-client/a97fa7b9484cd78d986b11e537394400c99d02fe/dist/aurelia-fetch-client.d.ts",
+    "raw": "github:aurelia/fetch-client/dist/aurelia-fetch-client.d.ts#a97fa7b9484cd78d986b11e537394400c99d02fe",
+    "typings": "https://raw.githubusercontent.com/aurelia/fetch-client/a97fa7b9484cd78d986b11e537394400c99d02fe/dist/aurelia-fetch-client.d.ts"
+  }
+}

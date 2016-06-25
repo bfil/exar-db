@@ -1,0 +1,8 @@
+{
+  "resolution": "main",
+  "tree": {
+    "src": "https://raw.githubusercontent.com/aurelia/history-browser/19e095308a414ab561d3c5b327fcbc756e60f457/dist/aurelia-history-browser.d.ts",
+    "raw": "github:aurelia/history-browser/dist/aurelia-history-browser.d.ts#19e095308a414ab561d3c5b327fcbc756e60f457",
+    "typings": "https://raw.githubusercontent.com/aurelia/history-browser/19e095308a414ab561d3c5b327fcbc756e60f457/dist/aurelia-history-browser.d.ts"
+  }
+}

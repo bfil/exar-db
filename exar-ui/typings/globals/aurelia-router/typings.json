@@ -1,0 +1,8 @@
+{
+  "resolution": "main",
+  "tree": {
+    "src": "https://raw.githubusercontent.com/aurelia/router/39f05b6c85925829baa8be1256fc9ee9430e5854/dist/aurelia-router.d.ts",
+    "raw": "github:aurelia/router/dist/aurelia-router.d.ts#39f05b6c85925829baa8be1256fc9ee9430e5854",
+    "typings": "https://raw.githubusercontent.com/aurelia/router/39f05b6c85925829baa8be1256fc9ee9430e5854/dist/aurelia-router.d.ts"
+  }
+}

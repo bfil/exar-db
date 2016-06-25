@@ -12,13 +12,15 @@
     "removeComments": true,
     "noLib": false,
     "emitDecoratorMetadata": true,
-    "experimentalDecorators": true
+    "experimentalDecorators": true,
+    "moduleResolution": "classic"
   },
   "filesGlob": [
     "src/**/*.ts",
     "test/**/*.ts",
     "typings/**/*.d.ts",
-    "jspm_packages/npm/aurelia-*/*.d.ts"
+    "custom_typings/**/*.d.ts",
+    "typings/index.d.ts"
   ],
   "exclude": [
     "node_modules",

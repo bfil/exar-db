@@ -1,6 +1,6 @@
 import {autoinject} from 'aurelia-framework';
 
-import {SavedConnection} from '../models/saved-connection';
+import {SavedConnection} from 'models/saved-connection';
 
 @autoinject
 export class Settings {

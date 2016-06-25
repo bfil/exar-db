@@ -2,11 +2,11 @@ import {autoinject} from 'aurelia-framework';
 
 import * as $ from 'jquery';
 
-import {ExarClient} from '../exar/client';
-import {Connection, Event, Query} from '../exar/model';
-import {TcpMessage} from '../exar/net';
+import {ExarClient} from 'exar/client';
+import {Connection, Event, Query} from 'exar/model';
+import {TcpMessage} from 'exar/net';
 
-import {SavedConnection} from '../models/saved-connection';
+import {SavedConnection} from 'models/saved-connection';
 
 @autoinject
 export class Home {

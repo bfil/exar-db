@@ -1,0 +1,8 @@
+{
+  "resolution": "main",
+  "tree": {
+    "src": "https://raw.githubusercontent.com/aurelia/binding/69d54dbebafe87738f89b8ac4109921544d202cb/dist/aurelia-binding.d.ts",
+    "raw": "github:aurelia/binding/dist/aurelia-binding.d.ts#69d54dbebafe87738f89b8ac4109921544d202cb",
+    "typings": "https://raw.githubusercontent.com/aurelia/binding/69d54dbebafe87738f89b8ac4109921544d202cb/dist/aurelia-binding.d.ts"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "resolution": "main",
+  "tree": {
+    "src": "https://raw.githubusercontent.com/aurelia/loader/5bc0bf9424946235bc6d63ce77f4a6b97b0b4742/dist/aurelia-loader.d.ts",
+    "raw": "github:aurelia/loader/dist/aurelia-loader.d.ts#5bc0bf9424946235bc6d63ce77f4a6b97b0b4742",
+    "typings": "https://raw.githubusercontent.com/aurelia/loader/5bc0bf9424946235bc6d63ce77f4a6b97b0b4742/dist/aurelia-loader.d.ts"
+  }
+}

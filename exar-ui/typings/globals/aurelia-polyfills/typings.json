@@ -1,0 +1,8 @@
+{
+  "resolution": "main",
+  "tree": {
+    "src": "https://raw.githubusercontent.com/aurelia/polyfills/e97d36f958436057ff277c00ce58a0edf42adfed/dist/aurelia-polyfills.d.ts",
+    "raw": "github:aurelia/polyfills/dist/aurelia-polyfills.d.ts#e97d36f958436057ff277c00ce58a0edf42adfed",
+    "typings": "https://raw.githubusercontent.com/aurelia/polyfills/e97d36f958436057ff277c00ce58a0edf42adfed/dist/aurelia-polyfills.d.ts"
+  }
+}

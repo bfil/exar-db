@@ -1,0 +1,8 @@
+{
+  "resolution": "main",
+  "tree": {
+    "src": "https://raw.githubusercontent.com/aurelia/pal/adc7e905abf4f76d1c71a19f740cb6bb45d5842e/dist/aurelia-pal.d.ts",
+    "raw": "github:aurelia/pal/dist/aurelia-pal.d.ts#adc7e905abf4f76d1c71a19f740cb6bb45d5842e",
+    "typings": "https://raw.githubusercontent.com/aurelia/pal/adc7e905abf4f76d1c71a19f740cb6bb45d5842e/dist/aurelia-pal.d.ts"
+  }
+}

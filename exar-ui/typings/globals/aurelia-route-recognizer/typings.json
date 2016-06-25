@@ -1,0 +1,8 @@
+{
+  "resolution": "main",
+  "tree": {
+    "src": "https://raw.githubusercontent.com/aurelia/route-recognizer/2c89fa3ffd739262cc8f901514f314a25f21c9c1/dist/aurelia-route-recognizer.d.ts",
+    "raw": "github:aurelia/route-recognizer/dist/aurelia-route-recognizer.d.ts#2c89fa3ffd739262cc8f901514f314a25f21c9c1",
+    "typings": "https://raw.githubusercontent.com/aurelia/route-recognizer/2c89fa3ffd739262cc8f901514f314a25f21c9c1/dist/aurelia-route-recognizer.d.ts"
+  }
+}

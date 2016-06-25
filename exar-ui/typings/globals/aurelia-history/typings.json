@@ -1,0 +1,8 @@
+{
+  "resolution": "main",
+  "tree": {
+    "src": "https://raw.githubusercontent.com/aurelia/history/21e1ecd279b5b6d7525103cf734318103aee5382/dist/aurelia-history.d.ts",
+    "raw": "github:aurelia/history/dist/aurelia-history.d.ts#21e1ecd279b5b6d7525103cf734318103aee5382",
+    "typings": "https://raw.githubusercontent.com/aurelia/history/21e1ecd279b5b6d7525103cf734318103aee5382/dist/aurelia-history.d.ts"
+  }
+}

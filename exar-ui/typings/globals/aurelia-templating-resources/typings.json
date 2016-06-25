@@ -1,0 +1,8 @@
+{
+  "resolution": "main",
+  "tree": {
+    "src": "https://raw.githubusercontent.com/aurelia/templating-resources/98f81efd2d7270742bfaa1f3c37d8a71a3936172/dist/aurelia-templating-resources.d.ts",
+    "raw": "github:aurelia/templating-resources/dist/aurelia-templating-resources.d.ts#98f81efd2d7270742bfaa1f3c37d8a71a3936172",
+    "typings": "https://raw.githubusercontent.com/aurelia/templating-resources/98f81efd2d7270742bfaa1f3c37d8a71a3936172/dist/aurelia-templating-resources.d.ts"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "resolution": "main",
+  "tree": {
+    "src": "https://raw.githubusercontent.com/aurelia/pal-browser/ce3451eeeb2feb2c62ec30ec3f6a0122b4209282/dist/aurelia-pal-browser.d.ts",
+    "raw": "github:aurelia/pal-browser/dist/aurelia-pal-browser.d.ts#ce3451eeeb2feb2c62ec30ec3f6a0122b4209282",
+    "typings": "https://raw.githubusercontent.com/aurelia/pal-browser/ce3451eeeb2feb2c62ec30ec3f6a0122b4209282/dist/aurelia-pal-browser.d.ts"
+  }
+}

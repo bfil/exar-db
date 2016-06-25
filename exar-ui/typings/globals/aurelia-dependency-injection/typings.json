@@ -1,0 +1,8 @@
+{
+  "resolution": "main",
+  "tree": {
+    "src": "https://raw.githubusercontent.com/aurelia/dependency-injection/dcb53d40d128f5ff89c6bafa587128583529bd68/dist/aurelia-dependency-injection.d.ts",
+    "raw": "github:aurelia/dependency-injection/dist/aurelia-dependency-injection.d.ts#dcb53d40d128f5ff89c6bafa587128583529bd68",
+    "typings": "https://raw.githubusercontent.com/aurelia/dependency-injection/dcb53d40d128f5ff89c6bafa587128583529bd68/dist/aurelia-dependency-injection.d.ts"
+  }
+}

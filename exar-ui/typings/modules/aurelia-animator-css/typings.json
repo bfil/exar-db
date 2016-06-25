@@ -1,0 +1,8 @@
+{
+  "resolution": "main",
+  "tree": {
+    "src": "https://raw.githubusercontent.com/aurelia/animator-css/2c0b8bbbfd8b9bd6acf91f4488940f97e5cd11cb/dist/aurelia-animator-css.d.ts",
+    "raw": "github:aurelia/animator-css/dist/aurelia-animator-css.d.ts#2c0b8bbbfd8b9bd6acf91f4488940f97e5cd11cb",
+    "typings": "https://raw.githubusercontent.com/aurelia/animator-css/2c0b8bbbfd8b9bd6acf91f4488940f97e5cd11cb/dist/aurelia-animator-css.d.ts"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "resolution": "main",
+  "tree": {
+    "src": "https://raw.githubusercontent.com/aurelia/task-queue/18ac85b517430a3ad8a390cc6bb114abad499bb1/dist/aurelia-task-queue.d.ts",
+    "raw": "github:aurelia/task-queue/dist/aurelia-task-queue.d.ts#18ac85b517430a3ad8a390cc6bb114abad499bb1",
+    "typings": "https://raw.githubusercontent.com/aurelia/task-queue/18ac85b517430a3ad8a390cc6bb114abad499bb1/dist/aurelia-task-queue.d.ts"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "resolution": "main",
+  "tree": {
+    "src": "https://raw.githubusercontent.com/aurelia/framework/e008c4a98147ae39556892a69e5c165947e293a7/dist/aurelia-framework.d.ts",
+    "raw": "github:aurelia/framework/dist/aurelia-framework.d.ts#e008c4a98147ae39556892a69e5c165947e293a7",
+    "typings": "https://raw.githubusercontent.com/aurelia/framework/e008c4a98147ae39556892a69e5c165947e293a7/dist/aurelia-framework.d.ts"
+  }
+}

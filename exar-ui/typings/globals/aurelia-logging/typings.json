@@ -1,0 +1,8 @@
+{
+  "resolution": "main",
+  "tree": {
+    "src": "https://raw.githubusercontent.com/aurelia/logging/62417b8db6b82ef9c4dfe09eeca5cef6714e3b40/dist/aurelia-logging.d.ts",
+    "raw": "github:aurelia/logging/dist/aurelia-logging.d.ts#62417b8db6b82ef9c4dfe09eeca5cef6714e3b40",
+    "typings": "https://raw.githubusercontent.com/aurelia/logging/62417b8db6b82ef9c4dfe09eeca5cef6714e3b40/dist/aurelia-logging.d.ts"
+  }
+}

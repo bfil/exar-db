@@ -1,0 +1,8 @@
+{
+  "resolution": "main",
+  "tree": {
+    "src": "https://raw.githubusercontent.com/aurelia/event-aggregator/7a38c51dc9082175461e2d0b21a4c0a9242a8925/dist/aurelia-event-aggregator.d.ts",
+    "raw": "github:aurelia/event-aggregator/dist/aurelia-event-aggregator.d.ts#7a38c51dc9082175461e2d0b21a4c0a9242a8925",
+    "typings": "https://raw.githubusercontent.com/aurelia/event-aggregator/7a38c51dc9082175461e2d0b21a4c0a9242a8925/dist/aurelia-event-aggregator.d.ts"
+  }
+}

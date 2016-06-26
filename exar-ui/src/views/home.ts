@@ -10,11 +10,23 @@ export class Home {
 
     addTab() {
         this.tabs.push(new Tab());
-        setTimeout(() => $(`#tab-${this.tabs.length - 1}`).tab('show'));
+        this.showTab(this.tabs.length - 1);
     }
 
-    removeTab(index) {
+    removeTab(index, event) {
         this.tabs.splice(index, 1);
+        event.stopPropagation();
+        let selectedTabIndex = this.getSelectedTabIndex();
+        if(index > selectedTabIndex) this.showTab(selectedTabIndex);
+        else if(index < selectedTabIndex) this.showTab(selectedTabIndex - 1);
+    }
+
+    showTab(index) {
+        setTimeout(() => $(`#tab-${index}`).tab('show'));
+    }
+
+    getSelectedTabIndex() {
+        return Number($('.tab-pane.active').attr('id').replace('tab-content-', ''));
     }
 }
 

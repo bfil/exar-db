@@ -4,7 +4,7 @@
         <li role="presentation" repeat.for="tab of tabs">
             <a id="${'tab-' + $index}" href="${'#tab-content-' + $index}" role="tab" data-toggle="tab">
                 ${tab.name}
-                <span>&nbsp;&nbsp;<i class="fa fa-times" click.delegate="removeTab($index)"></i></span>
+                <span>&nbsp;&nbsp;<i class="fa fa-times" click.trigger="removeTab($index, $event)"></i></span>
             </a>
         </li>
         <li role="presentation">

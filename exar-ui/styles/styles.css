@@ -60,6 +60,10 @@ section {
   margin: 12px 6px 0 6px;
 }
 
+ul.nav-tabs li i.fa {
+    cursor: pointer;
+}
+
 section.au-enter-active {
   -webkit-animation: fadeInRight 1s;
   animation: fadeInRight 1s;

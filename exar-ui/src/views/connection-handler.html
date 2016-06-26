@@ -1,0 +1,60 @@
+<template>
+    <section>
+        <h4>Connection</h4>
+        <form class="form-inline" if.bind="!connected">
+            <div class="input-group" if.bind="savedConnections.length">
+                <span class="input-group-btn">
+                    <div class="dropdown">
+                        <button class="btn btn-default dropdown-toggle" type="button" data-toggle="dropdown" aria-haspopup="true"
+                        aria-expanded="true">
+                            ${connection.alias}
+                            <span class="caret"></span>
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li repeat.for="connection of savedConnections"><a href="" click.delegate="selectConnection(connection)">${connection.alias}</a></li>
+                        </ul>
+                    </div>
+                </span>
+                <input type="text" class="form-control" value.bind="collection" placeholder="Collection Name">
+                <span class="input-group-btn">
+                    <button type="submit" class="btn btn-default" click.delegate="connect()" disabled.bind="!collection">Connect</button>
+                </span>
+            </div>
+            <div if.bind="!savedConnections.length">
+                <p>No saved connections</p>
+                <p>
+                    <a route-href="route: settings">Manage connections</a>
+                </p>
+            </div>
+        </form>
+        <div if.bind="connected">
+            <div>
+                Connected to <b>${collection}</b>&nbsp;
+                <button class="btn btn-default" click.delegate="disconnect()">Disconnect</button>
+            </div>
+            <hr>
+            <form class="form-inline">
+                <h3>Publish</h3>
+                <input type="text" class="form-control" value.bind="data" placeholder="Event Data">
+                <input type="text" class="form-control" value.bind="tags" placeholder="Tags">
+                <button type="submit" class="btn btn-default" click.delegate="publish()">Publish</button>
+            </form>
+            <hr>
+            <form class="form-inline">
+                <h3>Subscribe</h3>
+                <input type="number" class="form-control" value.bind="offset" placeholder="Offset">
+                <input type="number" class="form-control" value.bind="limit" placeholder="Limit">
+                <input type="text" class="form-control" value.bind="tag" placeholder="Tag">
+                <button type="submit" class="btn btn-default" click.delegate="subscribe()">Subscribe</button>
+            </form>
+        </div>
+        <hr>
+        <p if.bind="messages.length">
+            Messages
+            <button type="submit" class="btn btn-default btn-xs pull-right" click.delegate="clearMessages()">Clear</button>
+        </p>
+        <ul class="list-group">
+            <li class="list-group-item" repeat.for="message of messages">${message}</li>
+        </ul>
+    </section>
+</template>

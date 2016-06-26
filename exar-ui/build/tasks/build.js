@@ -3,21 +3,30 @@ var runSequence = require('run-sequence');
 var changed = require('gulp-changed');
 var plumber = require('gulp-plumber');
 var sourcemaps = require('gulp-sourcemaps');
-var path = require('path');
 var paths = require('../paths');
 var assign = Object.assign || require('object.assign');
-var notify = require("gulp-notify");
-var ts = require('gulp-typescript');
+var notify = require('gulp-notify');
+var browserSync = require('browser-sync');
+var typescript = require('gulp-typescript');
 
 // transpiles changed es6 files to SystemJS format
 // the plumber() call prevents 'pipe breaking' caused
 // by errors from other gulp plugins
 // https://www.npmjs.com/package/gulp-plumber
+var typescriptCompiler = typescriptCompiler || null;
 gulp.task('build-system', function() {
-  var tsProject = ts.createProject(path.join(__dirname, '../../tsconfig.json'));
-  return tsProject.src()
-        .pipe(ts(tsProject))
-        .pipe(gulp.dest(paths.output));
+  if(!typescriptCompiler) {
+    typescriptCompiler = typescript.createProject('tsconfig.json', {
+      "typescript": require('typescript')
+    });
+  }
+  return gulp.src(paths.dtsSrc.concat(paths.source))
+    .pipe(plumber({errorHandler: notify.onError('Error: <%= error.message %>')}))
+    .pipe(changed(paths.output, {extension: '.ts'}))
+    .pipe(sourcemaps.init({loadMaps: true}))
+    .pipe(typescript(typescriptCompiler))
+    .pipe(sourcemaps.write('.', {includeContent: false, sourceRoot: '/src'}))
+    .pipe(gulp.dest(paths.output));
 });
 
 // copies changed html files to the output directory
@@ -31,7 +40,8 @@ gulp.task('build-html', function() {
 gulp.task('build-css', function() {
   return gulp.src(paths.css)
     .pipe(changed(paths.output, {extension: '.css'}))
-    .pipe(gulp.dest(paths.output));
+    .pipe(gulp.dest(paths.output))
+    .pipe(browserSync.stream());
 });
 
 // this task calls the clean task (located

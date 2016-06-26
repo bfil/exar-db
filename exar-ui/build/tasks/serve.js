@@ -11,12 +11,46 @@ function enableCORS(req, res, next) {
   return next();
 }
 
+// this task utilizes the browsersync plugin
+// to create a dev server instance
+// at http://localhost:8000
 gulp.task('serve', ['build'], function(done) {
   browserSync({
+    online: false,
     open: false,
     port: 8000,
     server: {
       baseDir: ['.'],
+      middleware: [ historyApiFallback(), enableCORS ]
+    }
+  }, done);
+});
+
+// this task utilizes the browsersync plugin
+// to create a dev server instance
+// at http://localhost:8000
+gulp.task('serve-bundle', ['bundle'], function(done) {
+  browserSync({
+    online: false,
+    open: false,
+    port: 8000,
+    server: {
+      baseDir: ['.'],
+      middleware: [ historyApiFallback(), enableCORS ]
+    }
+  }, done);
+});
+
+// this task utilizes the browsersync plugin
+// to create a dev server instance
+// at http://localhost:8000
+gulp.task('serve-export', ['export'], function(done) {
+  browserSync({
+    online: false,
+    open: false,
+    port: 8000,
+    server: {
+      baseDir: ['./export'],
       middleware: [ historyApiFallback(), enableCORS ]
     }
   }, done);

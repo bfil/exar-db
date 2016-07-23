@@ -1,4 +1,4 @@
-import {Event, Query} from './model';
+import {Event, Query} from 'exar/model';
 
 export class TcpMessageEncoder {
     static toTabSeparatedString(...args): string {
@@ -17,24 +17,24 @@ export interface TcpMessage {
 }
 
 export class Connect implements TcpMessage {
-    
+
     private collection: string;
     private username: string;
     private password: string;
-    
+
     constructor(collection: string, username?: string, password?: string) {
         this.collection = collection;
         this.username = username;
         this.password = password;
     }
-    
+
     toTabSeparatedString() {
        return TcpMessageEncoder.toTabSeparatedString('Connect',
            this.collection,
            this.username,
            this.password);
     }
-    
+
     static fromTabSeparatedString(data: string) {
         let messageParts = TcpMessageDecoder.parseTabSeparatedString(data, 4);
         let collection = messageParts[1];
@@ -45,11 +45,11 @@ export class Connect implements TcpMessage {
 }
 
 export class Connected implements TcpMessage {
-    
+
     toTabSeparatedString() {
-       return TcpMessageEncoder.toTabSeparatedString('Connected'); 
+       return TcpMessageEncoder.toTabSeparatedString('Connected');
     }
-    
+
     static fromTabSeparatedString(data: string) {
         let messageParts = TcpMessageDecoder.parseTabSeparatedString(data, 1);
         return new Connected();
@@ -57,20 +57,20 @@ export class Connected implements TcpMessage {
 }
 
 export class Publish implements TcpMessage {
-    
+
     private event: Event;
-    
+
     constructor(event: Event) {
         this.event = event;
     }
-    
+
     toTabSeparatedString() {
        return TcpMessageEncoder.toTabSeparatedString('Publish',
            this.event.tags.join(' '),
            this.event.timestamp,
            this.event.data);
     }
-    
+
     static fromTabSeparatedString(data: string) {
         let messageParts = TcpMessageDecoder.parseTabSeparatedString(data, 4);
         let tags = messageParts[1].split(' ');
@@ -82,17 +82,17 @@ export class Publish implements TcpMessage {
 }
 
 export class Published implements TcpMessage {
-    
+
     private eventId: number;
-    
+
     constructor(eventId: number) {
         this.eventId = eventId;
     }
-    
+
     toTabSeparatedString() {
-       return TcpMessageEncoder.toTabSeparatedString('Published', this.eventId); 
+       return TcpMessageEncoder.toTabSeparatedString('Published', this.eventId);
     }
-    
+
     static fromTabSeparatedString(data: string) {
         let messageParts = TcpMessageDecoder.parseTabSeparatedString(data, 2);
         let eventId = parseInt(messageParts[1]);
@@ -101,13 +101,13 @@ export class Published implements TcpMessage {
 }
 
 export class Subscribe implements TcpMessage {
-    
+
     private query: Query;
-    
+
     constructor(query: Query) {
         this.query = query;
     }
-    
+
     toTabSeparatedString() {
        return TcpMessageEncoder.toTabSeparatedString('Subscribe',
            this.query.liveStream,
@@ -115,7 +115,7 @@ export class Subscribe implements TcpMessage {
            this.query.limit || 0,
            this.query.tag);
     }
-    
+
     static fromTabSeparatedString(data: string) {
         let messageParts = TcpMessageDecoder.parseTabSeparatedString(data, 5);
         let liveStream = messageParts[1] === 'true';
@@ -128,11 +128,11 @@ export class Subscribe implements TcpMessage {
 }
 
 export class Subscribed implements TcpMessage {
-    
+
     toTabSeparatedString() {
-       return TcpMessageEncoder.toTabSeparatedString('Subscribed'); 
+       return TcpMessageEncoder.toTabSeparatedString('Subscribed');
     }
-    
+
     static fromTabSeparatedString(data: string) {
         let messageParts = TcpMessageDecoder.parseTabSeparatedString(data, 1);
         return new Subscribed();
@@ -140,21 +140,21 @@ export class Subscribed implements TcpMessage {
 }
 
 export class DatabaseError implements TcpMessage {
-    
+
     private type: string;
     private subType: string;
     private data: string;
-    
+
     constructor(type: string, data: string, subType?: string) {
         this.type = type;
         this.subType = subType;
         this.data = data;
     }
-    
+
     toTabSeparatedString() {
-       return TcpMessageEncoder.toTabSeparatedString('Error', this.type, this.subType, this.data); 
+       return TcpMessageEncoder.toTabSeparatedString('Error', this.type, this.subType, this.data);
     }
-    
+
     toString() {
         if(this.type === 'ParseError' && this.subType === 'MissingField') {
             return `${this.type}: missing field at position ${this.data}`;
@@ -162,7 +162,7 @@ export class DatabaseError implements TcpMessage {
             return `${this.type}: missing or invalid credentials`;
         } return `${this.type}: ${this.data}`;
     }
-    
+
     static fromTabSeparatedString(data: string) {
         let messageParts = TcpMessageDecoder.parseTabSeparatedString(data, 4);
         let errorData = messageParts[3] || messageParts[2];

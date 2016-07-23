@@ -1,4 +1,4 @@
-import {TcpMessage, TcpMessageEncoder, TcpMessageDecoder} from './net';
+import {TcpMessage, TcpMessageEncoder, TcpMessageDecoder} from 'exar/net';
 
 export class Connection {
     host: string;
@@ -6,7 +6,7 @@ export class Connection {
     username: string;
     password: string;
     collection: string;
-    
+
     constructor(collection: string, host: string = 'localhost', port: number = 38580, username?: string, password?: string) {
         this.collection = collection;
         this.host = host;
@@ -21,22 +21,22 @@ export class Event implements TcpMessage {
     tags: string[];
     timestamp: number = 0;
     data: string;
-    
+
     constructor(data: string, tags: string[]) {
         this.data = data;
         this.tags = tags;
     }
-    
+
     withId(id: number) {
         this.id = id;
         return this;
     }
-    
+
     withTimestamp(timestamp: number) {
         this.timestamp = timestamp;
         return this;
     }
-    
+
     toTabSeparatedString(): string {
        return TcpMessageEncoder.toTabSeparatedString('Event',
            this.id || 0,
@@ -44,7 +44,7 @@ export class Event implements TcpMessage {
            this.tags.join(' '),
            this.data);
     }
-    
+
     static fromTabSeparatedString(data: string): Event {
         let messageParts = TcpMessageDecoder.parseTabSeparatedString(data, 5);
         let id = parseInt(messageParts[1]);
@@ -60,7 +60,7 @@ export class Query {
     offset: number;
     limit: number;
     tag: string;
-    
+
     constructor(liveStream: boolean, offset: number = 0, limit: number = 0, tag?: string) {
         this.liveStream = liveStream;
         this.offset = offset;

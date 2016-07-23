@@ -30,4 +30,3 @@
 /// <reference path="globals/selenium-webdriver/index.d.ts" />
 /// <reference path="modules/aurelia-animator-css/index.d.ts" />
 /// <reference path="modules/aurelia-dialog/index.d.ts" />
-/// <reference path="modules/moment/index.d.ts" />

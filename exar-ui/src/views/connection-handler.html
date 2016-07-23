@@ -29,25 +29,37 @@
                 </p>
             </div>
         </form>
-        <div if.bind="connected">
+        <div show.bind="connected">
             <div>
                 Connected to <b>${collection}</b>&nbsp;
-                <button class="btn btn-default" click.delegate="disconnect()">Disconnect</button>
+                <button class="btn btn-default" click.delegate="disconnect()"
+                        disabled.bind="subscription">Disconnect</button>
             </div>
             <hr>
             <form class="form-inline">
                 <h3>Publish</h3>
                 <input type="text" class="form-control" value.bind="data" placeholder="Event Data">
-                <input type="text" class="form-control" value.bind="tags" placeholder="Tags">
-                <button type="submit" class="btn btn-default" click.delegate="publish()">Publish</button>
+                <input type="text" class="form-control" value.bind="tags" placeholder="Space Separated Tags">
+                <button type="submit" class="btn btn-default" click.delegate="publish()"
+                        disabled.bind="subscription">Publish</button>
             </form>
-            <hr>
             <form class="form-inline">
                 <h3>Subscribe</h3>
+                <div class="checkbox">
+                    <label>
+                        <input type="checkbox" checked.bind="liveStream"> Live Stream
+                    </label>
+                </div>
                 <input type="number" class="form-control" value.bind="offset" placeholder="Offset">
                 <input type="number" class="form-control" value.bind="limit" placeholder="Limit">
                 <input type="text" class="form-control" value.bind="tag" placeholder="Tag">
-                <button type="submit" class="btn btn-default" click.delegate="subscribe()">Subscribe</button>
+                <button if.bind="!subscription" type="submit" class="btn btn-default" click.delegate="subscribe()">
+                    Subscribe
+                </button>
+                <button if.bind="subscription" type="submit" class="btn btn-default" click.delegate="unsubscribe()"
+                        disabled.bind="subscription && !liveStream">
+                    Unsubscribe
+                </button>
             </form>
         </div>
         <hr>
@@ -56,7 +68,7 @@
             <button type="submit" class="btn btn-default btn-xs pull-right" click.delegate="clearMessages()">Clear</button>
         </p>
         <ul class="list-group">
-            <li class="list-group-item" repeat.for="message of messages">${message}</li>
+            <li class="list-group-item ${message.className}" repeat.for="message of messages">${message.payload}</li>
         </ul>
     </section>
 </template>

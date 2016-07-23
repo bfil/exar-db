@@ -1,33 +1,33 @@
-import {Connection, Event, Query} from './model';
-import {Connect, Connected, Publish, Published, Subscribe, Subscribed, DatabaseError, TcpMessage} from './net';
+import {Connection, Event, Query} from 'exar/model';
+import {Connect, Connected, Publish, Published, Subscribe, Subscribed, DatabaseError, TcpMessage} from 'exar/net';
 
 import * as Rx from 'rx';
 
 export class ExarClient {
-    
+
     private socket: TCPSocket;
     private socketObservable: Rx.ControlledObservable<string>;
-    
+
     private encoder: TextEncoding.TextEncoder;
     private decoder: TextEncoding.TextDecoder;
-    
+
     constructor() {
         this.encoder = new TextEncoder("utf8");
         this.decoder = new TextDecoder("utf8");
     }
-    
+
     private encode(data: string): ArrayBufferView {
         return this.encoder.encode(data);
     }
-    
+
     private decode(data: ArrayBufferView): string {
         return this.decoder.decode(data);
     }
-    
+
     private send(message: TcpMessage) {
         this.socket.send(this.encode(message.toTabSeparatedString()));
     }
-    
+
     private requestSubscription: Rx.IDisposable;
     private request<T>(message: TcpMessage, handleResponse: (message: string) => T, sendOnOpen: boolean = false) {
         return new Promise<T>((resolve, reject) => {
@@ -40,7 +40,7 @@ export class ExarClient {
             this.socketObservable.request(1);
         });
     }
-    
+
     private createSocketObservable() {
         this.socketObservable = Rx.Observable.create<string>(observer => {
             this.socket.ondata = message => {
@@ -56,7 +56,7 @@ export class ExarClient {
             this.socket.onerror = error => observer.onError(error.data);
         }).controlled();
     }
-    
+
     connect(connectionInfo: Connection) {
         this.socket = navigator.TCPSocket.open(connectionInfo.host, connectionInfo.port);
         this.createSocketObservable();
@@ -64,19 +64,19 @@ export class ExarClient {
             new Connect(connectionInfo.collection, connectionInfo.username, connectionInfo.password),
             Connected.fromTabSeparatedString, true);
     }
-    
+
     onDisconnect(onDisconnect: () => any) {
         this.socket.onclose = onDisconnect;
     }
-    
+
     disconnect() {
         this.socket.close();
     }
-    
+
     publish(event: Event) {
         return this.request(new Publish(event), Published.fromTabSeparatedString);
     }
-    
+
     subscribe(query: Query) {
         return this.request(new Subscribe(query), message => {
             return Rx.Observable.create<Event>(observer => {
@@ -87,11 +87,11 @@ export class ExarClient {
                     } else {
                         observer.onNext(Event.fromTabSeparatedString(message));
                         this.socketObservable.request(1);
-                    }     
+                    }
                 });
                 this.socketObservable.request(1);
             });
         });
     }
-    
+
 }

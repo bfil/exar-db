@@ -21,14 +21,11 @@ System.config({
     "aurelia-templating-resources": "npm:aurelia-templating-resources@1.0.0-rc.1.0.1",
     "aurelia-templating-router": "npm:aurelia-templating-router@1.0.0-rc.1.0.1",
     "bootstrap": "github:twbs/bootstrap@3.3.6",
-    "bootstrap-datetimepicker": "github:eonasdan/bootstrap-datetimepicker@4.17.37",
     "core-js": "npm:core-js@2.4.1",
     "emailjs-tcp-socket": "npm:emailjs-tcp-socket@1.0.2",
     "fetch": "github:github/fetch@0.10.1",
     "font-awesome": "npm:font-awesome@4.6.3",
     "forge": "npm:forge@2.3.0",
-    "jquery": "github:components/jquery@2.2.1",
-    "moment": "npm:moment@2.14.1",
     "rx": "npm:rx@4.1.0",
     "text": "github:systemjs/plugin-text@0.0.3",
     "traceur": "github:jmcriffey/bower-traceur@0.0.92",
@@ -94,7 +91,7 @@ System.config({
       "vm-browserify": "npm:vm-browserify@0.0.4"
     },
     "github:twbs/bootstrap@3.3.6": {
-      "jquery": "github:components/jquery@3.1.0"
+      "jquery": "npm:jquery@2.2.4"
     },
     "npm:acorn@1.2.2": {
       "fs": "github:jspm/nodelibs-fs@0.1.2",

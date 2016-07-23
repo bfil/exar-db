@@ -6,6 +6,8 @@ import {TcpMessage} from 'exar/net';
 
 import {SavedConnection} from 'models/saved-connection';
 
+import * as Rx from 'rx';
+
 @autoinject
 export class ConnectionHandler {
     exarClient: ExarClient;
@@ -17,13 +19,14 @@ export class ConnectionHandler {
     data: string;
     tags: string;
 
-    liveStream: boolean;
+    liveStream: boolean = false;
     offset: string;
     limit: string;
     tag: string;
 
     connected: boolean;
-    messages: string[];
+    subscription: Rx.IDisposable;
+    messages: { payload: string, className: string }[];
 
     bind() {
         this.savedConnections = localStorage.getItem('connections.saved') ? JSON.parse(localStorage.getItem('connections.saved')) : [];
@@ -38,17 +41,26 @@ export class ConnectionHandler {
         if(this.exarClient) this.disconnect();
     }
 
-    connect() {
+    connect(isReconnection: boolean = false) {
         this.exarClient = new ExarClient();
         this.exarClient.connect(this.initializeConnection(this.collection, this.connection))
             .then(connected => {
                 this.connected = true;
-                this.logTcpMessage(connected);
+                if(!isReconnection) this.logTcpMessage(connected);
             }, this.onError.bind(this));
         this.exarClient.onDisconnect(() => {
             this.connected = false;
-            this.logMessage(`Disconnected`);
+            if(!isReconnection) this.logMessage(`Disconnected`, false);
         });
+    }
+
+    disconnect() {
+        this.exarClient.disconnect();
+    }
+
+    reconnect() {
+        this.disconnect();
+        this.connect(true);
     }
 
     publish() {
@@ -60,22 +72,30 @@ export class ConnectionHandler {
     }
 
     subscribe() {
-        let query = new Query(false, parseInt(this.offset), parseInt(this.limit), this.tag);
+        let query = new Query(this.liveStream, parseInt(this.offset), parseInt(this.limit), this.tag);
         this.exarClient.subscribe(query).then(
             eventStream => {
-                this.logMessage('Subscribed');
-                eventStream.subscribe(
+                this.logMessage('Subscribed', false);
+                this.subscription = eventStream.subscribe(
                     this.logTcpMessage.bind(this),
                     this.onError.bind(this),
-                    () => this.logMessage('EndOfEventStream')
+                    () => {
+                        this.logMessage('EndOfEventStream', false);
+                        this.subscription = undefined;
+                    }
                 );
             },
             this.onError.bind(this)
         )
     }
 
-    disconnect() {
-        this.exarClient.disconnect();
+    unsubscribe() {
+        if(this.subscription) {
+            this.subscription.dispose();
+            this.subscription = undefined;
+            this.logMessage('EndOfEventStream', false);
+            this.reconnect();
+        }
     }
 
     selectConnection(connection: SavedConnection) {
@@ -83,15 +103,19 @@ export class ConnectionHandler {
     }
 
     onError(error: any) {
-        this.logMessage(error.toString());
+        this.logMessage(error.toString(), true);
+        this.unsubscribe();
     }
 
-    logMessage(message: string) {
-        this.messages.push(message);
+    logMessage(message: string, isError: boolean) {
+        this.messages.push({
+            payload: message,
+            className: isError ? 'text-danger' : ''
+        });
     }
 
     logTcpMessage(message: TcpMessage) {
-        this.logMessage(message.toTabSeparatedString());
+        this.logMessage(message.toTabSeparatedString(), false);
     }
 
     clearMessages() {

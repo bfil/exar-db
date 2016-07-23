@@ -1,0 +1,37 @@
+<template>
+    <section>
+        <h4>
+            Saved Connections
+            <a href="" class="pull-right" click.delegate="newConnection()">New</a>
+        </h4>
+        <p if.bind="!savedConnections.length">
+            No saved connections
+        </p>
+        <table class="table table-striped" if.bind="savedConnections.length">
+            <thead>
+                <tr>
+                    <th>Alias</th>
+                    <th>Host</th>
+                    <th>Port</th>
+                    <th>Username</th>
+                    <th>Password</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr repeat.for="connection of savedConnections">
+                    <td>${connection.alias}</td>
+                    <td>${connection.host}</td>
+                    <td>${connection.port}</td>
+                    <td>${connection.username}</td>
+                    <td>${connection.password | obfuscate}</td>
+                    <td>
+                        <a href="" click.delegate="editConnection(connection)">Edit</a>
+                        &nbsp;
+                        <a href="" class="text-danger" click.delegate="deleteConnection(connection)">Delete</a>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </section>
+</template>

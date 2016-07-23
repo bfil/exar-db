@@ -10,6 +10,10 @@ export function configure(aurelia: Aurelia) {
         .standardConfiguration()
         .developmentLogging()
         .plugin('aurelia-animator-css')
+        .plugin('aurelia-dialog', config => {
+            config.useDefaults();
+            config.settings.lock = false;
+        })
         .globalResources([
 			'converters/date-format',
             'converters/obfuscate',

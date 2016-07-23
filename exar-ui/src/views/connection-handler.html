@@ -12,6 +12,8 @@
                         </button>
                         <ul class="dropdown-menu">
                             <li repeat.for="connection of savedConnections"><a href="" click.delegate="selectConnection(connection)">${connection.alias}</a></li>
+                            <li class="divider"></li>
+                            <li><a route-href="route: manage-connections">Manage connections</a></li>
                         </ul>
                     </div>
                 </span>
@@ -23,7 +25,7 @@
             <div if.bind="!savedConnections.length">
                 <p>No saved connections</p>
                 <p>
-                    <a route-href="route: settings">Manage connections</a>
+                    <a route-href="route: manage-connections">Manage connections</a>
                 </p>
             </div>
         </form>

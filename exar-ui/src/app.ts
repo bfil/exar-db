@@ -7,7 +7,7 @@ export class App {
         config.title = 'Exar UI';
         config.map([
             { route: '', name: 'home', moduleId: 'views/home', nav: false, title: 'Home' },
-            { route: 'settings', name: 'settings', moduleId: 'views/settings', nav: false, title: 'Settings' }
+            { route: 'manage-connections', name: 'manage-connections', moduleId: 'views/manage-connections', nav: false, title: 'Manage Connections' }
         ]);
         this.router = router;
     }

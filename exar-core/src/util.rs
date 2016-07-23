@@ -62,7 +62,7 @@ mod tests {
     use super::super::*;
 
     use std::fs::*;
-    use std::io::{BufRead, BufReader, BufWriter, Write, Seek, SeekFrom};
+    use std::io::{BufRead, BufReader, BufWriter, Seek, SeekFrom};
 
     #[test]
     fn test_write_line() {

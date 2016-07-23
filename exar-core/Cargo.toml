@@ -8,8 +8,8 @@ indexed-line-reader = "0.2"
 rand = "0.3"
 time = "0.1"
 rustc-serialize = { optional = true, version = "0.3" }
-serde = { optional = true, version = "0.6" }
-serde_macros = { optional = true, version = "0.6" }
+serde = { optional = true, version = "0.7" }
+serde_macros = { optional = true, version = "0.7" }
 
 [features]
 rustc-serialization = ["rustc-serialize"]
@@ -17,4 +17,4 @@ serde-serialization = ["serde", "serde_macros"]
 
 [dev-dependencies]
 exar-testkit = { version = "0.1", path = "../exar-testkit" }
-serde_json = "0.6"
+serde_json = "0.7"

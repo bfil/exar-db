@@ -36,8 +36,8 @@ impl Decodable for RoutingStrategy {
 impl Serialize for RoutingStrategy {
     fn serialize<S: Serializer>(&self, serializer: &mut S) -> Result<(), S::Error> {
         match *self {
-            RoutingStrategy::Random => serializer.visit_str("Random"),
-            RoutingStrategy::RoundRobin(_) => serializer.visit_str("RoundRobin")
+            RoutingStrategy::Random => serializer.serialize_str("Random"),
+            RoutingStrategy::RoundRobin(_) => serializer.serialize_str("RoundRobin")
         }
     }
 }
@@ -45,7 +45,7 @@ impl Serialize for RoutingStrategy {
 #[cfg(feature = "serde-serialization")]
 impl Deserialize for RoutingStrategy {
     fn deserialize<D: Deserializer>(deserializer: &mut D) -> Result<Self, D::Error> {
-        deserializer.visit_str(RoutingStrategyVisitor)
+        deserializer.deserialize_str(RoutingStrategyVisitor)
     }
 }
 

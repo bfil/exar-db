@@ -81,6 +81,6 @@
 - Rename Components If Necessary (Done)
 - Derive Relevant Traits For All Structs/Enums (Done)
 - Implement Display For Relevant Structs/Enums (Done)
-- Write Tests (-)
+- Write Tests (Done)
 - Write Docs (-)
 - Split Core/Server/Client Into Separate Crates (Done)

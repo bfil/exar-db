@@ -8,7 +8,7 @@ clap = "2.1"
 exar = { version = "0.1", path = "../exar-core", features = ["rustc-serialization"] }
 exar-server = { version = "0.1", path = "../exar-server", features = ["rustc-serialization"] }
 rustc-serialize = "0.3"
-toml-config = "0.2"
+toml-config = "0.4"
 
 [profile.release]
 debug = true

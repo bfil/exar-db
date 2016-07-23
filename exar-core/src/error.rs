@@ -1,6 +1,5 @@
 use super::*;
 
-use std::error::Error;
 use std::fmt::{Display, Formatter, Result as DisplayResult};
 use std::io::{Error as IoError, ErrorKind};
 

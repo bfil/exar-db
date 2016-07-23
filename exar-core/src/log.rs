@@ -3,7 +3,7 @@ use super::*;
 use indexed_line_reader::*;
 
 use std::fs::*;
-use std::io::{BufReader, BufWriter, BufRead, Read, Write};
+use std::io::{BufReader, BufWriter, BufRead};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Log {

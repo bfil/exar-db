@@ -1,6 +1,60 @@
 #![cfg_attr(feature = "serde-serialization", feature(custom_derive, plugin))]
 #![cfg_attr(feature = "serde-serialization", plugin(serde_macros))]
 
+//! # Exar DB
+//! Exar DB is an event store with streaming support that uses a flat-file for each collection of events
+//!
+//! ## Database Initialization
+//! ```
+//! extern crate exar;
+//!
+//! # fn main() {
+//! use exar::*;
+//!
+//! let config = DatabaseConfig::default();
+//! let mut db = Database::new(config);
+//! # }
+//! ```
+//! ## Publishing events
+//! ```no_run
+//! extern crate exar;
+//!
+//! # fn main() {
+//! use exar::*;
+//!
+//! let config = DatabaseConfig::default();
+//! let mut db = Database::new(config);
+//!
+//! let collection_name = "test";
+//! let connection = db.connect(collection_name).unwrap();
+//!
+//! match connection.publish(Event::new("payload", vec!["tag1", "tag2"])) {
+//!     Ok(event_id) => println!("Published event with ID: {}", event_id),
+//!     Err(err) => panic!("Unable to publish event: {}", err)
+//! };
+//! # }
+//! ```
+//! ## Querying events
+//! ```no_run
+//! extern crate exar;
+//!
+//! # fn main() {
+//! use exar::*;
+//!
+//! let config = DatabaseConfig::default();
+//! let mut db = Database::new(config);
+//!
+//! let collection_name = "test";
+//! let connection = db.connect(collection_name).unwrap();
+//!
+//! let query = Query::live().offset(0).limit(10).by_tag("tag1");
+//! let event_stream = connection.subscribe(query).unwrap();
+//! for event in event_stream {
+//!     println!("Received event: {}", event);
+//! }
+//! # }
+//! ```
+
 #[cfg(feature = "rustc-serialization")] extern crate rustc_serialize;
 #[cfg(feature = "serde-serialization")] extern crate serde;
 

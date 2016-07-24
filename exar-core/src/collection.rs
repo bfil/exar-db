@@ -5,6 +5,22 @@ use rand;
 use rand::Rng;
 use std::sync::mpsc::channel;
 
+/// Exar DB's collection of events, containing the reference to the log and index files.
+/// It is responsible of creating and managing the log scanner threads and the single-threaded logger.
+/// It allows publishing and subscribing to the underling events log.
+///
+/// # Examples
+/// ```no_run
+/// extern crate exar;
+///
+/// # fn main() {
+/// use exar::*;
+///
+/// let collection_name = "test";
+/// let collection_config = CollectionConfig::default();
+/// let collection = Collection::new(collection_name, &collection_config).unwrap();
+/// # }
+/// ```
 #[derive(Debug)]
 pub struct Collection {
     index: LinesIndex,
@@ -16,6 +32,8 @@ pub struct Collection {
 }
 
 impl Collection {
+    /// Creates a new instance of a collection with the given name and configuration
+    /// or an error if a failure occurs
     pub fn new(collection_name: &str, config: &CollectionConfig) -> Result<Collection, DatabaseError> {
         let log = Log::new(&config.logs_path, collection_name, config.index_granularity);
         log.restore_index().and_then(|index| {
@@ -33,6 +51,8 @@ impl Collection {
         })
     }
 
+    /// Publishes an event into the collection and returns the ID for the event created
+    /// or an error if a failure occurs
     pub fn publish(&mut self, event: Event) -> Result<u64, DatabaseError> {
         self.logger.log(event).and_then(|event_id| {
             if (event_id + 1) % (self.log.get_index_granularity()) == 0 {
@@ -46,6 +66,8 @@ impl Collection {
         })
     }
 
+    /// Subscribes to the collection of events using the given query and returns an event stream
+    /// or an error if a failure occurs
     pub fn subscribe(&mut self, query: Query) -> Result<EventStream, DatabaseError> {
         let (sender, receiver) = channel();
         self.apply_routing_strategy(Subscription::new(sender, query)).and_then(|updated_strategy| {
@@ -54,6 +76,7 @@ impl Collection {
         })
     }
 
+    /// Drops the collection, kills the scanner threads and remove the log and index files
     pub fn drop(&mut self) -> Result<(), DatabaseError> {
         self.scanners.truncate(0);
         self.tail_scanners.truncate(0);

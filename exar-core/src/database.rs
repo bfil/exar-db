@@ -3,6 +3,23 @@ use super::*;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
+/// Exar DB's main component, containing the database configuration and the references to the
+/// collections of events created. It is used to create new connections.
+///
+/// # Examples
+/// ```no_run
+/// extern crate exar;
+///
+/// # fn main() {
+/// use exar::*;
+///
+/// let config = DatabaseConfig::default();
+/// let mut db = Database::new(config);
+///
+/// let collection_name = "test";
+/// let connection = db.connect(collection_name).unwrap();
+/// # }
+/// ```
 #[derive(Clone, Debug)]
 pub struct Database {
     config: DatabaseConfig,
@@ -10,6 +27,7 @@ pub struct Database {
 }
 
 impl Database {
+    /// Creates a new instance of the database with the given configuration
     pub fn new(config: DatabaseConfig) -> Database {
         Database {
             config: config,
@@ -17,6 +35,7 @@ impl Database {
         }
     }
 
+    /// Returns a connection instance with the given name or a database error if a failure occurs
     pub fn connect(&mut self, collection_name: &str) -> Result<Connection, DatabaseError> {
         match self.get_collection(collection_name) {
             Ok(collection) => Ok(Connection::new(collection)),
@@ -24,6 +43,8 @@ impl Database {
         }
     }
 
+    /// Returns an existing collection instance with the given name wrapped into an Arc/Mutex
+    /// or a database error if a failure occurs, it creates a new collection if it does not exist
     pub fn get_collection(&mut self, collection_name: &str) -> Result<Arc<Mutex<Collection>>, DatabaseError> {
         if !self.contains_collection(collection_name) {
             self.create_collection(collection_name)
@@ -35,6 +56,8 @@ impl Database {
         }
     }
 
+    /// Creates and returns a new collection instance with the given name wrapped into an Arc/Mutex
+    /// or a database error if a failure occurs
     pub fn create_collection(&mut self, collection_name: &str) -> Result<Arc<Mutex<Collection>>, DatabaseError> {
         let collection_config = self.config.collection_config(collection_name);
         Collection::new(collection_name, &collection_config).and_then(|collection| {
@@ -44,6 +67,7 @@ impl Database {
         })
     }
 
+    /// Drops the collection with the given name or returns an error if a failure occurs
     pub fn drop_collection(&mut self, collection_name: &str) -> Result<(), DatabaseError> {
         self.get_collection(collection_name).and_then(|collection| {
             (*collection.lock().unwrap()).drop().and_then(|_| {
@@ -53,6 +77,7 @@ impl Database {
         })
     }
 
+    /// Returns wether a collection with the given name exists
     pub fn contains_collection(&self, collection_name: &str) -> bool {
         self.collections.contains_key(collection_name)
     }

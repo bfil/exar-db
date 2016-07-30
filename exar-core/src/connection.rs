@@ -25,7 +25,7 @@ pub struct Connection {
 }
 
 impl Connection {
-    /// Creates a new instance of a connection with the given collection
+    /// Creates a new instance of a connection with the given collection.
     pub fn new(collection: Arc<Mutex<Collection>>) -> Connection {
         Connection {
             collection: collection
@@ -33,18 +33,18 @@ impl Connection {
     }
 
     /// Publishes an event into the underlying collection and returns the ID for the event created
-    /// or a `DatabaseError` if a failure occurs
+    /// or a `DatabaseError` if a failure occurs.
     pub fn publish(&self, event: Event) -> Result<u64, DatabaseError> {
         self.collection.lock().unwrap().publish(event)
     }
 
     /// Subscribes to the underlying collection of events using the given query and returns an event stream
-    /// or a `DatabaseError` if a failure occurs
+    /// or a `DatabaseError` if a failure occurs.
     pub fn subscribe(&self, query: Query) -> Result<EventStream, DatabaseError> {
         self.collection.lock().unwrap().subscribe(query)
     }
 
-    /// Closes the connection
+    /// Closes the connection.
     pub fn close(self) {
         drop(self)
     }

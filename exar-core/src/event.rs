@@ -5,17 +5,34 @@ use std::sync::mpsc::{Receiver, TryRecvError};
 
 use time;
 
+/// Exar DB's event.
+///
+/// # Examples
+/// ```
+/// extern crate exar;
+///
+/// # fn main() {
+/// use exar::*;
+///
+/// let event = Event::new("data", vec!["tag1", "tag2"]);
+/// # }
+/// ```
 #[cfg_attr(feature = "rustc-serialization", derive(RustcEncodable, RustcDecodable))]
 #[cfg_attr(feature = "serde-serialization", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Event {
+    /// The event `id` (or sequence number).
     pub id: u64,
+    /// The event data/payload.
     pub data: String,
+    /// The event tags.
     pub tags: Vec<String>,
+    /// The event timestamp.
     pub timestamp: u64
 }
 
 impl Event {
+    /// Returns a new `Event` with the given data and tags.
     pub fn new(data: &str, tags: Vec<&str>) -> Event {
         Event {
             id: 0,
@@ -25,16 +42,19 @@ impl Event {
         }
     }
 
+    /// Returns a modified version of the event by setting its `id` to the given value.
     pub fn with_id(mut self, id: u64) -> Self {
         self.id = id;
         self
     }
 
+    /// Returns a modified version of the event by setting its timestamp to the given value.
     pub fn with_timestamp(mut self, timestamp: u64) -> Self {
         self.timestamp = timestamp;
         self
     }
 
+    /// Returns a modified version of the event by setting its timestamp to the current time.
     pub fn with_current_timestamp(mut self) -> Self {
         self.timestamp = get_current_timestamp_in_ms();
         self
@@ -81,16 +101,40 @@ impl Validation for Event {
     }
 }
 
+/// Exar DB's event stream.
+///
+/// # Examples
+/// ```
+/// extern crate exar;
+///
+/// # fn main() {
+/// use exar::*;
+/// use std::sync::mpsc::channel;
+///
+/// let (sender, receiver) = channel();
+/// let mut event_stream = EventStream::new(receiver);
+///
+/// let event = Event::new("data", vec!["tag1", "tag2"]);
+/// let event_stream_message = EventStreamMessage::Event(event);
+/// sender.send(event_stream_message);
+/// # }
+/// ```
 pub struct EventStream {
     event_stream_receiver: Receiver<EventStreamMessage>
 }
 
 impl EventStream {
+    /// Returns a new `EventStream` from the given `Receiver<EventStreamMessage>`.
     pub fn new(receiver: Receiver<EventStreamMessage>) -> EventStream {
         EventStream {
             event_stream_receiver: receiver
         }
     }
+    /// Attempts to wait for an event on this event stream,
+    /// returning an `EventStreamError` if the corresponding channel has hung up.
+    ///
+    /// This function will always block the current thread if there is no data available
+    /// and it's possible for more data to be sent.
     pub fn recv(&self) -> Result<Event, EventStreamError> {
         match self.event_stream_receiver.recv() {
             Ok(EventStreamMessage::Event(event)) => Ok(event),
@@ -98,6 +142,10 @@ impl EventStream {
             Err(_) => Err(EventStreamError::Closed)
         }
     }
+    /// Attempts to return a pending event on this event stream without blocking.
+    ///
+    /// This method will never block the caller in order to wait for the next event to become available.
+    /// Instead, this will always return immediately with a possible option of pending data on the channel.
     pub fn try_recv(&self) -> Result<Event, EventStreamError> {
         match self.event_stream_receiver.try_recv() {
             Ok(EventStreamMessage::Event(event)) => Ok(event),
@@ -117,15 +165,37 @@ impl Iterator for EventStream {
     }
 }
 
+/// Exar DB's event stream message.
+///
+/// It can either be a message containing an event
+/// or a message indicating the end of the event stream.
+///
+/// # Examples
+/// ```
+/// extern crate exar;
+///
+/// # fn main() {
+/// use exar::*;
+///
+/// let event = Event::new("data", vec!["tag1", "tag2"]);
+/// let event_stream_message = EventStreamMessage::Event(event);
+/// let event_stream_end = EventStreamMessage::End;
+/// # }
+/// ```
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum EventStreamMessage {
+    /// The message containing an `Event`.
     Event(Event),
+    /// The message indicating the end of the `EventStream`.
     End
 }
 
+/// A list specifying categories of event stream error.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum EventStreamError {
+    /// The event stream is empty.
     Empty,
+    /// The event stream has been closed.
     Closed
 }
 

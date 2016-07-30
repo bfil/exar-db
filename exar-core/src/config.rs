@@ -29,15 +29,15 @@ use std::time::Duration;
 #[cfg_attr(feature = "serde-serialization", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DatabaseConfig  {
-    /// Path to the logs directory
+    /// Path to the logs directory.
     pub logs_path: String,
-    /// Granularity of the log lines index (used by `IndexedLineReader`)
+    /// Granularity of the log lines index (used by `IndexedLineReader`).
     pub index_granularity: u64,
-    /// Subscriptions' routing strategy
+    /// Subscriptions' routing strategy.
     pub routing_strategy: RoutingStrategy,
-    /// Log scanners' configuration
+    /// Log scanners' configuration.
     pub scanners: ScannersConfig,
-    /// Holds collection-specific configuration overrides
+    /// Holds collection-specific configuration overrides.
     pub collections: BTreeMap<String, PartialCollectionConfig>
 }
 
@@ -55,7 +55,7 @@ impl Default for DatabaseConfig {
 
 impl DatabaseConfig {
     /// Returns the configuration for a given collection
-    /// by applying overrides to the base DatabaseConfig
+    /// by applying overrides to the base DatabaseConfig.
     pub fn collection_config(&self, collection_name: &str) -> CollectionConfig {
         match self.collections.get(collection_name) {
             Some(collection_config) => {
@@ -84,7 +84,7 @@ impl DatabaseConfig {
             }
         }
     }
-    /// Returns the scanners sleep as an instance of `Duration`
+    /// Returns the scanners sleep as an instance of `Duration`.
     pub fn scanners_sleep_duration(&self) -> Duration {
         Duration::from_millis(self.scanners.sleep_time_in_ms)
     }
@@ -109,9 +109,9 @@ impl DatabaseConfig {
 #[cfg_attr(feature = "serde-serialization", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ScannersConfig {
-    /// Number of scanners for each log file (spawns 2 threads for each scanner)
+    /// Number of scanners for each log file (spawns 2 threads for each scanner).
     pub nr_of_scanners: u8,
-    /// Amount of time the scanner threads should sleep between each scan
+    /// Amount of time the scanner threads should sleep between each scan.
     pub sleep_time_in_ms: u64
 }
 
@@ -144,9 +144,9 @@ impl Default for ScannersConfig {
 #[cfg_attr(feature = "serde-serialization", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PartialScannersConfig {
-    /// Number of scanners for each log file (spawns 2 threads for each scanner)
+    /// Number of scanners for each log file (spawns 2 threads for each scanner).
     pub nr_of_scanners: Option<u8>,
-    /// Amount of time the scanner threads should sleep between each scan
+    /// Amount of time the scanner threads should sleep between each scan.
     pub sleep_time_in_ms: Option<u64>
 }
 
@@ -174,13 +174,13 @@ pub struct PartialScannersConfig {
 #[cfg_attr(feature = "serde-serialization", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CollectionConfig {
-    /// Path to the logs directory
+    /// Path to the logs directory.
     pub logs_path: String,
-    /// Granularity of the log lines index (used by `IndexedLineReader`)
+    /// Granularity of the log lines index (used by `IndexedLineReader`).
     pub index_granularity: u64,
-    /// Subscriptions' routing strategy
+    /// Subscriptions' routing strategy.
     pub routing_strategy: RoutingStrategy,
-    /// Log scanners' configuration
+    /// Log scanners' configuration.
     pub scanners: ScannersConfig
 }
 
@@ -197,7 +197,7 @@ impl Default for CollectionConfig {
 }
 
 impl CollectionConfig {
-    /// Returns the scanners sleep as an instance of Duration
+    /// Returns the scanners sleep as an instance of `Duration`.
     pub fn scanners_sleep_duration(&self) -> Duration {
         Duration::from_millis(self.scanners.sleep_time_in_ms)
     }
@@ -228,13 +228,13 @@ impl CollectionConfig {
 #[cfg_attr(feature = "serde-serialization", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PartialCollectionConfig {
-    /// Path to the logs directory
+    /// Path to the logs directory.
     pub logs_path: Option<String>,
-    /// Granularity of the log lines index (used by `IndexedLineReader`)
+    /// Granularity of the log lines index (used by `IndexedLineReader`).
     pub index_granularity: Option<u64>,
-    /// Subscriptions' routing strategy
+    /// Subscriptions' routing strategy.
     pub routing_strategy: Option<RoutingStrategy>,
-    /// Log scanners' configuration
+    /// Log scanners' configuration.
     pub scanners: Option<PartialScannersConfig>
 }
 

@@ -2,7 +2,8 @@
 #![cfg_attr(feature = "serde-serialization", plugin(serde_macros))]
 
 //! # Exar DB
-//! Exar DB is an event store with streaming support that uses a flat-file for each collection of events
+//! Exar DB is an event store with streaming support
+//! which uses a flat-file for each collection of events
 //!
 //! ## Database Initialization
 //! ```

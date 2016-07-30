@@ -24,21 +24,21 @@ impl Log {
     pub fn ensure_exists(&self) -> Result<(), DatabaseError> {
         match OpenOptions::new().create(true).write(true).open(self.get_path()) {
             Ok(_) => Ok(()),
-            Err(err) => Err(DatabaseError::new_io_error(err))
+            Err(err) => Err(DatabaseError::from_io_error(err))
         }
     }
 
     pub fn open_reader(&self) -> Result<BufReader<File>, DatabaseError> {
         match OpenOptions::new().read(true).open(self.get_path()) {
             Ok(file) => Ok(BufReader::new(file)),
-            Err(err) => Err(DatabaseError::new_io_error(err))
+            Err(err) => Err(DatabaseError::from_io_error(err))
         }
     }
 
     pub fn open_line_reader(&self) -> Result<IndexedLineReader<BufReader<File>>, DatabaseError> {
         match OpenOptions::new().read(true).open(self.get_path()) {
             Ok(file) => Ok(IndexedLineReader::new(BufReader::new(file), self.index_granularity)),
-            Err(err) => Err(DatabaseError::new_io_error(err))
+            Err(err) => Err(DatabaseError::from_io_error(err))
         }
     }
 
@@ -52,7 +52,7 @@ impl Log {
     pub fn open_writer(&self) -> Result<BufWriter<File>, DatabaseError> {
         match OpenOptions::new().create(true).write(true).append(true).open(self.get_path()) {
             Ok(file) => Ok(BufWriter::new(file)),
-            Err(err) => Err(DatabaseError::new_io_error(err))
+            Err(err) => Err(DatabaseError::from_io_error(err))
         }
     }
 
@@ -62,7 +62,7 @@ impl Log {
                 Ok(()) => Ok(()),
                 Err(_) => Ok(())
             },
-            Err(err) => Err(DatabaseError::new_io_error(err))
+            Err(err) => Err(DatabaseError::from_io_error(err))
         }
     }
 
@@ -71,7 +71,7 @@ impl Log {
             self.open_line_reader().and_then(|mut reader| {
                 match reader.compute_index() {
                     Ok(_) => Ok(reader.get_index().clone()),
-                    Err(err) => Err(DatabaseError::new_io_error(err))
+                    Err(err) => Err(DatabaseError::from_io_error(err))
                 }
             })
         })
@@ -80,14 +80,14 @@ impl Log {
     pub fn open_index_reader(&self) -> Result<BufReader<File>, DatabaseError> {
         match OpenOptions::new().read(true).open(self.get_index_path()) {
             Ok(file) => Ok(BufReader::new(file)),
-            Err(err) => Err(DatabaseError::new_io_error(err))
+            Err(err) => Err(DatabaseError::from_io_error(err))
         }
     }
 
     pub fn open_index_writer(&self) -> Result<BufWriter<File>, DatabaseError> {
         match OpenOptions::new().create(true).write(true).truncate(true).open(self.get_index_path()) {
             Ok(file) => Ok(BufWriter::new(file)),
-            Err(err) => Err(DatabaseError::new_io_error(err))
+            Err(err) => Err(DatabaseError::from_io_error(err))
         }
     }
 
@@ -103,14 +103,14 @@ impl Log {
                             let byte_count: u64 = parts[1].parse().unwrap();
                             index.insert(line_count, byte_count);
                         },
-                        Err(err) => return Err(DatabaseError::new_io_error(err))
+                        Err(err) => return Err(DatabaseError::from_io_error(err))
                     }
                 }
                 self.open_line_reader().and_then(|mut reader| {
                     reader.restore_index(index);
                     match reader.compute_index() {
                         Ok(_) => Ok(reader.get_index().clone()),
-                        Err(err) => Err(DatabaseError::new_io_error(err))
+                        Err(err) => Err(DatabaseError::from_io_error(err))
                     }
                 })
             },
@@ -127,7 +127,7 @@ impl Log {
             for (line_count, byte_count) in index.get_ref() {
                 match writer.write_line(&format!("{} {}", line_count, byte_count)) {
                     Ok(_) => (),
-                    Err(err) => return Err(DatabaseError::new_io_error(err))
+                    Err(err) => return Err(DatabaseError::from_io_error(err))
                 };
             }
             Ok(())

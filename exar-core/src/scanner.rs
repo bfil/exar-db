@@ -157,7 +157,7 @@ impl ScannerThread {
                         }
                     }
                 },
-                Err(err) => return Err(DatabaseError::new_io_error(err))
+                Err(err) => return Err(DatabaseError::from_io_error(err))
             }
         }
         Ok(())

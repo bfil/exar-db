@@ -24,14 +24,14 @@ macro_rules! tab_separated {
 
 /// A trait for serializing a type to a tab-separated string
 pub trait ToTabSeparatedString {
-    // Returns a tab-separated string from the value
+    /// Returns a tab-separated string from the value
     fn to_tab_separated_string(&self) -> String;
 }
 
 /// A trait for deserializing a type from a tab-separated string slice
 pub trait FromTabSeparatedStr {
-    // Returns an instance of `Self` from a tab-separated string slice
-    // or a `ParseError` if a failure occurs while parsing the string
+    /// Returns an instance of `Self` from a tab-separated string slice
+    /// or a `ParseError` if a failure occurs while parsing the string
     fn from_tab_separated_str(s: &str) -> Result<Self, ParseError> where Self: Sized;
 }
 
@@ -40,7 +40,7 @@ pub trait FromTabSeparatedStr {
 pub enum ParseError {
     /// The parsing failed because of the given reason
     ParseError(String),
-    /// The parsing failed because of a missing field at the given location
+    /// The parsing failed because of a missing field at the given position
     MissingField(usize)
 }
 

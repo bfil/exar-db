@@ -38,7 +38,7 @@ impl Logger {
                         self.bytes_written += bytes_written as u64;
                         Ok(event_id)
                     },
-                    Err(err) => Err(DatabaseError::new_io_error(err))
+                    Err(err) => Err(DatabaseError::from_io_error(err))
                 }
             },
             Err(err) => Err(DatabaseError::ValidationError(err))

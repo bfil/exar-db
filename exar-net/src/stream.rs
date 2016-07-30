@@ -31,14 +31,14 @@ impl<T: Read + Write + TryClone> TcpMessageStream<T> {
                     Err(err) => Err(DatabaseError::ParseError(err))
                 }
             },
-            Err(err) => Err(DatabaseError::new_io_error(err))
+            Err(err) => Err(DatabaseError::from_io_error(err))
         }
     }
 
     pub fn send_message(&mut self, message: TcpMessage) -> Result<(), DatabaseError> {
         match self.writer.write_line(&message.to_tab_separated_string()) {
             Ok(_) => Ok(()),
-            Err(err) => Err(DatabaseError::new_io_error(err))
+            Err(err) => Err(DatabaseError::from_io_error(err))
         }
     }
 
@@ -55,7 +55,7 @@ impl TryClone for TcpStream {
     fn try_clone(&self) -> Result<Self, DatabaseError> {
         match self.try_clone() {
             Ok(cloned_stream) => Ok(cloned_stream),
-            Err(err) => Err(DatabaseError::new_io_error(err))
+            Err(err) => Err(DatabaseError::from_io_error(err))
         }
     }
 }
@@ -88,7 +88,7 @@ impl<T: Read + Write> Iterator for TcpMessages<T> {
                 Ok(message) => Some(Ok(message)),
                 Err(err) => Some(Err(DatabaseError::ParseError(err)))
             },
-            Some(Err(err)) => Some(Err(DatabaseError::new_io_error(err))),
+            Some(Err(err)) => Some(Err(DatabaseError::from_io_error(err))),
             None => None
         }
     }
@@ -141,7 +141,7 @@ mod tests {
         fn try_clone(&self) -> Result<Self, DatabaseError> {
             match LogStream::new(&self.path) {
                 Ok(cloned_stream) => Ok(cloned_stream),
-                Err(err) => Err(DatabaseError::new_io_error(err))
+                Err(err) => Err(DatabaseError::from_io_error(err))
             }
         }
     }

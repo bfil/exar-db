@@ -3,19 +3,28 @@ use super::*;
 use std::fmt::{Display, Formatter, Result as DisplayResult};
 use std::io::{Error as IoError, ErrorKind};
 
+/// A list specifying categories of database error.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum DatabaseError {
+    /// The credentials used to connect to the database are either missing or invalid
     AuthenticationError,
+    /// The connection to the database failed
     ConnectionError,
+    /// The event stream has been closed unexpectedly
     EventStreamError(EventStreamError),
+    /// An I/O error occurred
     IoError(ErrorKind, String),
+    /// The parsing of an event from the log file failed
     ParseError(ParseError),
+    /// The attempted subscription failed
     SubscriptionError,
+    /// The validation of the event failed
     ValidationError(ValidationError)
 }
 
 impl DatabaseError {
-    pub fn new_io_error(err: IoError) -> DatabaseError {
+    /// Returns a `DatabaseError` from the given `std::io::Error`
+    pub fn from_io_error(err: IoError) -> DatabaseError {
         DatabaseError::IoError(err.kind(), format!("{}", err))
     }
 }

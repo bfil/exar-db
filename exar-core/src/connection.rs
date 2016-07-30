@@ -33,13 +33,13 @@ impl Connection {
     }
 
     /// Publishes an event into the underlying collection and returns the ID for the event created
-    /// or an error if a failure occurs
+    /// or a `DatabaseError` if a failure occurs
     pub fn publish(&self, event: Event) -> Result<u64, DatabaseError> {
         self.collection.lock().unwrap().publish(event)
     }
 
     /// Subscribes to the underlying collection of events using the given query and returns an event stream
-    /// or an error if a failure occurs
+    /// or a `DatabaseError` if a failure occurs
     pub fn subscribe(&self, query: Query) -> Result<EventStream, DatabaseError> {
         self.collection.lock().unwrap().subscribe(query)
     }

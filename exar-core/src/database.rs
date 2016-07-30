@@ -35,7 +35,7 @@ impl Database {
         }
     }
 
-    /// Returns a connection instance with the given name or a database error if a failure occurs
+    /// Returns a connection instance with the given name or a `DatabaseError` if a failure occurs
     pub fn connect(&mut self, collection_name: &str) -> Result<Connection, DatabaseError> {
         match self.get_collection(collection_name) {
             Ok(collection) => Ok(Connection::new(collection)),
@@ -43,8 +43,8 @@ impl Database {
         }
     }
 
-    /// Returns an existing collection instance with the given name wrapped into an Arc/Mutex
-    /// or a database error if a failure occurs, it creates a new collection if it does not exist
+    /// Returns an existing collection instance with the given name wrapped into an `Arc`/`Mutex`
+    /// or a `DatabaseError` if a failure occurs, it creates a new collection if it does not exist
     pub fn get_collection(&mut self, collection_name: &str) -> Result<Arc<Mutex<Collection>>, DatabaseError> {
         if !self.contains_collection(collection_name) {
             self.create_collection(collection_name)
@@ -56,8 +56,8 @@ impl Database {
         }
     }
 
-    /// Creates and returns a new collection instance with the given name wrapped into an Arc/Mutex
-    /// or a database error if a failure occurs
+    /// Creates and returns a new collection instance with the given name wrapped into an `Arc`/`Mutex`
+    /// or a `DatabaseError` if a failure occurs
     pub fn create_collection(&mut self, collection_name: &str) -> Result<Arc<Mutex<Collection>>, DatabaseError> {
         let collection_config = self.config.collection_config(collection_name);
         Collection::new(collection_name, &collection_config).and_then(|collection| {

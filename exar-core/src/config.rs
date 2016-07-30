@@ -3,14 +3,41 @@ use super::*;
 use std::collections::BTreeMap;
 use std::time::Duration;
 
+/// Exar DB's configuration.
+///
+/// # Examples
+/// ```
+/// extern crate exar;
+///
+/// # fn main() {
+/// use exar::*;
+/// use std::collections::BTreeMap;
+///
+/// let config = DatabaseConfig {
+///     logs_path: "/path/to/logs".to_owned(),
+///     index_granularity: 100000,
+///     routing_strategy: RoutingStrategy::default(),
+///     scanners: ScannersConfig {
+///         nr_of_scanners: 2,
+///         sleep_time_in_ms: 10
+///     },
+///     collections: BTreeMap::new()
+/// };
+/// # }
+/// ```
 #[cfg_attr(feature = "rustc-serialization", derive(RustcEncodable, RustcDecodable))]
 #[cfg_attr(feature = "serde-serialization", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DatabaseConfig  {
+    /// Path to the logs directory
     pub logs_path: String,
+    /// Granularity of the log lines index (used by `IndexedLineReader`)
     pub index_granularity: u64,
+    /// Subscriptions' routing strategy
     pub routing_strategy: RoutingStrategy,
+    /// Log scanners' configuration
     pub scanners: ScannersConfig,
+    /// Holds collection-specific configuration overrides
     pub collections: BTreeMap<String, PartialCollectionConfig>
 }
 
@@ -27,6 +54,8 @@ impl Default for DatabaseConfig {
 }
 
 impl DatabaseConfig {
+    /// Returns the configuration for a given collection
+    /// by applying overrides to the base DatabaseConfig
     pub fn collection_config(&self, collection_name: &str) -> CollectionConfig {
         match self.collections.get(collection_name) {
             Some(collection_config) => {
@@ -55,16 +84,34 @@ impl DatabaseConfig {
             }
         }
     }
+    /// Returns the scanners sleep as an instance of `Duration`
     pub fn scanners_sleep_duration(&self) -> Duration {
         Duration::from_millis(self.scanners.sleep_time_in_ms)
     }
 }
 
+/// Exar DB's scanners configuration.
+///
+/// # Examples
+/// ```
+/// extern crate exar;
+///
+/// # fn main() {
+/// use exar::*;
+///
+/// let config = ScannersConfig {
+///     nr_of_scanners: 2,
+///     sleep_time_in_ms: 10
+/// };
+/// # }
+/// ```
 #[cfg_attr(feature = "rustc-serialization", derive(RustcEncodable, RustcDecodable))]
 #[cfg_attr(feature = "serde-serialization", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ScannersConfig {
+    /// Number of scanners for each log file (spawns 2 threads for each scanner)
     pub nr_of_scanners: u8,
+    /// Amount of time the scanner threads should sleep between each scan
     pub sleep_time_in_ms: u64
 }
 
@@ -77,21 +124,63 @@ impl Default for ScannersConfig {
     }
 }
 
+/// Exar DB's partial scanners configuration.
+/// Holds overrides for the main database configuration.
+///
+/// # Examples
+/// ```
+/// extern crate exar;
+///
+/// # fn main() {
+/// use exar::*;
+///
+/// let config = PartialScannersConfig {
+///     nr_of_scanners: Some(2),
+///     sleep_time_in_ms: Some(10)
+/// };
+/// # }
+/// ```
 #[cfg_attr(feature = "rustc-serialization", derive(RustcEncodable, RustcDecodable))]
 #[cfg_attr(feature = "serde-serialization", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PartialScannersConfig {
+    /// Number of scanners for each log file (spawns 2 threads for each scanner)
     pub nr_of_scanners: Option<u8>,
+    /// Amount of time the scanner threads should sleep between each scan
     pub sleep_time_in_ms: Option<u64>
 }
 
+/// Exar DB's collection configuration.
+///
+/// # Examples
+/// ```
+/// extern crate exar;
+///
+/// # fn main() {
+/// use exar::*;
+///
+/// let config = CollectionConfig {
+///     logs_path: "/path/to/logs".to_owned(),
+///     index_granularity: 100000,
+///     routing_strategy: RoutingStrategy::default(),
+///     scanners: ScannersConfig {
+///         nr_of_scanners: 2,
+///         sleep_time_in_ms: 10
+///     }
+/// };
+/// # }
+/// ```
 #[cfg_attr(feature = "rustc-serialization", derive(RustcEncodable, RustcDecodable))]
 #[cfg_attr(feature = "serde-serialization", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CollectionConfig {
+    /// Path to the logs directory
     pub logs_path: String,
+    /// Granularity of the log lines index (used by `IndexedLineReader`)
     pub index_granularity: u64,
+    /// Subscriptions' routing strategy
     pub routing_strategy: RoutingStrategy,
+    /// Log scanners' configuration
     pub scanners: ScannersConfig
 }
 
@@ -108,18 +197,44 @@ impl Default for CollectionConfig {
 }
 
 impl CollectionConfig {
+    /// Returns the scanners sleep as an instance of Duration
     pub fn scanners_sleep_duration(&self) -> Duration {
         Duration::from_millis(self.scanners.sleep_time_in_ms)
     }
 }
 
+/// Exar DB's partial collection configuration.
+/// Holds overrides for the main database configuration.
+///
+/// # Examples
+/// ```
+/// extern crate exar;
+///
+/// # fn main() {
+/// use exar::*;
+///
+/// let config = PartialCollectionConfig {
+///     logs_path: Some("/path/to/logs".to_owned()),
+///     index_granularity: Some(100000),
+///     routing_strategy: Some(RoutingStrategy::default()),
+///     scanners: Some(PartialScannersConfig {
+///         nr_of_scanners: Some(2),
+///         sleep_time_in_ms: Some(10)
+///     })
+/// };
+/// # }
+/// ```
 #[cfg_attr(feature = "rustc-serialization", derive(RustcEncodable, RustcDecodable))]
 #[cfg_attr(feature = "serde-serialization", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PartialCollectionConfig {
+    /// Path to the logs directory
     pub logs_path: Option<String>,
+    /// Granularity of the log lines index (used by `IndexedLineReader`)
     pub index_granularity: Option<u64>,
+    /// Subscriptions' routing strategy
     pub routing_strategy: Option<RoutingStrategy>,
+    /// Log scanners' configuration
     pub scanners: Option<PartialScannersConfig>
 }
 

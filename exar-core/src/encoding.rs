@@ -3,6 +3,17 @@
 use std::fmt::{Debug, Display, Formatter, Result as DisplayResult};
 use std::str::{FromStr, SplitN};
 
+/// Generates a tab separated string from a list of string slices
+///
+/// # Examples
+/// ```
+/// #[macro_use]
+/// extern crate exar;
+///
+/// # fn main() {
+/// let tab_separated_value = tab_separated!("hello", "world");
+/// # }
+/// ```
 #[macro_export]
 macro_rules! tab_separated {
     ($($x:expr),*) => ({
@@ -11,17 +22,25 @@ macro_rules! tab_separated {
     })
 }
 
+/// A trait for serializing a type to a tab-separated string
 pub trait ToTabSeparatedString {
+    // Returns a tab-separated string from the value
     fn to_tab_separated_string(&self) -> String;
 }
 
+/// A trait for deserializing a type from a tab-separated string slice
 pub trait FromTabSeparatedStr {
+    // Returns an instance of `Self` from a tab-separated string slice
+    // or a `ParseError` if a failure occurs while parsing the string
     fn from_tab_separated_str(s: &str) -> Result<Self, ParseError> where Self: Sized;
 }
 
+/// A list specifying categories of parse error.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ParseError {
+    /// The parsing failed because of the given reason
     ParseError(String),
+    /// The parsing failed because of a missing field at the given location
     MissingField(usize)
 }
 
@@ -34,12 +53,30 @@ impl Display for ParseError {
     }
 }
 
+/// A parser for tab-separated strings
+///
+/// # Examples
+/// ```
+/// #[macro_use]
+/// extern crate exar;
+///
+/// # fn main() {
+/// use exar::*;
+///
+/// let tab_separated_value = tab_separated!("hello", "world");
+/// let mut parser = TabSeparatedParser::new(2, &tab_separated_value);
+///
+/// let hello: String = parser.parse_next().unwrap();
+/// let world: String = parser.parse_next().unwrap();
+/// # }
+/// ```
 pub struct TabSeparatedParser<'a> {
     index: usize,
     parts: SplitN<'a, &'a str>
 }
 
 impl<'a> TabSeparatedParser<'a> {
+    /// Creates a new parser that splits a string up to `n` parts
     pub fn new(n: usize, s: &'a str) -> TabSeparatedParser<'a> {
         TabSeparatedParser {
             index: 0,
@@ -47,6 +84,8 @@ impl<'a> TabSeparatedParser<'a> {
         }
     }
 
+    /// Parses the next string slice into the given type `T` and returns it,
+    /// or returns a `ParseError` if a failure occurs while parsing the value
     pub fn parse_next<T>(&mut self) -> Result<T, ParseError> where T: FromStr, <T as FromStr>::Err: Display + Debug {
         match self.parts.next().map(|x| x.parse())  {
             Some(Ok(value)) => {
@@ -106,14 +145,14 @@ mod tests {
     #[test]
     fn test_missing_field_error() {
         let tab_separated_value = tab_separated!("hello", "world");
-        let mut parser = TabSeparatedParser::new(3, &tab_separated_value);
+        let mut parser = TabSeparatedParser::new(2, &tab_separated_value);
 
         let hello: String = parser.parse_next().expect("Unable to parse value");
         let world: String = parser.parse_next().expect("Unable to parse value");
 
         assert_eq!(hello, "hello".to_owned());
         assert_eq!(world, "world".to_owned());
-        
+
         assert_eq!(parser.parse_next::<String>(), Err(ParseError::MissingField(2)));
     }
 }

@@ -33,7 +33,7 @@ pub struct Collection {
 
 impl Collection {
     /// Creates a new instance of a collection with the given name and configuration
-    /// or an error if a failure occurs
+    /// or a `DatabaseError` if a failure occurs
     pub fn new(collection_name: &str, config: &CollectionConfig) -> Result<Collection, DatabaseError> {
         let log = Log::new(&config.logs_path, collection_name, config.index_granularity);
         log.restore_index().and_then(|index| {
@@ -52,7 +52,7 @@ impl Collection {
     }
 
     /// Publishes an event into the collection and returns the ID for the event created
-    /// or an error if a failure occurs
+    /// or a `DatabaseError` if a failure occurs
     pub fn publish(&mut self, event: Event) -> Result<u64, DatabaseError> {
         self.logger.log(event).and_then(|event_id| {
             if (event_id + 1) % (self.log.get_index_granularity()) == 0 {
@@ -67,7 +67,7 @@ impl Collection {
     }
 
     /// Subscribes to the collection of events using the given query and returns an event stream
-    /// or an error if a failure occurs
+    /// or a `DatabaseError` if a failure occurs
     pub fn subscribe(&mut self, query: Query) -> Result<EventStream, DatabaseError> {
         let (sender, receiver) = channel();
         self.apply_routing_strategy(Subscription::new(sender, query)).and_then(|updated_strategy| {

@@ -1,7 +1,10 @@
 use std::io::prelude::*;
 use std::io::{BufWriter, Result};
 
+/// A trait for writing a line into a stream.
 pub trait WriteLine {
+    /// Writes a string slice into this writer by appending a new line at the end of it,
+    /// returning whether the write succeeded.
     fn write_line(&mut self, line: &str) -> Result<usize>;
 }
 
@@ -15,12 +18,16 @@ impl<T: Write> WriteLine for BufWriter<T> {
     }
 }
 
+/// An interval.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Interval<T> {
+    /// The start of the interval.
     pub start: T,
+    /// The end of the interval.
     pub end: T
 }
 
+/// A trait for merging a type.
 pub trait Merge: Sized {
     fn merge(&mut self);
     fn merged(mut self) -> Self {

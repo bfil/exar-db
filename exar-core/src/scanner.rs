@@ -9,12 +9,40 @@ use std::thread;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
+/// Exar DB's log file scanner.
+///
+/// It manages event stream subscriptions and continuously scans
+/// portions of the log file depending on the subscriptions query parameters.
+///
+/// # Examples
+/// ```no_run
+/// extern crate exar;
+///
+/// # fn main() {
+/// use exar::*;
+/// use std::sync::mpsc::channel;
+/// use std::time::Duration;
+///
+/// let log = Log::new("/path/to/logs", "test", 100);
+/// let event = Event::new("data", vec!["tag1", "tag2"]);
+///
+/// let line_reader = log.open_line_reader().unwrap();
+/// let mut scanner = Scanner::new(line_reader, Duration::from_millis(10));
+///
+/// let (sender, _) = channel();
+/// let subscription = Subscription::new(sender, Query::live());
+/// scanner.handle_subscription(subscription).unwrap();
+///
+/// drop(scanner);
+/// # }
+/// ```
 #[derive(Clone, Debug)]
 pub struct Scanner {
     action_sender: Sender<ScannerAction>
 }
 
 impl Scanner {
+    /// Creates a new log scanner using the given `IndexedLineReader` and sleep duration.
     pub fn new(reader: IndexedLineReader<BufReader<File>>, sleep_duration: Duration) -> Scanner {
         let (sender, receiver) = channel();
         ScannerThread::new(reader, receiver).run(sleep_duration);
@@ -23,6 +51,7 @@ impl Scanner {
         }
     }
 
+    /// Handles the given `Subscription` or returns a `DatabaseError` if a failure occurs.
     pub fn handle_subscription(&self, subscription: Subscription) -> Result<(), DatabaseError> {
         match self.action_sender.send(ScannerAction::HandleSubscription(subscription)) {
             Ok(()) => Ok(()),
@@ -30,6 +59,7 @@ impl Scanner {
         }
     }
 
+    /// Adds the given line to the `LinesIndex` or returns a `DatabaseError` if a failure occurs.
     pub fn add_line_index(&self, line: u64, byte_count: u64) -> Result<(), DatabaseError> {
         match self.action_sender.send(ScannerAction::AddLineIndex(line, byte_count)) {
             Ok(()) => Ok(()),
@@ -37,6 +67,8 @@ impl Scanner {
         }
     }
 
+    /// Adds a reference to a tail scanner that is responsible of handling live subscriptions
+    /// or returns a `DatabaseError` if a failure occurs.
     pub fn set_tail_scanner_sender(&mut self, sender: Sender<ScannerAction>) -> Result<(), DatabaseError> {
         match self.action_sender.send(ScannerAction::SetTailScannerSender(sender)) {
             Ok(()) => Ok(()),
@@ -44,6 +76,7 @@ impl Scanner {
         }
     }
 
+    /// Clones the channel sender responsible to send `ScannerAction`s to the scanner thread.
     pub fn clone_action_sender(&self) -> Sender<ScannerAction> {
         self.action_sender.clone()
     }
@@ -65,6 +98,11 @@ impl Drop for Scanner {
     }
 }
 
+/// Exar DB's log file scanner thread.
+///
+/// It uses a channel receiver to receive actions to be performed between scans,
+/// and it manages the thread that continuously scans portions of the log file
+/// depending on the subscriptions query parameters.
 #[derive(Debug)]
 pub struct ScannerThread {
     index: LinesIndex,

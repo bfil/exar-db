@@ -2,9 +2,12 @@
 #[cfg(feature = "serde-serialization")] use serde::{Serialize, Serializer, Deserialize, Deserializer};
 #[cfg(feature = "serde-serialization")] use serde::de::{Error, Visitor};
 
+/// A list specifying categories of routing strategy.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RoutingStrategy {
+    /// The next element is picked at random.
     Random,
+    /// The next element is picked using the round-robin algorithm.
     RoundRobin(usize)
 }
 
@@ -16,7 +19,6 @@ impl Encodable for RoutingStrategy {
             RoutingStrategy::RoundRobin(_) => s.emit_str("RoundRobin")
         }
     }
-
 }
 
 #[cfg(feature = "rustc-serialization")]

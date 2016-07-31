@@ -3,6 +3,22 @@ use super::*;
 use std::fs::File;
 use std::io::BufWriter;
 
+/// Exar DB's event logger.
+///
+/// # Examples
+/// ```no_run
+/// extern crate exar;
+///
+/// # fn main() {
+/// use exar::*;
+///
+/// let log = Log::new("/path/to/logs", "test", 100);
+/// let event = Event::new("data", vec!["tag1", "tag2"]);
+///
+/// let mut logger = Logger::new(log).unwrap();
+/// let event_id = logger.log(event).unwrap();
+/// # }
+/// ```
 #[derive(Debug)]
 pub struct Logger {
     writer: BufWriter<File>,
@@ -11,6 +27,7 @@ pub struct Logger {
 }
 
 impl Logger {
+    /// Creates a new logger for the given `Log` or returns a `DatabaseError` if a failure occurs.
     pub fn new(log: Log) -> Result<Logger, DatabaseError> {
         log.restore_index().and_then(|index| {
             log.open_writer().and_then(|writer| {
@@ -23,6 +40,8 @@ impl Logger {
         })
     }
 
+    /// Appends the given event to the log and returns the event `id`
+    /// or a `DatabaseError` if a failure occurs.
     pub fn log(&mut self, event: Event) -> Result<u64, DatabaseError> {
         match event.validated() {
             Ok(event) => {
@@ -45,6 +64,7 @@ impl Logger {
         }
     }
 
+    /// Returns the total number of bytes logged.
     pub fn bytes_written(&self) -> u64 {
         self.bytes_written
     }

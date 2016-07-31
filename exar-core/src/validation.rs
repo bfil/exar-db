@@ -1,18 +1,24 @@
 use std::fmt::{Display, Formatter, Result as DisplayResult};
 
+/// A trait for validating a type.
 pub trait Validation where Self: Sized {
+    /// Validates the type or returns a `ValidationError` if validation fails.
     fn validate(&self) -> Result<(), ValidationError>;
+    /// Validates and returns `Self` or a `ValidationError` if validation fails.
     fn validated(self) -> Result<Self, ValidationError> {
         self.validate().and_then(|_| Ok(self))
     }
 }
 
+/// A validation error.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ValidationError {
+    /// The validation error's description.
     pub description: String
 }
 
 impl ValidationError {
+    /// Creates a `ValidationError` with the given description.
     pub fn new(description: &str) -> ValidationError {
         ValidationError {
             description: description.to_owned()

@@ -2,14 +2,35 @@ use super::*;
 
 use std::sync::mpsc::Sender;
 
+/// Exar DB's subscription.
+///
+/// # Examples
+/// ```
+/// extern crate exar;
+///
+/// # fn main() {
+/// use exar::*;
+/// use std::sync::mpsc::channel;
+///
+/// let (sender, receiver) = channel();
+/// let event = Event::new("data", vec!["tag1", "tag2"]);
+///
+/// let mut subscription = Subscription::new(sender, Query::current());
+/// subscription.send(event).unwrap();
+/// let event_stream_message = receiver.recv().unwrap();
+/// # }
+/// ```
 #[derive(Clone, Debug)]
 pub struct Subscription {
     active: bool,
+    /// The channel sender used to stream `EventStreamMessage`s back to the subscriber.
     pub event_stream_sender: Sender<EventStreamMessage>,
+    /// The query associated to this subscription.
     pub query: Query
 }
 
 impl Subscription {
+    /// Creates a new `Subscription` with the given channel sender and query.
     pub fn new(sender: Sender<EventStreamMessage>, query: Query) -> Subscription {
         Subscription {
             active: true,
@@ -18,6 +39,7 @@ impl Subscription {
         }
     }
 
+    /// Sends an `Event` to the subscriber or returns a `DatabaseError` if a failure occurs.
     pub fn send(&mut self, event: Event) -> Result<(), DatabaseError> {
         let event_id = event.id;
         match self.event_stream_sender.send(EventStreamMessage::Event(event)) {
@@ -40,10 +62,12 @@ impl Subscription {
         }
     }
 
+    /// Returns wether the subscription is still active.
     pub fn is_active(&self) -> bool {
         self.active
     }
 
+    /// Returns wether the subscription is interested in the given `Event`.
     pub fn matches_event(&self, event: &Event) -> bool {
         self.is_active() && self.query.is_active() && self.query.matches(event)
     }

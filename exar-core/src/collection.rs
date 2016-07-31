@@ -6,6 +6,7 @@ use rand::Rng;
 use std::sync::mpsc::channel;
 
 /// Exar DB's collection of events, containing the reference to the log and index files.
+/// 
 /// It is responsible of creating and managing the log scanner threads and the single-threaded logger.
 /// It allows publishing and subscribing to the underling events log.
 ///

@@ -2,30 +2,26 @@ use exar::*;
 
 use std::fmt::{Display, Formatter, Result as DisplayResult};
 
-/// Connect             collection      [username]      [password]
-/// Connected
-///
-/// Publish             tag1 tag2       timestamp       event_data
-/// Published           event_id
-///
-/// Subscribe           live            offset          limit           [tag1]
-/// Subscribed
-///
-/// Event               event_id        tag1 tag2       timestamp       event_data
-/// EndOfEventStream
-///
-/// Error               type            [subtype]       description
-
+/// A list specifying categories of TCP message.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TcpMessage {
+    /// Message used to initialize a connection to Exar DB.
     Connect(String, Option<String>, Option<String>),
+    /// Message used to acknowledge a successful connection.
     Connected,
+    /// Message used to publish an event into a collection.
     Publish(Event),
+    /// Message used to acknowledge a successfully published event.
     Published(u64),
+    /// Message used to subscribe to an event stream.
     Subscribe(bool, u64, Option<u64>, Option<String>),
+    /// Message used to acknowledge a successful subscription.
     Subscribed,
+    /// Message containing an event.
     Event(Event),
+    /// Message signaling the end of an event stream.
     EndOfEventStream,
+    /// Message containing an error.
     Error(DatabaseError)
 }
 

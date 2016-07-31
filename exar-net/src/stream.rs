@@ -5,6 +5,9 @@ use std::io::prelude::*;
 use std::io::{BufReader, BufWriter, Lines};
 use std::net::TcpStream;
 
+/// A bidiectional TCP message stream.
+///
+/// It allows to send and receives `TcpMessage`s to and from the `TcpStream`.
 #[derive(Debug)]
 pub struct TcpMessageStream<T: Read + Write> {
     reader: BufReader<T>,
@@ -12,6 +15,8 @@ pub struct TcpMessageStream<T: Read + Write> {
 }
 
 impl<T: Read + Write + TryClone> TcpMessageStream<T> {
+    /// Creates a `TcpMessageStream` from a given `TcpStream`,
+    /// or returns a `DatabaseError` if a failure occurs.
     pub fn new(stream: T) -> Result<TcpMessageStream<T>, DatabaseError> {
         stream.try_clone().and_then(|cloned_stream| {
             Ok(TcpMessageStream {
@@ -21,6 +26,8 @@ impl<T: Read + Write + TryClone> TcpMessageStream<T> {
         })
     }
 
+    /// Receives and returns a `TcpMessage` from the TCP stream,
+    /// or a `DatabaseError` if a failure occurs.
     pub fn recv_message(&mut self) -> Result<TcpMessage, DatabaseError> {
         let mut line = String::new();
         match self.reader.read_line(&mut line) {
@@ -35,6 +42,8 @@ impl<T: Read + Write + TryClone> TcpMessageStream<T> {
         }
     }
 
+    /// Sends a `TcpMessage` to the TCP stream,
+    /// or returns a `DatabaseError` if a failure occurs.
     pub fn send_message(&mut self, message: TcpMessage) -> Result<(), DatabaseError> {
         match self.writer.write_line(&message.to_tab_separated_string()) {
             Ok(_) => Ok(()),
@@ -42,6 +51,7 @@ impl<T: Read + Write + TryClone> TcpMessageStream<T> {
         }
     }
 
+    /// Returns an iterator over the messages received on the TCP stream.
     pub fn messages(self) -> TcpMessages<T> {
         TcpMessages::new(self)
     }
@@ -68,6 +78,7 @@ impl<T: Read + Write + TryClone> TryClone for TcpMessageStream<T> {
     }
 }
 
+/// An iterator over the messages received on a stream.
 pub struct TcpMessages<T: Read + Write> {
     lines: Lines<BufReader<T>>
 }

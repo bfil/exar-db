@@ -52,7 +52,7 @@ impl Collection {
         })
     }
 
-    /// Publishes an event into the collection and returns the ID for the event created
+    /// Publishes an event into the collection and returns the `id` for the event created
     /// or a `DatabaseError` if a failure occurs.
     pub fn publish(&mut self, event: Event) -> Result<u64, DatabaseError> {
         self.logger.log(event).and_then(|event_id| {

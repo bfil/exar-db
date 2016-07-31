@@ -1,3 +1,57 @@
+//! # Exar DB's client
+//! This module contains a client implementation that uses Exar DB's TCP protocol.
+//!
+//! ## Client Initialization
+//! ```no_run
+//! extern crate exar_client;
+//!
+//! # fn main() {
+//! use exar_client::*;
+//!
+//! let addr = "localhost:38580";
+//! let client = Client::connect(addr, "test", Some("username"), Some("password")).unwrap();
+//! # }
+//! ```
+//! ## Publishing events
+//! ```no_run
+//! extern crate exar;
+//! extern crate exar_client;
+//!
+//! # fn main() {
+//! use exar::*;
+//! use exar_client::*;
+//!
+//! let addr = "localhost:38580";
+//! let mut client = Client::connect(addr, "test", Some("username"), Some("password")).unwrap();
+//!
+//! let event = Event::new("payload", vec!["tag1", "tag2"]);
+//!
+//! match client.publish(event) {
+//!     Ok(event_id) => println!("Published event with ID: {}", event_id),
+//!     Err(err) => panic!("Unable to publish event: {}", err)
+//! };
+//! # }
+//! ```
+//! ## Querying events
+//! ```no_run
+//! extern crate exar;
+//! extern crate exar_client;
+//!
+//! # fn main() {
+//! use exar::*;
+//! use exar_client::*;
+//!
+//! let addr = "localhost:38580";
+//! let mut client = Client::connect(addr, "test", Some("username"), Some("password")).unwrap();
+//!
+//! let query = Query::live().offset(0).limit(10).by_tag("tag1");
+//! let event_stream = client.subscribe(query).unwrap();
+//! for event in event_stream {
+//!     println!("Received event: {}", event);
+//! }
+//! # }
+//! ```
+
 extern crate exar;
 extern crate exar_net;
 
@@ -12,11 +66,14 @@ use std::net::{ToSocketAddrs, TcpStream};
 use std::sync::mpsc::channel;
 use std::thread;
 
+/// # Exar DB's client
 pub struct Client {
     stream: TcpMessageStream<TcpStream>
 }
 
 impl Client {
+    /// Connects to the given address and collection, optionally using the credentials provided,
+    /// it returns a `Client` or a `DatabaseError` if a failure occurs.
     pub fn connect<A: ToSocketAddrs>(address: A, collection_name: &str,
         username: Option<&str>, password: Option<&str>) -> Result<Client, DatabaseError> {
         match TcpStream::connect(address) {
@@ -37,6 +94,8 @@ impl Client {
         }
     }
 
+    /// Publishes an event and returns the `id` for the event created
+    /// or a `DatabaseError` if a failure occurs.
     pub fn publish(&mut self, event: Event) -> Result<u64, DatabaseError> {
         try!(self.stream.send_message(TcpMessage::Publish(event)));
         match self.stream.recv_message() {
@@ -47,6 +106,8 @@ impl Client {
         }
     }
 
+    /// Subscribes using the given query and returns an event stream
+    /// or a `DatabaseError` if a failure occurs.
     pub fn subscribe(&mut self, query: Query) -> Result<EventStream, DatabaseError> {
         let subscribe_message = TcpMessage::Subscribe(query.live_stream, query.offset, query.limit, query.tag);
         self.stream.send_message(subscribe_message).and_then(|_| {
@@ -82,6 +143,7 @@ impl Client {
         })
     }
 
+    /// Closes the connection.
     pub fn close(self) {
         drop(self)
     }
@@ -114,6 +176,7 @@ mod tests {
                             StreamAction::Read(message) => assert_eq!(stream.recv_message(), Ok(message)),
                             StreamAction::Write(message) => assert!(stream.send_message(message).is_ok())
                         }
+                        thread::sleep(Duration::from_millis(10));
                     }
                 },
                 Err(err) => panic!("Error: {}", err)

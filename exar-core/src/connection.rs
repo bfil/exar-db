@@ -32,7 +32,7 @@ impl Connection {
         }
     }
 
-    /// Publishes an event into the underlying collection and returns the ID for the event created
+    /// Publishes an event into the underlying collection and returns the `id` for the event created
     /// or a `DatabaseError` if a failure occurs.
     pub fn publish(&self, event: Event) -> Result<u64, DatabaseError> {
         self.collection.lock().unwrap().publish(event)

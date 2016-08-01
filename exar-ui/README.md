@@ -1,6 +1,6 @@
 # Exar UI
 
-Exar UI
+A basic Exar DB's user interface, built with [Aurelia](http://aurelia.io), [Electron](http://electron.atom.io) and [TypeScript](https://www.typescriptlang.org)
 
 ## Running The App
 
@@ -36,25 +36,12 @@ To run the app, follow these steps.
   gulp build
   ```
 
-7. To run the app, execute the following command:
-
-  ```shell
-  gulp watch
-  ```
-8. Browse to [http://localhost:9000](http://localhost:9000) to see the app. You can make changes in the code found under `src` and the browser should auto-refresh itself as you save files.
-
-> The Skeleton App uses [BrowserSync](http://www.browsersync.io/) for automated page refreshes on code/markup changes concurrently accross multiple browsers. If you prefer to disable the mirroring feature set the [ghostMode option](http://www.browsersync.io/docs/options/#option-ghostMode) to false.
-
-## Running The App under Electron
-
-To run the app under [Electron](http://electron.atom.io), follow these steps.
-
-1. Install [Electron](http://electron.atom.io)
+7. Install [Electron](http://electron.atom.io)
 
   ```shell
   npm install electron-prebuilt -g
   ```
-2. To start the app, execute the following command:
+8. To start the app, execute the following command:
 
   ```shell
   electron index.js
@@ -70,25 +57,19 @@ To start the app, execute the following command:
    electron .
 ```
 
-## Bundling
+## Development
 
-Bundling is performed by [Aurelia Bundler](http://github.com/aurelia/bundler). A gulp task is already configured for that. Use the following command to bundle the app:
-
-  ```shell
-    gulp bundle
-  ```
-
-You can also unbundle using the command bellow:
+1. Run the app in watch mode, execute the following command:
 
   ```shell
-  gulp unbundle
+  gulp watch
   ```
-#### Configuration
 
-The configuration is done by ```bundles.json``` file.
+2. Then start the app in electron in a separate terminal, execute the following command:
 
-##### Optional
-Under ```options``` of ```dist/aurelia``` add ```rev: true``` to add bundle file revision/version.
+  ```shell
+  electron index.js
+  ```
 
 ## Running The Unit Tests
 
@@ -111,38 +92,3 @@ jspm install aurelia-router
   ```shell
   karma start
   ```
-
-## Running The E2E Tests
-Integration tests are performed with [Protractor](http://angular.github.io/protractor/#/).
-
-1. Place your E2E-Tests into the folder ```test/e2e/src```
-2. Install the necessary webdriver
-
-  ```shell
-  gulp webdriver-update
-  ```
-
-3. Configure the path to the webdriver by opening the file ```protractor.conf.js``` and adjusting the ```seleniumServerJar``` property. Typically its only needed to adjust the version number.
-
-4. Make sure your app runs and is accessible
-
-  ```shell
-  gulp watch
-  ```
-
-5. In another console run the E2E-Tests
-
-  ```shell
-  gulp e2e
-  ```
-
-## Exporting bundled production version
-A gulp task is already configured for that. Use the following command to export the app:
-
-  ```shell
-    gulp export
-  ```
-The app will be exported into ```export``` directory preserving the directory structure.
-#### Configuration
-The configuration is done by ```bundles.json``` file.
-In addition, ```export.json``` file is available for including individual files.

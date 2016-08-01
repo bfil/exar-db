@@ -73,6 +73,12 @@ level = "info"
 appenders = ["console", "file"]
 ```
 
+## Interacting with the database from Rust
+
+To interact with the database from a rust application use [exar-client](https://github.com/bfil/exar-db/tree/master/exar-client).
+
+Basic connect/publish/subscribe examples are available at the [exar-client](https://bfil.github.io/exar-db/exar_client/index.html) section of the documentation.
+
 ## Interacting with the database via TCP
 
 To interact with the database a very simple TCP protocol can be used even via `telnet`.
@@ -83,7 +89,7 @@ telnet 127.0.0.1 38580
 
 Once the TCP connection has been established, you can use the commands defined in the
 [exar-net](https://bfil.github.io/exar-db/exar_net/index.html)
-section of the documentation
+section of the documentation.
 
 ## Exar UI
 

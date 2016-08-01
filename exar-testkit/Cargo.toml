@@ -2,7 +2,11 @@
 name = "exar-testkit"
 version = "0.1.0"
 authors = ["Bruno Filippone <bruno.filippone@b-fil.com>"]
-publish = false
+description = "Offers some utility methods to facilitate testing Exar DB's modules"
+keywords = ["exar", "exar-db", "testkit"]
+repository = "https://github.com/bfil/exar-db/tree/master/exar-testkit"
+license = "AGPL-3.0"
+readme = "README.md"
 
 [dependencies]
 rand = "0.3"

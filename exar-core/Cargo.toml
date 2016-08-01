@@ -2,6 +2,12 @@
 name = "exar"
 version = "0.1.0"
 authors = ["Bruno Filippone <bruno.filippone@b-fil.com>"]
+description = "Exar DB's core event store engine with streaming support"
+keywords = ["exar", "exar-db", "event", "store", "database", "streaming"]
+repository = "https://github.com/bfil/exar-db/tree/master/exar-core"
+documentation = "https://bfil.github.io/exar-db/exar/index.html"
+license = "AGPL-3.0"
+readme = "README.md"
 
 [dependencies]
 indexed-line-reader = "0.2"

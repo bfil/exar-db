@@ -2,6 +2,12 @@
 name = "exar-net"
 version = "0.1.0"
 authors = ["Bruno Filippone <bruno.filippone@b-fil.com>"]
+description = "Exar DB's TCP protocol"
+keywords = ["exar", "exar-db", "event", "store", "database", "tcp", "protocol"]
+repository = "https://github.com/bfil/exar-db/tree/master/exar-net"
+documentation = "https://bfil.github.io/exar-db/exar_net/index.html"
+license = "AGPL-3.0"
+readme = "README.md"
 
 [dependencies]
 exar = { version = "0.1", path = "../exar-core" }

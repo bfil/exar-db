@@ -6,7 +6,6 @@ description = "Offers some utility methods to facilitate testing Exar DB's modul
 keywords = ["exar", "exar-db", "testkit"]
 repository = "https://github.com/bfil/exar-db/tree/master/exar-testkit"
 license = "AGPL-3.0"
-readme = "README.md"
 
 [dependencies]
 rand = "0.3"

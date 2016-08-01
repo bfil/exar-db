@@ -82,5 +82,5 @@
 - Derive Relevant Traits For All Structs/Enums (Done)
 - Implement Display For Relevant Structs/Enums (Done)
 - Write Tests (Done)
-- Write Docs (-)
+- Write Docs (Done)
 - Split Core/Server/Client Into Separate Crates (Done)

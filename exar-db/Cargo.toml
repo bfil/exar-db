@@ -7,6 +7,8 @@ authors = ["Bruno Filippone <bruno.filippone@b-fil.com>"]
 clap = "2.1"
 exar = { version = "0.1", path = "../exar-core", features = ["rustc-serialization"] }
 exar-server = { version = "0.1", path = "../exar-server", features = ["rustc-serialization"] }
+log = "0.3"
+log4rs = { version = "0.4", features = ["toml"] }
 rustc-serialize = "0.3"
 toml-config = "0.4"
 

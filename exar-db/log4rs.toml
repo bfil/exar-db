@@ -1,0 +1,16 @@
+[appenders.console]
+kind = "console"
+
+[appenders.console.encoder]
+pattern = "[{d(%+)(local)}] [{h({l})}] [{t}] {m}{n}"
+
+[appenders.file]
+kind = "file"
+path = "exar-db.log"
+
+[appenders.file.encoder]
+pattern = "[{d(%+)(local)}] [{h({l})}] [{t}] {m}{n}"
+
+[root]
+level = "info"
+appenders = ["console", "file"]

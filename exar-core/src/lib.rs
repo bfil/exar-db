@@ -62,6 +62,9 @@
 #[cfg(test)] #[macro_use]
 extern crate exar_testkit;
 
+#[macro_use]
+extern crate log as logging;
+
 extern crate indexed_line_reader;
 extern crate rand;
 extern crate time;

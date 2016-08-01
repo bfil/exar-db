@@ -93,7 +93,7 @@ impl Drop for Scanner {
     fn drop(&mut self) {
         match self.stop() {
             Ok(_) => (),
-            Err(err) => println!("Unable to stop scanner thread: {}", err)
+            Err(err) => error!("Unable to stop scanner thread: {}", err)
         }
     }
 }
@@ -144,7 +144,7 @@ impl ScannerThread {
                 if self.subscriptions.len() != 0 {
                     match self.scan() {
                         Ok(_) => self.retain_active_subscriptions(),
-                        Err(err) => println!("Unable to scan log: {}", err)
+                        Err(err) => error!("Unable to scan log: {}", err)
                     }
                 }
                 thread::sleep(sleep_duration);
@@ -189,9 +189,9 @@ impl ScannerThread {
                                         break;
                                     }
                                 },
-                                Err(err) => println!("Unable to deserialize log line: {}", err)
+                                Err(err) => warn!("Unable to deserialize log line: {}", err)
                             },
-                            Err(err) => println!("Unable to read log line: {}", err)
+                            Err(err) => warn!("Unable to read log line: {}", err)
                         }
                     }
                 },

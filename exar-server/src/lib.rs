@@ -20,9 +20,9 @@
 //! let server_config = ServerConfig::default();
 //! let server = Server::new(server_config.clone(), db).unwrap();
 //!
-//! println!("ExarDB's server running at {}..", server_config.address());
+//! println!("ExarDB's server running at {}", server_config.address());
 //! server.listen();
-//! println!("ExarDB's server shutting down..");
+//! println!("ExarDB's server shutting down");
 //! # }
 //! ```
 
@@ -34,6 +34,9 @@ extern crate exar_net;
 
 #[cfg(test)] #[macro_use]
 extern crate exar_testkit;
+
+#[macro_use]
+extern crate log;
 
 mod credentials;
 mod config;

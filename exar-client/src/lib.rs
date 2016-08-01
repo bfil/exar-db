@@ -58,6 +58,9 @@ extern crate exar_net;
 #[cfg(test)] #[macro_use]
 extern crate exar_testkit;
 
+#[macro_use]
+extern crate log;
+
 use exar::*;
 use exar_net::*;
 
@@ -121,14 +124,14 @@ impl Client {
                                     match message {
                                         Ok(TcpMessage::Event(event)) => match sender.send(EventStreamMessage::Event(event)) {
                                             Ok(_) => continue,
-                                            Err(err) => println!("Unable to send event to the event stream: {}", err)
+                                            Err(err) => error!("Unable to send event to the event stream: {}", err)
                                         },
                                         Ok(TcpMessage::EndOfEventStream) => {
                                             let _ = sender.send(EventStreamMessage::End);
                                         },
-                                        Ok(TcpMessage::Error(error)) => println!("Received error from TCP stream: {}", error),
-                                        Ok(message) => println!("Unexpected TCP message: {}", message),
-                                        Err(err) => println!("Unable to read TCP message from stream: {}", err)
+                                        Ok(TcpMessage::Error(error)) => error!("Received error from TCP stream: {}", error),
+                                        Ok(message) => error!("Unexpected TCP message: {}", message),
+                                        Err(err) => error!("Unable to read TCP message from stream: {}", err)
                                     };
                                     break
                                 }

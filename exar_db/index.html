@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `exar_db` crate.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, exar_db">
+
+    <title>exar_db - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../main.css">
+    
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'></p><script>window.sidebarCurrent = {name: 'exar_db', ty: 'mod', relpath: '../'};</script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content mod">
+<h1 class='fqn'><span class='in-band'>Crate <a class='mod' href=''>exar_db</a></span><span class='out-of-band'><span id='render-detail'>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a id='src-0' class='srclink' href='../src/exar_db/src/main.rs.html#1-127' title='goto source code'>[src]</a></span></h1>
+<div class='docblock'>
+<h1 id='exar-db' class='section-header'><a href='#exar-db'>Exar DB</a></h1>
+<p>Exar DB is an event store with streaming support
+which uses a flat-file for each collection of events</p>
+
+<h2 id='installation' class='section-header'><a href='#installation'>Installation</a></h2>
+<p>Install <a href="https://crates.io/install"><code>Cargo</code></a>, then run:</p>
+
+<pre class='rust rust-example-rendered'>
+<span class='ident'>cargo</span> <span class='ident'>install</span> <span class='ident'>exar</span><span class='op'>-</span><span class='ident'>db</span></pre>
+
+<h2 id='starting-the-database' class='section-header'><a href='#starting-the-database'>Starting the database</a></h2>
+<p>Simply run <code>exar-db</code>.</p>
+
+<h2 id='configuring-the-database' class='section-header'><a href='#configuring-the-database'>Configuring the database</a></h2>
+<p>The database can be configured using a <code>TOML</code> configuration file, example below:</p>
+
+<pre><code class="language-toml">log4rs_path = &quot;/path/to/log4rs.toml&quot;
+[database]
+logs_path = &quot;~/exar-db/data&quot;
+scanners = { nr_of_scanners = 2, sleep_time_in_ms = 10 }
+[database.collections.my-collection]
+routing_strategy = &quot;Random&quot;
+scanners = { nr_of_scanners = 4, sleep_time_in_ms = 5 }
+[server]
+host = &quot;127.0.0.1&quot;
+port = 38580
+username = &quot;my-username&quot;
+password = &quot;my-secret&quot;
+</code></pre>
+
+<p>Then run Exar DB by specifying the config file location: <code>exar-db --config=/path/to/config.toml</code>.</p>
+
+<p>For more information about the <code>database</code> and <code>server</code> configuration sections,
+check the documentation about
+<a href="https://bfil.github.io/exar-db/exar/struct.DatabaseConfig.html">DatabaseConfig</a> and
+<a href="https://bfil.github.io/exar-db/exar_server/struct.ServerConfig.html">ServerConfig</a>.</p>
+
+<h2 id='logging' class='section-header'><a href='#logging'>Logging</a></h2>
+<p>Logging can be configured using a <a href="https://github.com/sfackler/log4rs">log4rs</a> config file in <code>TOML</code> format, example below:</p>
+
+<pre><code class="language-toml">[appenders.console]
+kind = &quot;console&quot;
+
+[appenders.console.encoder]
+pattern = &quot;[{d(%+)(local)}] [{h({l})}] [{t}] {m}{n}&quot;
+
+[appenders.file]
+kind = &quot;file&quot;
+path = &quot;exar-db.log&quot;
+
+[appenders.file.encoder]
+pattern = &quot;[{d(%+)(local)}] [{h({l})}] [{t}] {m}{n}&quot;
+
+[root]
+level = &quot;info&quot;
+appenders = [&quot;console&quot;, &quot;file&quot;]
+</code></pre>
+</div></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                    <dt>+</dt>
+                    <dd>Collapse/expand all sections</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../";
+        window.currentCrate = "exar_db";
+        window.playgroundUrl = "";
+    </script>
+    <script src="../jquery.js"></script>
+    <script src="../main.js"></script>
+    
+    <script defer src="../search-index.js"></script>
+</body>
+</html>

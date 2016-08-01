@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `Log` struct in crate `exar`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, Log">
+
+    <title>exar::Log - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../main.css">
+    
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'><a href='index.html'>exar</a></p><script>window.sidebarCurrent = {name: 'Log', ty: 'struct', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content struct">
+<h1 class='fqn'><span class='in-band'>Struct <a href='index.html'>exar</a>::<wbr><a class='struct' href=''>Log</a></span><span class='out-of-band'><span id='render-detail'>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a id='src-1153' class='srclink' href='../src/exar/log.rs.html#30-34' title='goto source code'>[src]</a></span></h1>
+<pre class='rust struct'>pub struct Log {
+    // some fields omitted
+}</pre><div class='docblock'><p>Exar DB&#39;s log file abstraction.</p>
+
+<p>It offers helper methods to manage a log file and its index.
+It also allows to open readers and writers for the log file.</p>
+
+<h1 id='examples' class='section-header'><a href='#examples'>Examples</a></h1>
+<pre class='rust rust-example-rendered'>
+<span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>exar</span>;
+
+<span class='kw'>use</span> <span class='ident'>exar</span>::<span class='op'>*</span>;
+
+<span class='kw'>let</span> <span class='ident'>log</span> <span class='op'>=</span> <span class='ident'>Log</span>::<span class='ident'>new</span>(<span class='string'>&quot;/path/to/logs&quot;</span>, <span class='string'>&quot;test&quot;</span>, <span class='number'>100</span>);
+
+<span class='kw'>let</span> <span class='ident'>exists</span> <span class='op'>=</span> <span class='ident'>log</span>.<span class='ident'>ensure_exists</span>().<span class='ident'>unwrap</span>();
+<span class='kw'>let</span> <span class='ident'>writer</span> <span class='op'>=</span> <span class='ident'>log</span>.<span class='ident'>open_writer</span>().<span class='ident'>unwrap</span>();
+<span class='kw'>let</span> <span class='ident'>reader</span> <span class='op'>=</span> <span class='ident'>log</span>.<span class='ident'>open_reader</span>().<span class='ident'>unwrap</span>();
+<span class='kw'>let</span> <span class='ident'>index</span> <span class='op'>=</span> <span class='ident'>log</span>.<span class='ident'>compute_index</span>().<span class='ident'>unwrap</span>();
+<span class='ident'>log</span>.<span class='ident'>remove</span>().<span class='ident'>unwrap</span>();</pre>
+</div><h2 id='methods'>Methods</h2><h3 class='impl'><span class='in-band'><code>impl <a class='struct' href='../exar/struct.Log.html' title='exar::Log'>Log</a></code></span><span class='out-of-band'><div class='ghost'></div><a id='src-1157' class='srclink' href='../src/exar/log.rs.html#36-201' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.new' class='method'><code>fn <a href='#method.new' class='fnname'>new</a>(path: &amp;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.str.html'>str</a>, name: &amp;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.str.html'>str</a>, index_granularity: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u64.html'>u64</a>) -&gt; <a class='struct' href='../exar/struct.Log.html' title='exar::Log'>Log</a></code></h4>
+<div class='docblock'><p>Returns a new <code>Log</code> pointing to the given path/name and using the given index granularity.</p>
+</div><h4 id='method.ensure_exists' class='method'><code>fn <a href='#method.ensure_exists' class='fnname'>ensure_exists</a>(&amp;self) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/result/enum.Result.html' title='core::result::Result'>Result</a>&lt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>()</a>,&nbsp;<a class='enum' href='../exar/enum.DatabaseError.html' title='exar::DatabaseError'>DatabaseError</a>&gt;</code></h4>
+<div class='docblock'><p>Ensure the underlying log file exists and creates it if it does not exist,
+it returns a <code>DatabaseError</code> if a failure occurs while creating the log file.</p>
+</div><h4 id='method.open_reader' class='method'><code>fn <a href='#method.open_reader' class='fnname'>open_reader</a>(&amp;self) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/result/enum.Result.html' title='core::result::Result'>Result</a>&lt;<a class='struct' href='https://doc.rust-lang.org/nightly/std/io/buffered/struct.BufReader.html' title='std::io::buffered::BufReader'>BufReader</a>&lt;<a class='struct' href='https://doc.rust-lang.org/nightly/std/fs/struct.File.html' title='std::fs::File'>File</a>&gt;,&nbsp;<a class='enum' href='../exar/enum.DatabaseError.html' title='exar::DatabaseError'>DatabaseError</a>&gt;</code></h4>
+<div class='docblock'><p>Returns a buffered reader for the underlying log file
+or a <code>DatabaseError</code> if a failure occurs.</p>
+</div><h4 id='method.open_line_reader' class='method'><code>fn <a href='#method.open_line_reader' class='fnname'>open_line_reader</a>(&amp;self) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/result/enum.Result.html' title='core::result::Result'>Result</a>&lt;<a class='struct' href='../indexed_line_reader/struct.IndexedLineReader.html' title='indexed_line_reader::IndexedLineReader'>IndexedLineReader</a>&lt;<a class='struct' href='https://doc.rust-lang.org/nightly/std/io/buffered/struct.BufReader.html' title='std::io::buffered::BufReader'>BufReader</a>&lt;<a class='struct' href='https://doc.rust-lang.org/nightly/std/fs/struct.File.html' title='std::fs::File'>File</a>&gt;&gt;,&nbsp;<a class='enum' href='../exar/enum.DatabaseError.html' title='exar::DatabaseError'>DatabaseError</a>&gt;</code></h4>
+<div class='docblock'><p>Returns an indexed line reader for the underlying log file
+or a <code>DatabaseError</code> if a failure occurs.</p>
+</div><h4 id='method.open_line_reader_with_index' class='method'><code>fn <a href='#method.open_line_reader_with_index' class='fnname'>open_line_reader_with_index</a>(&amp;self, index: <a class='struct' href='../indexed_line_reader/struct.LinesIndex.html' title='indexed_line_reader::LinesIndex'>LinesIndex</a>) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/result/enum.Result.html' title='core::result::Result'>Result</a>&lt;<a class='struct' href='../indexed_line_reader/struct.IndexedLineReader.html' title='indexed_line_reader::IndexedLineReader'>IndexedLineReader</a>&lt;<a class='struct' href='https://doc.rust-lang.org/nightly/std/io/buffered/struct.BufReader.html' title='std::io::buffered::BufReader'>BufReader</a>&lt;<a class='struct' href='https://doc.rust-lang.org/nightly/std/fs/struct.File.html' title='std::fs::File'>File</a>&gt;&gt;,&nbsp;<a class='enum' href='../exar/enum.DatabaseError.html' title='exar::DatabaseError'>DatabaseError</a>&gt;</code></h4>
+<div class='docblock'><p>Returns an indexed line reader for the underlying log file and restores the index
+using the given <code>LinesIndex</code> or a <code>DatabaseError</code> if a failure occurs.</p>
+</div><h4 id='method.open_writer' class='method'><code>fn <a href='#method.open_writer' class='fnname'>open_writer</a>(&amp;self) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/result/enum.Result.html' title='core::result::Result'>Result</a>&lt;<a class='struct' href='https://doc.rust-lang.org/nightly/std/io/buffered/struct.BufWriter.html' title='std::io::buffered::BufWriter'>BufWriter</a>&lt;<a class='struct' href='https://doc.rust-lang.org/nightly/std/fs/struct.File.html' title='std::fs::File'>File</a>&gt;,&nbsp;<a class='enum' href='../exar/enum.DatabaseError.html' title='exar::DatabaseError'>DatabaseError</a>&gt;</code></h4>
+<div class='docblock'><p>Returns a buffered writer for the underlying log file or a <code>DatabaseError</code> if a failure occurs.</p>
+</div><h4 id='method.remove' class='method'><code>fn <a href='#method.remove' class='fnname'>remove</a>(&amp;self) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/result/enum.Result.html' title='core::result::Result'>Result</a>&lt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>()</a>,&nbsp;<a class='enum' href='../exar/enum.DatabaseError.html' title='exar::DatabaseError'>DatabaseError</a>&gt;</code></h4>
+<div class='docblock'><p>Removes the underlying log file and its index or a <code>DatabaseError</code> if a failure occurs.</p>
+</div><h4 id='method.compute_index' class='method'><code>fn <a href='#method.compute_index' class='fnname'>compute_index</a>(&amp;self) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/result/enum.Result.html' title='core::result::Result'>Result</a>&lt;<a class='struct' href='../indexed_line_reader/struct.LinesIndex.html' title='indexed_line_reader::LinesIndex'>LinesIndex</a>,&nbsp;<a class='enum' href='../exar/enum.DatabaseError.html' title='exar::DatabaseError'>DatabaseError</a>&gt;</code></h4>
+<div class='docblock'><p>Computes and returns the <code>LinesIndex</code> for the underlying log file
+or a <code>DatabaseError</code> if a failure occurs.</p>
+</div><h4 id='method.open_index_reader' class='method'><code>fn <a href='#method.open_index_reader' class='fnname'>open_index_reader</a>(&amp;self) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/result/enum.Result.html' title='core::result::Result'>Result</a>&lt;<a class='struct' href='https://doc.rust-lang.org/nightly/std/io/buffered/struct.BufReader.html' title='std::io::buffered::BufReader'>BufReader</a>&lt;<a class='struct' href='https://doc.rust-lang.org/nightly/std/fs/struct.File.html' title='std::fs::File'>File</a>&gt;,&nbsp;<a class='enum' href='../exar/enum.DatabaseError.html' title='exar::DatabaseError'>DatabaseError</a>&gt;</code></h4>
+<div class='docblock'><p>Returns a buffered reader for the log index file or a <code>DatabaseError</code> if a failure occurs.</p>
+</div><h4 id='method.open_index_writer' class='method'><code>fn <a href='#method.open_index_writer' class='fnname'>open_index_writer</a>(&amp;self) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/result/enum.Result.html' title='core::result::Result'>Result</a>&lt;<a class='struct' href='https://doc.rust-lang.org/nightly/std/io/buffered/struct.BufWriter.html' title='std::io::buffered::BufWriter'>BufWriter</a>&lt;<a class='struct' href='https://doc.rust-lang.org/nightly/std/fs/struct.File.html' title='std::fs::File'>File</a>&gt;,&nbsp;<a class='enum' href='../exar/enum.DatabaseError.html' title='exar::DatabaseError'>DatabaseError</a>&gt;</code></h4>
+<div class='docblock'><p>Returns a buffered writer for the log index file or a <code>DatabaseError</code> if a failure occurs.</p>
+</div><h4 id='method.restore_index' class='method'><code>fn <a href='#method.restore_index' class='fnname'>restore_index</a>(&amp;self) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/result/enum.Result.html' title='core::result::Result'>Result</a>&lt;<a class='struct' href='../indexed_line_reader/struct.LinesIndex.html' title='indexed_line_reader::LinesIndex'>LinesIndex</a>,&nbsp;<a class='enum' href='../exar/enum.DatabaseError.html' title='exar::DatabaseError'>DatabaseError</a>&gt;</code></h4>
+<div class='docblock'><p>Restores and returns the log <code>LinesIndex</code> from the log index file
+or a <code>DatabaseError</code> if a failure occurs.</p>
+
+<p>If the log index file does not exist it will be computed and persisted.</p>
+</div><h4 id='method.persist_index' class='method'><code>fn <a href='#method.persist_index' class='fnname'>persist_index</a>(&amp;self, index: &amp;<a class='struct' href='../indexed_line_reader/struct.LinesIndex.html' title='indexed_line_reader::LinesIndex'>LinesIndex</a>) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/result/enum.Result.html' title='core::result::Result'>Result</a>&lt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>()</a>,&nbsp;<a class='enum' href='../exar/enum.DatabaseError.html' title='exar::DatabaseError'>DatabaseError</a>&gt;</code></h4>
+<div class='docblock'><p>Persists the given <code>LinesIndex</code> to a log index file
+or returns a <code>DatabaseError</code> if a failure occurs.</p>
+</div><h4 id='method.get_path' class='method'><code>fn <a href='#method.get_path' class='fnname'>get_path</a>(&amp;self) -&gt; <a class='struct' href='https://doc.rust-lang.org/nightly/collections/string/struct.String.html' title='collections::string::String'>String</a></code></h4>
+<div class='docblock'><p>Returns the path to the log file.</p>
+</div><h4 id='method.get_index_path' class='method'><code>fn <a href='#method.get_index_path' class='fnname'>get_index_path</a>(&amp;self) -&gt; <a class='struct' href='https://doc.rust-lang.org/nightly/collections/string/struct.String.html' title='collections::string::String'>String</a></code></h4>
+<div class='docblock'><p>Returns the path to the log index file.</p>
+</div><h4 id='method.get_index_granularity' class='method'><code>fn <a href='#method.get_index_granularity' class='fnname'>get_index_granularity</a>(&amp;self) -&gt; <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u64.html'>u64</a></code></h4>
+<div class='docblock'><p>Returns the lines index granularity for the log file.</p>
+</div></div><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><span class='in-band'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/cmp/trait.Eq.html' title='core::cmp::Eq'>Eq</a> for <a class='struct' href='../exar/struct.Log.html' title='exar::Log'>Log</a></code></span><span class='out-of-band'><div class='ghost'></div><a id='src-1114' class='srclink' href='../src/exar/log.rs.html#29' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'></div><h3 class='impl'><span class='in-band'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html' title='core::cmp::PartialEq'>PartialEq</a> for <a class='struct' href='../exar/struct.Log.html' title='exar::Log'>Log</a></code></span><span class='out-of-band'><div class='ghost'></div><a id='src-1120' class='srclink' href='../src/exar/log.rs.html#29' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.eq' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html#tymethod.eq' class='fnname'>eq</a>(&amp;self, __arg_0: &amp;<a class='struct' href='../exar/struct.Log.html' title='exar::Log'>Log</a>) -&gt; <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+<div class='docblock'><p>This method tests for <code>self</code> and <code>other</code> values to be equal, and is used by <code>==</code>. <a href="https://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html#tymethod.eq">Read more</a></p>
+</div><h4 id='method.ne' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html#method.ne' class='fnname'>ne</a>(&amp;self, __arg_0: &amp;<a class='struct' href='../exar/struct.Log.html' title='exar::Log'>Log</a>) -&gt; <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+<div class='docblock'><p>This method tests for <code>!=</code>.</p>
+</div></div><h3 class='impl'><span class='in-band'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html' title='core::fmt::Debug'>Debug</a> for <a class='struct' href='../exar/struct.Log.html' title='exar::Log'>Log</a></code></span><span class='out-of-band'><div class='ghost'></div><a id='src-1139' class='srclink' href='../src/exar/log.rs.html#29' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.fmt' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html#tymethod.fmt' class='fnname'>fmt</a>(&amp;self, __arg_0: &amp;mut <a class='struct' href='https://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html' title='core::fmt::Formatter'>Formatter</a>) -&gt; <a class='type' href='https://doc.rust-lang.org/nightly/core/fmt/type.Result.html' title='core::fmt::Result'>Result</a></code></h4>
+<div class='docblock'><p>Formats the value using the given formatter.</p>
+</div></div><h3 class='impl'><span class='in-band'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html' title='core::clone::Clone'>Clone</a> for <a class='struct' href='../exar/struct.Log.html' title='exar::Log'>Log</a></code></span><span class='out-of-band'><div class='ghost'></div><a id='src-1147' class='srclink' href='../src/exar/log.rs.html#29' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.clone' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#tymethod.clone' class='fnname'>clone</a>(&amp;self) -&gt; <a class='struct' href='../exar/struct.Log.html' title='exar::Log'>Log</a></code></h4>
+<div class='docblock'><p>Returns a copy of the value. <a href="https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#tymethod.clone">Read more</a></p>
+</div><h4 id='method.clone_from' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#method.clone_from' class='fnname'>clone_from</a>(&amp;mut self, source: &amp;Self)</code><div class='since' title='Stable since Rust version 1.0.0'>1.0.0</div></h4>
+<div class='docblock'><p>Performs copy-assignment from <code>source</code>. <a href="https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#method.clone_from">Read more</a></p>
+</div></div></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                    <dt>+</dt>
+                    <dd>Collapse/expand all sections</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../";
+        window.currentCrate = "exar";
+        window.playgroundUrl = "";
+    </script>
+    <script src="../jquery.js"></script>
+    <script src="../main.js"></script>
+    
+    <script defer src="../search-index.js"></script>
+</body>
+</html>

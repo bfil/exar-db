@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `Scanner` struct in crate `exar`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, Scanner">
+
+    <title>exar::Scanner - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../main.css">
+    
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'><a href='index.html'>exar</a></p><script>window.sidebarCurrent = {name: 'Scanner', ty: 'struct', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content struct">
+<h1 class='fqn'><span class='in-band'>Struct <a href='index.html'>exar</a>::<wbr><a class='struct' href=''>Scanner</a></span><span class='out-of-band'><span id='render-detail'>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a id='src-1363' class='srclink' href='../src/exar/scanner.rs.html#40-42' title='goto source code'>[src]</a></span></h1>
+<pre class='rust struct'>pub struct Scanner {
+    // some fields omitted
+}</pre><div class='docblock'><p>Exar DB&#39;s log file scanner.</p>
+
+<p>It manages event stream subscriptions and continuously scans
+portions of the log file depending on the subscriptions query parameters.</p>
+
+<h1 id='examples' class='section-header'><a href='#examples'>Examples</a></h1>
+<pre class='rust rust-example-rendered'>
+<span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>exar</span>;
+
+<span class='kw'>use</span> <span class='ident'>exar</span>::<span class='op'>*</span>;
+<span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>sync</span>::<span class='ident'>mpsc</span>::<span class='ident'>channel</span>;
+<span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>time</span>::<span class='ident'>Duration</span>;
+
+<span class='kw'>let</span> <span class='ident'>log</span> <span class='op'>=</span> <span class='ident'>Log</span>::<span class='ident'>new</span>(<span class='string'>&quot;/path/to/logs&quot;</span>, <span class='string'>&quot;test&quot;</span>, <span class='number'>100</span>);
+<span class='kw'>let</span> <span class='ident'>event</span> <span class='op'>=</span> <span class='ident'>Event</span>::<span class='ident'>new</span>(<span class='string'>&quot;data&quot;</span>, <span class='macro'>vec</span><span class='macro'>!</span>[<span class='string'>&quot;tag1&quot;</span>, <span class='string'>&quot;tag2&quot;</span>]);
+
+<span class='kw'>let</span> <span class='ident'>line_reader</span> <span class='op'>=</span> <span class='ident'>log</span>.<span class='ident'>open_line_reader</span>().<span class='ident'>unwrap</span>();
+<span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>scanner</span> <span class='op'>=</span> <span class='ident'>Scanner</span>::<span class='ident'>new</span>(<span class='ident'>line_reader</span>, <span class='ident'>Duration</span>::<span class='ident'>from_millis</span>(<span class='number'>10</span>));
+
+<span class='kw'>let</span> (<span class='ident'>sender</span>, _) <span class='op'>=</span> <span class='ident'>channel</span>();
+<span class='kw'>let</span> <span class='ident'>subscription</span> <span class='op'>=</span> <span class='ident'>Subscription</span>::<span class='ident'>new</span>(<span class='ident'>sender</span>, <span class='ident'>Query</span>::<span class='ident'>live</span>());
+<span class='ident'>scanner</span>.<span class='ident'>handle_subscription</span>(<span class='ident'>subscription</span>).<span class='ident'>unwrap</span>();
+
+<span class='ident'>drop</span>(<span class='ident'>scanner</span>);</pre>
+</div><h2 id='methods'>Methods</h2><h3 class='impl'><span class='in-band'><code>impl <a class='struct' href='../exar/struct.Scanner.html' title='exar::Scanner'>Scanner</a></code></span><span class='out-of-band'><div class='ghost'></div><a id='src-1365' class='srclink' href='../src/exar/scanner.rs.html#44-90' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.new' class='method'><code>fn <a href='#method.new' class='fnname'>new</a>(reader: <a class='struct' href='../indexed_line_reader/struct.IndexedLineReader.html' title='indexed_line_reader::IndexedLineReader'>IndexedLineReader</a>&lt;<a class='struct' href='https://doc.rust-lang.org/nightly/std/io/buffered/struct.BufReader.html' title='std::io::buffered::BufReader'>BufReader</a>&lt;<a class='struct' href='https://doc.rust-lang.org/nightly/std/fs/struct.File.html' title='std::fs::File'>File</a>&gt;&gt;, sleep_duration: <a class='struct' href='https://doc.rust-lang.org/nightly/std/time/duration/struct.Duration.html' title='std::time::duration::Duration'>Duration</a>) -&gt; <a class='struct' href='../exar/struct.Scanner.html' title='exar::Scanner'>Scanner</a></code></h4>
+<div class='docblock'><p>Creates a new log scanner using the given <code>IndexedLineReader</code> and sleep duration.</p>
+</div><h4 id='method.handle_subscription' class='method'><code>fn <a href='#method.handle_subscription' class='fnname'>handle_subscription</a>(&amp;self, subscription: <a class='struct' href='../exar/struct.Subscription.html' title='exar::Subscription'>Subscription</a>) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/result/enum.Result.html' title='core::result::Result'>Result</a>&lt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>()</a>,&nbsp;<a class='enum' href='../exar/enum.DatabaseError.html' title='exar::DatabaseError'>DatabaseError</a>&gt;</code></h4>
+<div class='docblock'><p>Handles the given <code>Subscription</code> or returns a <code>DatabaseError</code> if a failure occurs.</p>
+</div><h4 id='method.add_line_index' class='method'><code>fn <a href='#method.add_line_index' class='fnname'>add_line_index</a>(&amp;self, line: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u64.html'>u64</a>, byte_count: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u64.html'>u64</a>) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/result/enum.Result.html' title='core::result::Result'>Result</a>&lt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>()</a>,&nbsp;<a class='enum' href='../exar/enum.DatabaseError.html' title='exar::DatabaseError'>DatabaseError</a>&gt;</code></h4>
+<div class='docblock'><p>Adds the given line to the <code>LinesIndex</code> or returns a <code>DatabaseError</code> if a failure occurs.</p>
+</div><h4 id='method.set_tail_scanner_sender' class='method'><code>fn <a href='#method.set_tail_scanner_sender' class='fnname'>set_tail_scanner_sender</a>(&amp;mut self, sender: <a class='struct' href='https://doc.rust-lang.org/nightly/std/sync/mpsc/struct.Sender.html' title='std::sync::mpsc::Sender'>Sender</a>&lt;<a class='enum' href='../exar/enum.ScannerAction.html' title='exar::ScannerAction'>ScannerAction</a>&gt;) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/result/enum.Result.html' title='core::result::Result'>Result</a>&lt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>()</a>,&nbsp;<a class='enum' href='../exar/enum.DatabaseError.html' title='exar::DatabaseError'>DatabaseError</a>&gt;</code></h4>
+<div class='docblock'><p>Adds a reference to a tail scanner that is responsible of handling live subscriptions
+or returns a <code>DatabaseError</code> if a failure occurs.</p>
+</div><h4 id='method.clone_action_sender' class='method'><code>fn <a href='#method.clone_action_sender' class='fnname'>clone_action_sender</a>(&amp;self) -&gt; <a class='struct' href='https://doc.rust-lang.org/nightly/std/sync/mpsc/struct.Sender.html' title='std::sync::mpsc::Sender'>Sender</a>&lt;<a class='enum' href='../exar/enum.ScannerAction.html' title='exar::ScannerAction'>ScannerAction</a>&gt;</code></h4>
+<div class='docblock'><p>Clones the channel sender responsible to send <code>ScannerAction</code>s to the scanner thread.</p>
+</div></div><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><span class='in-band'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html' title='core::fmt::Debug'>Debug</a> for <a class='struct' href='../exar/struct.Scanner.html' title='exar::Scanner'>Scanner</a></code></span><span class='out-of-band'><div class='ghost'></div><a id='src-1353' class='srclink' href='../src/exar/scanner.rs.html#39' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.fmt' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html#tymethod.fmt' class='fnname'>fmt</a>(&amp;self, __arg_0: &amp;mut <a class='struct' href='https://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html' title='core::fmt::Formatter'>Formatter</a>) -&gt; <a class='type' href='https://doc.rust-lang.org/nightly/core/fmt/type.Result.html' title='core::fmt::Result'>Result</a></code></h4>
+<div class='docblock'><p>Formats the value using the given formatter.</p>
+</div></div><h3 class='impl'><span class='in-band'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html' title='core::clone::Clone'>Clone</a> for <a class='struct' href='../exar/struct.Scanner.html' title='exar::Scanner'>Scanner</a></code></span><span class='out-of-band'><div class='ghost'></div><a id='src-1359' class='srclink' href='../src/exar/scanner.rs.html#39' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.clone' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#tymethod.clone' class='fnname'>clone</a>(&amp;self) -&gt; <a class='struct' href='../exar/struct.Scanner.html' title='exar::Scanner'>Scanner</a></code></h4>
+<div class='docblock'><p>Returns a copy of the value. <a href="https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#tymethod.clone">Read more</a></p>
+</div><h4 id='method.clone_from' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#method.clone_from' class='fnname'>clone_from</a>(&amp;mut self, source: &amp;Self)</code><div class='since' title='Stable since Rust version 1.0.0'>1.0.0</div></h4>
+<div class='docblock'><p>Performs copy-assignment from <code>source</code>. <a href="https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#method.clone_from">Read more</a></p>
+</div></div><h3 class='impl'><span class='in-band'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/ops/trait.Drop.html' title='core::ops::Drop'>Drop</a> for <a class='struct' href='../exar/struct.Scanner.html' title='exar::Scanner'>Scanner</a></code></span><span class='out-of-band'><div class='ghost'></div><a id='src-1385' class='srclink' href='../src/exar/scanner.rs.html#92-99' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.drop' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/ops/trait.Drop.html#tymethod.drop' class='fnname'>drop</a>(&amp;mut self)</code></h4>
+<div class='docblock'><p>A method called when the value goes out of scope. <a href="https://doc.rust-lang.org/nightly/core/ops/trait.Drop.html#tymethod.drop">Read more</a></p>
+</div></div></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                    <dt>+</dt>
+                    <dd>Collapse/expand all sections</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../";
+        window.currentCrate = "exar";
+        window.playgroundUrl = "";
+    </script>
+    <script src="../jquery.js"></script>
+    <script src="../main.js"></script>
+    
+    <script defer src="../search-index.js"></script>
+</body>
+</html>

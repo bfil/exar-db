@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["ActionResult","A list specifying categories of connection handler action results."],["State","A list specifying categories of connection state."]],"struct":[["Credentials","A structure containing credentials."],["Handler","Exar DB's server connection handler."],["Server","Exar DB's server."],["ServerConfig","Exar DB's server configuration."]]});

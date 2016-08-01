@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `ConfigFactory` struct in crate `toml_config`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, ConfigFactory">
+
+    <title>toml_config::ConfigFactory - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../main.css">
+    
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'><a href='index.html'>toml_config</a></p><script>window.sidebarCurrent = {name: 'ConfigFactory', ty: 'struct', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content struct">
+<h1 class='fqn'><span class='in-band'>Struct <a href='index.html'>toml_config</a>::<wbr><a class='struct' href=''>ConfigFactory</a></span><span class='out-of-band'><span id='render-detail'>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a id='src-11' class='srclink' href='../src/toml_config/lib.rs.html#155' title='goto source code'>[src]</a></span></h1>
+<pre class='rust struct'>pub struct ConfigFactory;</pre><div class='docblock'><p>Implements helper functions for loading TOML files into a structure</p>
+
+<h1 id='examples' class='section-header'><a href='#examples'>Examples</a></h1>
+<p>To load a file into a Config struct, use <code>ConfigFactory</code>.</p>
+
+<p>Either <code>rustc_serialize</code> or <code>serde</code> can be used for serialization.</p>
+
+<h2 id='example-using-rustc_serialize' class='section-header'><a href='#example-using-rustc_serialize'> Example using rustc_serialize</a></h2>
+<pre class='rust rust-example-rendered'>
+<span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>rustc_serialize</span>;
+<span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>toml_config</span>;
+
+<span class='kw'>use</span> <span class='ident'>rustc_serialize</span>::{<span class='ident'>Encodable</span>, <span class='ident'>Decodable</span>};
+<span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>path</span>::<span class='ident'>Path</span>;
+<span class='kw'>use</span> <span class='ident'>toml_config</span>::<span class='ident'>ConfigFactory</span>;
+
+<span class='attribute'>#[<span class='ident'>derive</span>(<span class='ident'>RustcEncodable</span>, <span class='ident'>RustcDecodable</span>)]</span>
+<span class='kw'>struct</span> <span class='ident'>Config</span>  {
+    <span class='ident'>nested</span>: <span class='ident'>NestedConfig</span>
+}
+
+<span class='comment'>// Defaults will be used for missing/invalid configurations in the TOML config file</span>
+<span class='kw'>impl</span> <span class='ident'>Default</span> <span class='kw'>for</span> <span class='ident'>Config</span> {
+    <span class='kw'>fn</span> <span class='ident'>default</span>() <span class='op'>-&gt;</span> <span class='ident'>Config</span> {
+        <span class='ident'>Config</span> {
+            <span class='ident'>nested</span>: <span class='ident'>NestedConfig</span>::<span class='ident'>default</span>()
+        }
+    }
+}
+
+<span class='attribute'>#[<span class='ident'>derive</span>(<span class='ident'>RustcEncodable</span>, <span class='ident'>RustcDecodable</span>)]</span>
+<span class='kw'>struct</span> <span class='ident'>NestedConfig</span>  {
+    <span class='ident'>value</span>: <span class='ident'>String</span>,
+    <span class='ident'>values</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u16</span><span class='op'>&gt;</span>
+}
+
+<span class='kw'>impl</span> <span class='ident'>Default</span> <span class='kw'>for</span> <span class='ident'>NestedConfig</span> {
+    <span class='kw'>fn</span> <span class='ident'>default</span>() <span class='op'>-&gt;</span> <span class='ident'>NestedConfig</span> {
+        <span class='ident'>NestedConfig</span> {
+            <span class='ident'>value</span>: <span class='string'>&quot;default&quot;</span>.<span class='ident'>to_owned</span>(),
+            <span class='ident'>values</span>: <span class='macro'>vec</span><span class='macro'>!</span>[<span class='number'>0</span>, <span class='number'>0</span>, <span class='number'>0</span>]
+        }
+    }
+}
+
+<span class='comment'>/* config.toml:
+ * [nested]
+ * value = &quot;test&quot;
+ * values = [1, 2, 3]
+ */</span>
+
+<span class='kw'>let</span> <span class='ident'>config</span>: <span class='ident'>Config</span> <span class='op'>=</span> <span class='ident'>ConfigFactory</span>::<span class='ident'>load</span>(<span class='ident'>Path</span>::<span class='ident'>new</span>(<span class='string'>&quot;config.toml&quot;</span>));
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>config</span>.<span class='ident'>nested</span>.<span class='ident'>value</span>, <span class='string'>&quot;test&quot;</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>config</span>.<span class='ident'>nested</span>.<span class='ident'>values</span>, <span class='macro'>vec</span><span class='macro'>!</span>[<span class='number'>1</span>, <span class='number'>2</span>, <span class='number'>3</span>]);</pre>
+
+<h2 id='example-using-serde' class='section-header'><a href='#example-using-serde'>Example using serde</a></h2>
+<pre class='rust rust-example-rendered'>
+<span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>serde</span>;
+<span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>toml_config</span>;
+
+<span class='kw'>use</span> <span class='ident'>serde</span>::{<span class='ident'>Serialize</span>, <span class='ident'>Deserialize</span>};
+<span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>path</span>::<span class='ident'>Path</span>;
+<span class='kw'>use</span> <span class='ident'>toml_config</span>::<span class='ident'>ConfigFactory</span>;
+
+<span class='attribute'>#[<span class='ident'>derive</span>(<span class='ident'>Serialize</span>, <span class='ident'>Deserialize</span>)]</span>
+<span class='kw'>struct</span> <span class='ident'>Config</span>  {
+    <span class='ident'>nested</span>: <span class='ident'>NestedConfig</span>
+}
+
+<span class='comment'>// Defaults will be used for missing/invalid configurations in the TOML config file</span>
+<span class='kw'>impl</span> <span class='ident'>Default</span> <span class='kw'>for</span> <span class='ident'>Config</span> {
+    <span class='kw'>fn</span> <span class='ident'>default</span>() <span class='op'>-&gt;</span> <span class='ident'>Config</span> {
+        <span class='ident'>Config</span> {
+            <span class='ident'>nested</span>: <span class='ident'>NestedConfig</span>::<span class='ident'>default</span>()
+        }
+    }
+}
+
+<span class='attribute'>#[<span class='ident'>derive</span>(<span class='ident'>Serialize</span>, <span class='ident'>Deserialize</span>)]</span>
+<span class='kw'>struct</span> <span class='ident'>NestedConfig</span>  {
+    <span class='ident'>value</span>: <span class='ident'>String</span>,
+    <span class='ident'>values</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u16</span><span class='op'>&gt;</span>
+}
+
+<span class='kw'>impl</span> <span class='ident'>Default</span> <span class='kw'>for</span> <span class='ident'>NestedConfig</span> {
+    <span class='kw'>fn</span> <span class='ident'>default</span>() <span class='op'>-&gt;</span> <span class='ident'>NestedConfig</span> {
+        <span class='ident'>NestedConfig</span> {
+            <span class='ident'>value</span>: <span class='string'>&quot;default&quot;</span>.<span class='ident'>to_owned</span>(),
+            <span class='ident'>values</span>: <span class='macro'>vec</span><span class='macro'>!</span>[<span class='number'>0</span>, <span class='number'>0</span>, <span class='number'>0</span>]
+        }
+    }
+}
+
+<span class='comment'>/* config.toml:
+ * [nested]
+ * value = &quot;test&quot;
+ * values = [1, 2, 3]
+ */</span>
+
+<span class='kw'>let</span> <span class='ident'>config</span>: <span class='ident'>Config</span> <span class='op'>=</span> <span class='ident'>ConfigFactory</span>::<span class='ident'>load</span>(<span class='ident'>Path</span>::<span class='ident'>new</span>(<span class='string'>&quot;config.toml&quot;</span>));
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>config</span>.<span class='ident'>nested</span>.<span class='ident'>value</span>, <span class='string'>&quot;test&quot;</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>config</span>.<span class='ident'>nested</span>.<span class='ident'>values</span>, <span class='macro'>vec</span><span class='macro'>!</span>[<span class='number'>1</span>, <span class='number'>2</span>, <span class='number'>3</span>]);</pre>
+</div><h2 id='methods'>Methods</h2><h3 class='impl'><span class='in-band'><code>impl <a class='struct' href='../toml_config/struct.ConfigFactory.html' title='toml_config::ConfigFactory'>ConfigFactory</a></code></span><span class='out-of-band'><div class='ghost'></div><a id='src-13' class='srclink' href='../src/toml_config/lib.rs.html#157-250' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.load' class='method'><code>fn <a href='#method.load' class='fnname'>load</a>&lt;T&gt;(path: &amp;<a class='struct' href='https://doc.rust-lang.org/nightly/std/path/struct.Path.html' title='std::path::Path'>Path</a>) -&gt; T <span class='where'>where T: <a class='trait' href='../rustc_serialize/serialize/trait.Encodable.html' title='rustc_serialize::serialize::Encodable'>Encodable</a> + <a class='trait' href='../rustc_serialize/serialize/trait.Decodable.html' title='rustc_serialize::serialize::Decodable'>Decodable</a> + <a class='trait' href='https://doc.rust-lang.org/nightly/core/default/trait.Default.html' title='core::default::Default'>Default</a></span></code></h4>
+<div class='docblock'><p>Loads a TOML file and decodes it into a target structure, using default values
+for missing or invalid file configurations</p>
+</div><h4 id='method.decode' class='method'><code>fn <a href='#method.decode' class='fnname'>decode</a>&lt;T&gt;(toml_table: <a class='type' href='../toml/type.Table.html' title='toml::Table'>Table</a>) -&gt; T <span class='where'>where T: <a class='trait' href='../rustc_serialize/serialize/trait.Encodable.html' title='rustc_serialize::serialize::Encodable'>Encodable</a> + <a class='trait' href='../rustc_serialize/serialize/trait.Decodable.html' title='rustc_serialize::serialize::Decodable'>Decodable</a> + <a class='trait' href='https://doc.rust-lang.org/nightly/core/default/trait.Default.html' title='core::default::Default'>Default</a></span></code></h4>
+<div class='docblock'><p>Decodes a TOML table into a target structure, using default values
+for missing or invalid configurations</p>
+</div></div></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                    <dt>+</dt>
+                    <dd>Collapse/expand all sections</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../";
+        window.currentCrate = "toml_config";
+        window.playgroundUrl = "";
+    </script>
+    <script src="../jquery.js"></script>
+    <script src="../main.js"></script>
+    
+    <script defer src="../search-index.js"></script>
+</body>
+</html>

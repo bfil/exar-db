@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["TcpMessage","A list specifying categories of TCP message."]],"struct":[["TcpMessageStream","A bidiectional TCP message stream."],["TcpMessages","An iterator over the messages received on a stream."]],"trait":[["TryClone",""]]});

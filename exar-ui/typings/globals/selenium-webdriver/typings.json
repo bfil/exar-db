@@ -1,8 +1,8 @@
 {
   "resolution": "main",
   "tree": {
-    "src": "https://raw.githubusercontent.com/DefinitelyTyped/DefinitelyTyped/24e12a7af994afa2226af70fbfae0adc78736a9e/selenium-webdriver/selenium-webdriver.d.ts",
-    "raw": "github:DefinitelyTyped/DefinitelyTyped/selenium-webdriver/selenium-webdriver.d.ts#24e12a7af994afa2226af70fbfae0adc78736a9e",
-    "typings": "https://raw.githubusercontent.com/DefinitelyTyped/DefinitelyTyped/24e12a7af994afa2226af70fbfae0adc78736a9e/selenium-webdriver/selenium-webdriver.d.ts"
+    "src": "https://raw.githubusercontent.com/DefinitelyTyped/DefinitelyTyped/7de6c3dd94feaeb21f20054b9f30d5dabc5efabd/selenium-webdriver/selenium-webdriver.d.ts",
+    "raw": "registry:dt/selenium-webdriver#2.44.0+20160317120654",
+    "typings": "https://raw.githubusercontent.com/DefinitelyTyped/DefinitelyTyped/7de6c3dd94feaeb21f20054b9f30d5dabc5efabd/selenium-webdriver/selenium-webdriver.d.ts"
   }
 }

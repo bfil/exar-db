@@ -1,12 +1,12 @@
 module.exports = function(config) {
   config.set({
-    basePath: './',
+    basePath: '.',
     frameworks: ['systemjs', 'jasmine'],
     systemjs: {
       configFile: 'config.js',
       config: {
         paths: {
-          "*": null,
+          "*": "*",
           "src/*": "src/*",
           "typescript": "node_modules/typescript/lib/typescript.js",
           "systemjs": "node_modules/systemjs/dist/system.js",
@@ -29,11 +29,13 @@ module.exports = function(config) {
       ]
     },
     files: [
-      'test/unit/*.spec.ts'
+      'test/unit/setup.ts',
+      'test/unit/*.ts',
+      'test/unit/**/*.ts'
     ],
     exclude: [],
     preprocessors: { },
-    reporters: ['progress'],
+    reporters: ['spec'],
     port: 9876,
     colors: true,
     logLevel: config.LOG_INFO,

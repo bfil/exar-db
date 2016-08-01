@@ -1,0 +1,11 @@
+{
+  "resolution": "main",
+  "tree": {
+    "src": "https://raw.githubusercontent.com/aurelia/templating-binding/master/typings.json",
+    "raw": "github:aurelia/templating-binding",
+    "main": "dist/aurelia-templating-binding.d.ts",
+    "global": false,
+    "name": "aurelia-templating-binding",
+    "type": "typings"
+  }
+}

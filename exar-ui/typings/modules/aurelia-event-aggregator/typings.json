@@ -1,0 +1,11 @@
+{
+  "resolution": "main",
+  "tree": {
+    "src": "https://raw.githubusercontent.com/aurelia/event-aggregator/master/typings.json",
+    "raw": "github:aurelia/event-aggregator",
+    "main": "dist/aurelia-event-aggregator.d.ts",
+    "global": false,
+    "name": "aurelia-event-aggregator",
+    "type": "typings"
+  }
+}

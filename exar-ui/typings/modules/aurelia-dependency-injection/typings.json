@@ -1,0 +1,11 @@
+{
+  "resolution": "main",
+  "tree": {
+    "src": "https://raw.githubusercontent.com/aurelia/dependency-injection/master/typings.json",
+    "raw": "github:aurelia/dependency-injection",
+    "main": "dist/aurelia-dependency-injection.d.ts",
+    "global": false,
+    "name": "aurelia-dependency-injection",
+    "type": "typings"
+  }
+}

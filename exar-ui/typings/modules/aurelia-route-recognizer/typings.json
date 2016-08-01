@@ -1,0 +1,11 @@
+{
+  "resolution": "main",
+  "tree": {
+    "src": "https://raw.githubusercontent.com/aurelia/route-recognizer/master/typings.json",
+    "raw": "github:aurelia/route-recognizer",
+    "main": "dist/aurelia-route-recognizer.d.ts",
+    "global": false,
+    "name": "aurelia-route-recognizer",
+    "type": "typings"
+  }
+}

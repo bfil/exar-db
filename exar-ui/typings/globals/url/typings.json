@@ -1,0 +1,8 @@
+{
+  "resolution": "main",
+  "tree": {
+    "src": "https://raw.githubusercontent.com/aurelia/fetch-client/master/doc/url.d.ts",
+    "raw": "github:aurelia/fetch-client/doc/url.d.ts",
+    "typings": "https://raw.githubusercontent.com/aurelia/fetch-client/master/doc/url.d.ts"
+  }
+}

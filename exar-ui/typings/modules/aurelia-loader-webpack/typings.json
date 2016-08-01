@@ -1,0 +1,11 @@
+{
+  "resolution": "main",
+  "tree": {
+    "src": "https://raw.githubusercontent.com/aurelia/loader-webpack/master/typings.json",
+    "raw": "github:aurelia/loader-webpack",
+    "main": "dist/aurelia-loader-webpack.d.ts",
+    "global": false,
+    "name": "aurelia-loader-webpack",
+    "type": "typings"
+  }
+}

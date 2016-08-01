@@ -1,0 +1,11 @@
+{
+  "resolution": "main",
+  "tree": {
+    "src": "https://raw.githubusercontent.com/aurelia/history-browser/master/typings.json",
+    "raw": "github:aurelia/history-browser",
+    "main": "dist/aurelia-history-browser.d.ts",
+    "global": false,
+    "name": "aurelia-history-browser",
+    "type": "typings"
+  }
+}

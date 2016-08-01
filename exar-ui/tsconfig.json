@@ -1,5 +1,5 @@
 {
-  "version": "1.8.10",
+  "version": "2.0.0",
   "compileOnSave": false,
   "compilerOptions": {
     "rootDir": "src/",
@@ -8,17 +8,15 @@
     "module": "amd",
     "declaration": false,
     "noImplicitAny": false,
-    "noResolve": true,
     "removeComments": true,
-    "noLib": false,
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
-    "moduleResolution": "classic"
+    "moduleResolution": "classic",
+    "lib": ["es2015", "dom"]
   },
   "filesGlob": [
     "src/**/*.ts",
     "test/**/*.ts",
-    "typings/**/*.d.ts",
     "custom_typings/**/*.d.ts",
     "typings/index.d.ts"
   ],

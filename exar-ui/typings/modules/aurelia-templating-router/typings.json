@@ -1,0 +1,11 @@
+{
+  "resolution": "main",
+  "tree": {
+    "src": "https://raw.githubusercontent.com/aurelia/templating-router/master/typings.json",
+    "raw": "github:aurelia/templating-router",
+    "main": "dist/aurelia-templating-router.d.ts",
+    "global": false,
+    "name": "aurelia-templating-router",
+    "type": "typings"
+  }
+}

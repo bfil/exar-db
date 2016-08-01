@@ -1,0 +1,11 @@
+{
+  "resolution": "main",
+  "tree": {
+    "src": "https://raw.githubusercontent.com/aurelia/path/master/typings.json",
+    "raw": "github:aurelia/path",
+    "main": "dist/aurelia-path.d.ts",
+    "global": false,
+    "name": "aurelia-path",
+    "type": "typings"
+  }
+}

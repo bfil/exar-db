@@ -28,9 +28,14 @@ fn main() {
     };
 
     let db = Database::new(config.database);
-    let server = Server::new(config.server.clone(), db).unwrap();
+    match Server::new(config.server.clone(), db) {
+        Ok(server) => {
+            println!("ExarDB running at {}..", config.server.address());
+            server.listen();
+            println!("ExarDB shutting down..");
+        },
+        Err(err) => println!("Unable to run ExarDB: {}", err)
+    }
 
-    println!("ExarDB running at {}..", config.server.address());
-    server.listen();
-    println!("ExarDB shutting down..");
+
 }

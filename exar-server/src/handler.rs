@@ -7,6 +7,9 @@ use std::io::ErrorKind;
 use std::net::TcpStream;
 use std::sync::{Arc, Mutex};
 
+/// Exar DB's server connection handler.
+///
+/// It manages the TCP stream associated to a single remote connection.
 pub struct Handler {
     credentials: Credentials,
     stream: TcpMessageStream<TcpStream>,
@@ -14,6 +17,8 @@ pub struct Handler {
 }
 
 impl Handler {
+    /// Creates a connection handler using the given TCP stream, database and credentials,
+    /// or a `DatabaseError` if a failure occurs.
     pub fn new(stream: TcpStream, db: Arc<Mutex<Database>>, credentials: Credentials) -> Result<Handler, DatabaseError> {
         TcpMessageStream::new(stream).and_then(|stream| {
             Ok(Handler {
@@ -24,6 +29,7 @@ impl Handler {
         })
     }
 
+    /// Runs the connection handler which processes one incoming TCP message at a time.
     pub fn run(&mut self) {
         match self.stream.try_clone() {
             Ok(stream) => {
@@ -108,9 +114,12 @@ impl Handler {
     }
 }
 
+/// A list specifying categories of connection state.
 #[derive(Clone)]
 pub enum State {
+    /// The connection is idle and awaiting a `Connect` message.
     Idle(Arc<Mutex<Database>>),
+    /// The connection has been established.
     Connected(Connection)
 }
 
@@ -123,9 +132,13 @@ impl ToString for State {
     }
 }
 
+/// A list specifying categories of connection handler action results.
 pub enum ActionResult {
+    /// The connection has been established.
     Connected,
+    /// The event has been published with the given `id`.
     Published(u64),
+    /// The subscription has been accepted and the event stream is available.
     EventStream(EventStream)
 }
 

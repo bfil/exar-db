@@ -6,6 +6,26 @@ use std::net::{ToSocketAddrs, TcpListener};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
+/// Exar DB's server.
+///
+/// It manages TCP connections.
+///
+/// # Examples
+/// ```no_run
+/// extern crate exar;
+/// extern crate exar_server;
+///
+/// # fn main() {
+/// use exar::*;
+/// use exar_server::*;
+///
+/// let db = Database::new(DatabaseConfig::default());
+/// let config = ServerConfig::default();
+///
+/// let mut server = Server::new(config, db).unwrap();
+/// server.listen();
+/// # }
+/// ```
 #[derive(Debug)]
 pub struct Server {
     credentials: Credentials,
@@ -14,6 +34,8 @@ pub struct Server {
 }
 
 impl Server {
+    /// Creates a server with the given config and database and binds it to the configured host and port,
+    /// or returns a `DatabaseError` if a failure occurs.
     pub fn new(config: ServerConfig, db: Database) -> Result<Server, DatabaseError> {
         let db = Arc::new(Mutex::new(db));
         match TcpListener::bind(&*config.address()) {
@@ -29,6 +51,8 @@ impl Server {
         }
     }
 
+    /// Creates a server database and binds it to the given address,
+    /// or returns a `DatabaseError` if a failure occurs.
     pub fn bind<A: ToSocketAddrs>(address: A, db: Database) -> Result<Server, DatabaseError> {
         let db = Arc::new(Mutex::new(db));
         match TcpListener::bind(address) {
@@ -46,12 +70,16 @@ impl Server {
         }
     }
 
+    /// Returns a modified version of the server by setting its credentials to the given value.
     pub fn with_credentials(mut self, username: &str, password: &str) -> Server {
         self.credentials.username = Some(username.to_string());
         self.credentials.password = Some(password.to_string());
         self
     }
 
+    /// Starts listening for incoming TCP connections.
+    ///
+    /// It will block the current thread indefinitely.
     pub fn listen(&self) {
         for stream in self.listener.incoming() {
             match stream {

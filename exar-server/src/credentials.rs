@@ -1,10 +1,14 @@
+/// A structure containing credentials.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Credentials  {
+    /// The username.
     pub username: Option<String>,
+    /// The password.
     pub password: Option<String>
 }
 
 impl Credentials {
+    /// Creates new `Credentials`.
     pub fn new(username: &str, password: &str) -> Credentials {
         Credentials {
             username: Some(username.to_owned()),
@@ -12,6 +16,7 @@ impl Credentials {
         }
     }
 
+    /// Returns empty `Credentials`.
     pub fn empty() -> Credentials {
         Credentials {
             username: None,

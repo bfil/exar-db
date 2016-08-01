@@ -8,7 +8,7 @@
 //! # fn main() {
 //! use exar_client::*;
 //!
-//! let addr = "localhost:38580";
+//! let addr = "127.0.0.1:38580";
 //! let client = Client::connect(addr, "test", Some("username"), Some("password")).unwrap();
 //! # }
 //! ```
@@ -21,7 +21,7 @@
 //! use exar::*;
 //! use exar_client::*;
 //!
-//! let addr = "localhost:38580";
+//! let addr = "127.0.0.1:38580";
 //! let mut client = Client::connect(addr, "test", Some("username"), Some("password")).unwrap();
 //!
 //! let event = Event::new("payload", vec!["tag1", "tag2"]);
@@ -41,7 +41,7 @@
 //! use exar::*;
 //! use exar_client::*;
 //!
-//! let addr = "localhost:38580";
+//! let addr = "127.0.0.1:38580";
 //! let mut client = Client::connect(addr, "test", Some("username"), Some("password")).unwrap();
 //!
 //! let query = Query::live().offset(0).limit(10).by_tag("tag1");

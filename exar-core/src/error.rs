@@ -43,9 +43,9 @@ impl ToTabSeparatedString for DatabaseError {
             DatabaseError::IoError(ref error_kind, ref description) => {
                 tab_separated!("IoError", error_kind.to_tab_separated_string(), description)
             },
-            DatabaseError::ParseError(ref error) => match error {
-                &ParseError::ParseError(ref description) => tab_separated!("ParseError", "ParseError", description),
-                &ParseError::MissingField(index) => tab_separated!("ParseError", "MissingField", index)
+            DatabaseError::ParseError(ref error) => match *error {
+                ParseError::ParseError(ref description) => tab_separated!("ParseError", "ParseError", description),
+                ParseError::MissingField(index) => tab_separated!("ParseError", "MissingField", index)
             },
             DatabaseError::SubscriptionError => tab_separated!("SubscriptionError"),
             DatabaseError::ValidationError(ref error) => tab_separated!("ValidationError", error.description)

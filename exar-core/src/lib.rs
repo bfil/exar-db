@@ -1,6 +1,3 @@
-#![cfg_attr(feature = "serde-serialization", feature(custom_derive, plugin))]
-#![cfg_attr(feature = "serde-serialization", plugin(serde_macros))]
-
 //! # Exar DB
 //! Exar DB is an event store with streaming support
 //! which uses a flat-file for each collection of events
@@ -58,6 +55,7 @@
 
 #[cfg(feature = "rustc-serialization")] extern crate rustc_serialize;
 #[cfg(feature = "serde-serialization")] extern crate serde;
+#[cfg(feature = "serde-serialization")] #[macro_use] extern crate serde_derive;
 
 #[cfg(test)] #[macro_use]
 extern crate exar_testkit;

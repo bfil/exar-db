@@ -141,7 +141,7 @@ impl ScannerThread {
                         ScannerAction::Stop => break 'main
                     }
                 }
-                if self.subscriptions.len() != 0 {
+                if !self.subscriptions.is_empty() {
                     match self.scan() {
                         Ok(_) => self.retain_active_subscriptions(),
                         Err(err) => error!("Unable to scan log: {}", err)

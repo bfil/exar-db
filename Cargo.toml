@@ -1,0 +1,13 @@
+[workspace]
+members = [
+    "exar-core",
+    "exar-testkit",
+    "exar-net",
+    "exar-client",
+    "exar-server",
+    "exar-db"
+]
+
+[profile.release]
+debug = true
+opt-level = 3

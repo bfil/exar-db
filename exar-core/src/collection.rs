@@ -6,7 +6,7 @@ use rand::Rng;
 use std::sync::mpsc::channel;
 
 /// Exar DB's collection of events, containing the reference to the log and index files.
-/// 
+///
 /// It is responsible of creating and managing the log scanner threads and the single-threaded logger.
 /// It allows publishing and subscribing to the underling events log.
 ///
@@ -112,10 +112,7 @@ impl Collection {
                 None => Err(DatabaseError::SubscriptionError)
             },
             RoutingStrategy::RoundRobin(ref last_index) => {
-                let mut new_index = 0;
-                if last_index + 1 < self.scanners.len() {
-                    new_index = last_index + 1;
-                }
+                let new_index = if last_index + 1 < self.scanners.len() { last_index + 1 } else { 0 };
                 match self.scanners.get(new_index) {
                     Some(scanner) => scanner.handle_subscription(subscription).and_then(|_| {
                         Ok(RoutingStrategy::RoundRobin(new_index))

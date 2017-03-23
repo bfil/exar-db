@@ -1,7 +1,7 @@
 extern crate exar;
 extern crate rand;
 
-#[cfg(test)] #[macro_use]
+#[cfg(test)]
 extern crate exar_testkit;
 
 use exar::*;
@@ -11,7 +11,7 @@ use exar_testkit::*;
 fn integration_test() {
     let mut db = Database::new(DatabaseConfig::default());
 
-    let ref collection_name = random_collection_name();
+    let collection_name = &random_collection_name();
     let connection = db.connect(collection_name).expect("Unable to connect");
 
     let test_event = Event::new("data", vec!["tag1", "tag2"]);

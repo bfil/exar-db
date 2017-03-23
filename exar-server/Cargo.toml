@@ -14,12 +14,12 @@ exar = { version = "0.1", path = "../exar-core" }
 exar-net = { version = "0.1", path = "../exar-net" }
 log = "0.3"
 rustc-serialize = { optional = true, version = "0.3" }
-serde = { optional = true, version = "0.7" }
-serde_macros = { optional = true, version = "0.7" }
+serde = { optional = true, version = "0.9" }
+serde_derive = { optional = true, version = "0.9" }
 
 [features]
 rustc-serialization = ["rustc-serialize"]
-serde-serialization = ["serde", "serde_macros"]
+serde-serialization = ["serde", "serde_derive"]
 
 [dev-dependencies]
 exar-testkit = { version = "0.1", path = "../exar-testkit" }

@@ -14,10 +14,6 @@ clap = "2.1"
 exar = { version = "0.1", path = "../exar-core", features = ["rustc-serialization"] }
 exar-server = { version = "0.1", path = "../exar-server", features = ["rustc-serialization"] }
 log = "0.3"
-log4rs = { version = "0.4", features = ["toml"] }
+log4rs = { version = "0.6", features = ["toml_format"] }
 rustc-serialize = "0.3"
 toml-config = "0.4"
-
-[profile.release]
-debug = true
-opt-level = 3

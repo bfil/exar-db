@@ -61,8 +61,8 @@ impl DatabaseConfig {
             Some(collection_config) => {
                 let config = collection_config.clone();
                 CollectionConfig {
-                    logs_path: config.logs_path.unwrap_or(self.logs_path.clone()),
-                    index_granularity: config.index_granularity.unwrap_or(self.index_granularity.clone()),
+                    logs_path: config.logs_path.unwrap_or_else(|| self.logs_path.clone()),
+                    index_granularity: config.index_granularity.unwrap_or_else(|| self.index_granularity),
                     scanners: match config.scanners {
                         Some(scanners_config) => ScannersConfig {
                             nr_of_scanners: scanners_config.nr_of_scanners.unwrap_or(self.scanners.nr_of_scanners),
@@ -73,7 +73,7 @@ impl DatabaseConfig {
                             sleep_time_in_ms: self.scanners.sleep_time_in_ms
                         }
                     },
-                    routing_strategy: config.routing_strategy.unwrap_or(self.routing_strategy.clone())
+                    routing_strategy: config.routing_strategy.unwrap_or_else(|| self.routing_strategy.clone())
                 }
             },
             None => CollectionConfig {

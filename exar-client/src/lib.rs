@@ -55,7 +55,7 @@
 extern crate exar;
 extern crate exar_net;
 
-#[cfg(test)] #[macro_use]
+#[cfg(test)]
 extern crate exar_testkit;
 
 #[macro_use]

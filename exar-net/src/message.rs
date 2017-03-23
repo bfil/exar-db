@@ -77,7 +77,7 @@ impl FromTabSeparatedStr for TcpMessage {
                 let tags: String = try!(parser.parse_next());
                 let timestamp = try!(parser.parse_next());
                 let data: String = try!(parser.parse_next());
-                let tags: Vec<_> = tags.split(" ").collect();
+                let tags: Vec<_> = tags.split(' ').collect();
                 Ok(TcpMessage::Publish(Event::new(&data, tags).with_timestamp(timestamp)))
             },
             "Published" => {
@@ -90,7 +90,7 @@ impl FromTabSeparatedStr for TcpMessage {
                 let live = try!(parser.parse_next());
                 let offset = try!(parser.parse_next());
                 let mut limit = parser.parse_next().ok();
-                if limit.unwrap_or(0) <= 0 { limit = None }
+                if limit.unwrap_or(0) == 0 { limit = None }
                 let tag = parser.parse_next().ok();
                 Ok(TcpMessage::Subscribe(live, offset, limit, tag))
             },

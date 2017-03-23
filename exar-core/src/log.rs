@@ -91,8 +91,7 @@ impl Log {
     pub fn remove(&self) -> Result<(), DatabaseError> {
         match remove_file(self.get_path()) {
             Ok(()) => match remove_file(self.get_index_path()) {
-                Ok(()) => Ok(()),
-                Err(_) => Ok(())
+                Ok(()) | Err(_) => Ok(())
             },
             Err(err) => Err(DatabaseError::from_io_error(err))
         }
@@ -138,7 +137,7 @@ impl Log {
                 for line in reader.lines() {
                     match line {
                         Ok(line) => {
-                            let parts: Vec<_> = line.split(" ").collect();
+                            let parts: Vec<_> = line.split(' ').collect();
                             let line_count: u64 = parts[0].parse().unwrap();
                             let byte_count: u64 = parts[1].parse().unwrap();
                             index.insert(line_count, byte_count);

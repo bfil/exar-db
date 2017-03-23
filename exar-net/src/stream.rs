@@ -33,7 +33,7 @@ impl<T: Read + Write + TryClone> TcpMessageStream<T> {
         match self.reader.read_line(&mut line) {
             Ok(_) => {
                 let trimmed_line = line.trim();
-                match TcpMessage::from_tab_separated_str(&trimmed_line) {
+                match TcpMessage::from_tab_separated_str(trimmed_line) {
                     Ok(message) => Ok(message),
                     Err(err) => Err(DatabaseError::ParseError(err))
                 }

@@ -47,7 +47,7 @@ impl<T> Interval<T> {
 
 impl Merge for Vec<Interval<u64>> {
     fn merge(&mut self) {
-        if self.len() > 0 {
+        if !self.is_empty() {
             self.sort_by(|a, b| a.start.cmp(&b.start));
             let mut merged_intervals = vec![ self[0].clone() ];
             for interval in self.iter().skip(1) {

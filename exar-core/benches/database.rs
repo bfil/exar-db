@@ -4,7 +4,7 @@ extern crate exar;
 extern crate rand;
 extern crate test;
 
-#[cfg(test)] #[macro_use]
+#[cfg(test)]
 extern crate exar_testkit;
 
 use exar::*;
@@ -13,7 +13,7 @@ use test::Bencher;
 
 #[bench]
 fn bench_publish(b: &mut Bencher) {
-    let ref collection_name = random_collection_name();
+    let collection_name = &random_collection_name();
     let config = DatabaseConfig::default();
     let mut db = Database::new(config);
     let connection = db.connect(collection_name).unwrap();

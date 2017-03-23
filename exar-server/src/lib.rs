@@ -1,6 +1,3 @@
-#![cfg_attr(feature = "serde-serialization", feature(custom_derive, plugin))]
-#![cfg_attr(feature = "serde-serialization", plugin(serde_macros))]
-
 //! # Exar DB's server
 //! This module contains a server implementation that uses Exar DB's TCP protocol.
 //!
@@ -31,8 +28,9 @@ extern crate exar_net;
 
 #[cfg(feature = "rustc-serialization")] extern crate rustc_serialize;
 #[cfg(feature = "serde-serialization")] extern crate serde;
+#[cfg(feature = "serde-serialization")] #[macro_use] extern crate serde_derive;
 
-#[cfg(test)] #[macro_use]
+#[cfg(test)]
 extern crate exar_testkit;
 
 #[macro_use]

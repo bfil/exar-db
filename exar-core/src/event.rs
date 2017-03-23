@@ -80,7 +80,7 @@ impl FromTabSeparatedStr for Event {
         let timestamp = try!(parser.parse_next());
         let tags: String = try!(parser.parse_next());
         let data: String = try!(parser.parse_next());
-        let tags: Vec<_> = tags.split(" ").map(|x| x.to_owned()).collect();
+        let tags: Vec<_> = tags.split(' ').map(|x| x.to_owned()).collect();
         Ok(Event {
             id: id,
             tags: tags,
@@ -138,8 +138,7 @@ impl EventStream {
     pub fn recv(&self) -> Result<Event, EventStreamError> {
         match self.event_stream_receiver.recv() {
             Ok(EventStreamMessage::Event(event)) => Ok(event),
-            Ok(EventStreamMessage::End) => Err(EventStreamError::Closed),
-            Err(_) => Err(EventStreamError::Closed)
+            Ok(EventStreamMessage::End) | Err(_) => Err(EventStreamError::Closed)
         }
     }
     /// Attempts to return a pending event on this event stream without blocking.

@@ -77,7 +77,7 @@ impl Database {
         })
     }
 
-    /// Returns wether a collection with the given name exists.
+    /// Returns whether a collection with the given name exists.
     pub fn contains_collection(&self, collection_name: &str) -> bool {
         self.collections.contains_key(collection_name)
     }

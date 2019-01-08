@@ -1,9 +1,0 @@
-#!/bin/bash
-
-cd ./exar-core && cargo test && cargo test --features serde-serialization --no-default-features &&
-cd ../exar-net && cargo test &&
-cd ../exar-server && cargo test && cargo test --features serde-serialization --no-default-features &&
-cd ../exar-client && cargo test &&
-cd ../exar-testkit && cargo test &&
-cd ../exar-db && cargo test &&
-cd ..

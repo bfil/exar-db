@@ -3,8 +3,8 @@
 
 'use strict';
 
-var app = require('app');
-var BrowserWindow = require('browser-window');
+const electron = require('electron');
+const { app, BrowserWindow } = electron;
 
 // require('crash-reporter').start();
 

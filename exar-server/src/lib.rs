@@ -26,9 +26,8 @@
 extern crate exar;
 extern crate exar_net;
 
-#[cfg(feature = "rustc-serialization")] extern crate rustc_serialize;
-#[cfg(feature = "serde-serialization")] extern crate serde;
-#[cfg(feature = "serde-serialization")] #[macro_use] extern crate serde_derive;
+extern crate serde;
+#[macro_use] extern crate serde_derive;
 
 #[cfg(test)]
 extern crate exar_testkit;

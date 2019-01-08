@@ -17,7 +17,7 @@ use super::*;
 /// ```
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Query {
-    /// Indicates wether the query targets real-time events.
+    /// Indicates whether the query targets real-time events.
     pub live_stream: bool,
     /// Indicates the query target offset.
     pub offset: u64,
@@ -71,7 +71,7 @@ impl Query {
         self
     }
 
-    /// Returns wether a given `Event` matches the query.
+    /// Returns whether a given `Event` matches the query.
     pub fn matches(&self, event: &Event) -> bool {
         match self.tag {
             Some(ref tag) => self.position < event.id && event.tags.contains(tag),
@@ -79,7 +79,7 @@ impl Query {
         }
     }
 
-    /// Returns wether the query is still active.
+    /// Returns whether the query is still active.
     pub fn is_active(&self) -> bool {
         match self.limit {
             Some(limit) => self.count < limit,

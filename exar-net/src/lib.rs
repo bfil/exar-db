@@ -60,7 +60,7 @@
 //! ```
 //!
 //! - The 1st field is the string `Subscribe`.
-//! - The 2nd field is a boolean specifying wether to keep the subscription listening to real-time events.
+//! - The 2nd field is a boolean specifying whether to keep the subscription listening to real-time events.
 //! - The 3rd field is the query offset.
 //! - The 4th field is the maximum number of events to consume, if set to 0 a limit is not set.
 //! - The 5th field is the tag the events must contain (optional).

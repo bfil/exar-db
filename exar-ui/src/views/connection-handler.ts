@@ -26,6 +26,7 @@ export class ConnectionHandler {
 
     connected: boolean;
     subscription: Rx.IDisposable;
+    subscribed: boolean = false;
     messages: { payload: string, className: string }[];
 
     bind() {
@@ -76,12 +77,14 @@ export class ConnectionHandler {
         this.exarClient.subscribe(query).then(
             eventStream => {
                 this.logMessage('Subscribed', false);
+                this.subscribed = true;
                 this.subscription = eventStream.subscribe(
                     this.logTcpMessage.bind(this),
                     this.onError.bind(this),
                     () => {
                         this.logMessage('EndOfEventStream', false);
                         this.subscription = undefined;
+                        this.subscribed = false;
                     }
                 );
             },
@@ -92,7 +95,7 @@ export class ConnectionHandler {
     unsubscribe() {
         if(this.subscription) {
             this.subscription.dispose();
-            this.subscription = undefined;
+            this.subscribed = false;
             this.logMessage('EndOfEventStream', false);
             this.reconnect();
         }

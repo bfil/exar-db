@@ -62,12 +62,12 @@ impl Subscription {
         }
     }
 
-    /// Returns wether the subscription is still active.
+    /// Returns whether the subscription is still active.
     pub fn is_active(&self) -> bool {
         self.active
     }
 
-    /// Returns wether the subscription is interested in the given `Event`.
+    /// Returns whether the subscription is interested in the given `Event`.
     pub fn matches_event(&self, event: &Event) -> bool {
         self.is_active() && self.query.is_active() && self.query.matches(event)
     }

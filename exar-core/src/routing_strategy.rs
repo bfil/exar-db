@@ -1,7 +1,6 @@
-#[cfg(feature = "rustc-serialization")] use rustc_serialize::{Encoder, Encodable, Decoder, Decodable};
-#[cfg(feature = "serde-serialization")] use serde::{Serialize, Serializer, Deserialize, Deserializer};
-#[cfg(feature = "serde-serialization")] use serde::de::{Error, Visitor};
-#[cfg(feature = "serde-serialization")] use std::fmt;
+use serde::{Serialize, Serializer, Deserialize, Deserializer};
+use serde::de::{Error, Visitor};
+use std::fmt;
 
 /// A list specifying categories of routing strategy.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -12,30 +11,6 @@ pub enum RoutingStrategy {
     RoundRobin(usize)
 }
 
-#[cfg(feature = "rustc-serialization")]
-impl Encodable for RoutingStrategy {
-    fn encode<S: Encoder>(&self, s: &mut S) -> Result<(), S::Error> {
-        match *self {
-            RoutingStrategy::Random => s.emit_str("Random"),
-            RoutingStrategy::RoundRobin(_) => s.emit_str("RoundRobin")
-        }
-    }
-}
-
-#[cfg(feature = "rustc-serialization")]
-impl Decodable for RoutingStrategy {
-    fn decode<D: Decoder>(d: &mut D) -> Result<Self, D::Error> {
-        d.read_str().map(|s| {
-            match s.as_ref() {
-                "Random" => RoutingStrategy::Random,
-                "RoundRobin" => RoutingStrategy::RoundRobin(0),
-                _ => RoutingStrategy::default()
-            }
-        })
-    }
-}
-
-#[cfg(feature = "serde-serialization")]
 impl Serialize for RoutingStrategy {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         match *self {
@@ -45,18 +20,15 @@ impl Serialize for RoutingStrategy {
     }
 }
 
-#[cfg(feature = "serde-serialization")]
-impl Deserialize for RoutingStrategy {
-    fn deserialize<D: Deserializer>(deserializer: D) -> Result<Self, D::Error> {
+impl<'de> Deserialize<'de> for RoutingStrategy {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         deserializer.deserialize_str(RoutingStrategyVisitor)
     }
 }
 
-#[cfg(feature = "serde-serialization")]
 struct RoutingStrategyVisitor;
 
-#[cfg(feature = "serde-serialization")]
-impl Visitor for RoutingStrategyVisitor {
+impl<'de> Visitor<'de> for RoutingStrategyVisitor {
     type Value = RoutingStrategy;
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         formatter.write_str("Random or RoundRobin")
@@ -80,10 +52,6 @@ impl Default for RoutingStrategy {
 mod tests {
     use super::super::*;
 
-    #[cfg(feature = "rustc-serialization")]
-    use rustc_serialize::json;
-
-    #[cfg(feature = "serde-serialization")]
     extern crate serde_json;
 
     #[test]
@@ -92,19 +60,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "rustc-serialization")]
-    fn test_rustc_serialization() {
-        let routing_strategy = RoutingStrategy::Random;
-        assert_eq!(json::encode(&routing_strategy).unwrap(), "\"Random\"");
-        assert_eq!(json::decode::<RoutingStrategy>("\"Random\"").unwrap(), routing_strategy);
-
-        let routing_strategy = RoutingStrategy::RoundRobin(0);
-        assert_eq!(json::encode(&routing_strategy).unwrap(), "\"RoundRobin\"");
-        assert_eq!(json::decode::<RoutingStrategy>("\"RoundRobin\"").unwrap(), routing_strategy);
-    }
-
-    #[test]
-    #[cfg(feature = "serde-serialization")]
     fn test_serde_serialization() {
         let routing_strategy = RoutingStrategy::Random;
         assert_eq!(serde_json::to_string(&routing_strategy).unwrap(), "\"Random\"");

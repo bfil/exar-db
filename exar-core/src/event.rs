@@ -17,9 +17,7 @@ use time;
 /// let event = Event::new("data", vec!["tag1", "tag2"]);
 /// # }
 /// ```
-#[cfg_attr(feature = "rustc-serialization", derive(RustcEncodable, RustcDecodable))]
-#[cfg_attr(feature = "serde-serialization", derive(Serialize, Deserialize))]
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Event {
     /// The event `id` (or sequence number).
     pub id: u64,

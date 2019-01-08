@@ -15,9 +15,8 @@
 /// };
 /// # }
 /// ```
-#[cfg_attr(feature = "rustc-serialization", derive(RustcEncodable, RustcDecodable))]
-#[cfg_attr(feature = "serde-serialization", derive(Serialize, Deserialize))]
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct ServerConfig  {
     /// The server host.
     pub host: String,

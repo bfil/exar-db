@@ -1,5 +1,3 @@
-#![feature(const_fn)]
-
 extern crate rand;
 
 mod collections;

@@ -1,8 +1,8 @@
 use exar::*;
 use exar_server::*;
 
-#[derive(RustcEncodable, RustcDecodable)]
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct Config  {
     pub log4rs_path: String,
     pub database: DatabaseConfig,

@@ -32,10 +32,10 @@ The database can be configured using a `TOML` configuration file, example below:
 log4rs_path = "/path/to/log4rs.toml"
 [database]
 logs_path = "~/exar-db/data"
-scanners = { nr_of_scanners = 2, sleep_time_in_ms = 10 }
+scanners = { nr_of_scanners = 2 }
 [database.collections.my-collection]
 routing_strategy = "Random"
-scanners = { nr_of_scanners = 4, sleep_time_in_ms = 5 }
+scanners = { nr_of_scanners = 4 }
 [server]
 host = "127.0.0.1"
 port = 38580

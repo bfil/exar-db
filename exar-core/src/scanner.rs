@@ -7,7 +7,6 @@ use std::io::{BufRead, BufReader, Seek, SeekFrom};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
 use std::thread::JoinHandle;
-use std::time::Duration;
 
 /// Exar DB's log file scanner.
 ///
@@ -21,13 +20,13 @@ use std::time::Duration;
 /// # fn main() {
 /// use exar::*;
 /// use std::sync::mpsc::channel;
-/// use std::time::Duration;
 ///
 /// let log = Log::new("/path/to/logs", "test", 100);
 /// let event = Event::new("data", vec!["tag1", "tag2"]);
 ///
 /// let line_reader = log.open_line_reader().unwrap();
-/// let mut scanner = Scanner::new(line_reader, Duration::from_millis(10));
+/// let (publisher_sender, _) = channel();
+/// let mut scanner = Scanner::new(line_reader, publisher_sender);
 ///
 /// let (sender, _) = channel();
 /// let subscription = Subscription::new(sender, Query::live());
@@ -42,10 +41,10 @@ pub struct Scanner {
 }
 
 impl Scanner {
-    /// Creates a new log scanner using the given `IndexedLineReader` and sleep duration.
-    pub fn new(reader: IndexedLineReader<BufReader<File>>, sleep_duration: Duration) -> Scanner {
+    /// Creates a new log scanner using the given `IndexedLineReader` and a `Publisher`.
+    pub fn new(reader: IndexedLineReader<BufReader<File>>, publisher_sender: Sender<PublisherAction>) -> Scanner {
         let (sender, receiver) = channel();
-        ScannerThread::new(reader, receiver).run(sleep_duration);
+        ScannerThread::new(reader, receiver, publisher_sender).run();
         Scanner {
             action_sender: sender
         }
@@ -62,15 +61,6 @@ impl Scanner {
     /// Adds the given line to the `LinesIndex` or returns a `DatabaseError` if a failure occurs.
     pub fn add_line_index(&self, line: u64, byte_count: u64) -> Result<(), DatabaseError> {
         match self.action_sender.send(ScannerAction::AddLineIndex(line, byte_count)) {
-            Ok(()) => Ok(()),
-            Err(_) => Err(DatabaseError::EventStreamError(EventStreamError::Closed))
-        }
-    }
-
-    /// Adds a reference to a tail scanner that is responsible of handling live subscriptions
-    /// or returns a `DatabaseError` if a failure occurs.
-    pub fn set_tail_scanner_sender(&mut self, sender: Sender<ScannerAction>) -> Result<(), DatabaseError> {
-        match self.action_sender.send(ScannerAction::SetTailScannerSender(sender)) {
             Ok(()) => Ok(()),
             Err(_) => Err(DatabaseError::EventStreamError(EventStreamError::Closed))
         }
@@ -108,65 +98,59 @@ pub struct ScannerThread {
     index: LinesIndex,
     reader: IndexedLineReader<BufReader<File>>,
     action_receiver: Receiver<ScannerAction>,
-    tail_scanner_sender: Option<Sender<ScannerAction>>,
+    publisher_sender: Sender<PublisherAction>,
     subscriptions: Vec<Subscription>
 }
 
 impl ScannerThread {
-    fn new(reader: IndexedLineReader<BufReader<File>>, receiver: Receiver<ScannerAction>) -> ScannerThread {
+    fn new(reader: IndexedLineReader<BufReader<File>>, receiver: Receiver<ScannerAction>, publisher_sender: Sender<PublisherAction>) -> ScannerThread {
         ScannerThread {
             index: reader.get_index().clone(),
             reader: reader,
             action_receiver: receiver,
-            tail_scanner_sender: None,
+            publisher_sender: publisher_sender,
             subscriptions: vec![]
         }
     }
 
-    fn run(mut self, sleep_duration: Duration) -> JoinHandle<Self> {
+    fn run(mut self) -> JoinHandle<Self> {
         thread::spawn(move || {
             'main: loop {
-                while let Ok(action) = self.action_receiver.try_recv() {
-                    match action {
-                        ScannerAction::HandleSubscription(subscription) => {
-                            self.subscriptions.push(subscription);
-                        },
-                        ScannerAction::AddLineIndex(line, byte_count) => {
-                            self.index.insert(line, byte_count);
-                            self.reader.restore_index(self.index.clone());
-                        },
-                        ScannerAction::SetTailScannerSender(sender) => {
-                            self.tail_scanner_sender = Some(sender);
-                        },
-                        ScannerAction::Stop => break 'main
+                while let Ok(action) = self.action_receiver.recv() {
+                    let mut actions = vec![ action ];
+                    while let Ok(action) = self.action_receiver.try_recv() {
+                        actions.push(action);
+                    }
+                    for action in actions {
+                        match action {
+                            ScannerAction::HandleSubscription(subscription) => {
+                                self.subscriptions.push(subscription);
+                            },
+                            ScannerAction::AddLineIndex(line, byte_count) => {
+                                self.index.insert(line, byte_count);
+                                self.reader.restore_index(self.index.clone());
+                            },
+                            ScannerAction::Stop => break 'main
+                        }
+                    }
+                    if !self.subscriptions.is_empty() {
+                        match self.scan() {
+                            Ok(_) => self.handle_live_subscriptions(),
+                            Err(err) => error!("Unable to scan log: {}", err)
+                        }
                     }
                 }
-                if !self.subscriptions.is_empty() {
-                    match self.scan() {
-                        Ok(_) => self.retain_active_subscriptions(),
-                        Err(err) => error!("Unable to scan log: {}", err)
-                    }
-                }
-                thread::sleep(sleep_duration);
             };
             self.subscriptions.truncate(0);
             self
         })
     }
 
-    fn retain_active_subscriptions(&mut self) {
-        match self.tail_scanner_sender {
-            Some(ref tail_scanner_sender) => {
-                for subscription in self.subscriptions.iter().filter(|s| {
-                    s.is_active() && s.query.live_stream && s.query.is_active()
-                }) {
-                    let _ = tail_scanner_sender.send(ScannerAction::HandleSubscription(subscription.clone()));
-                }
-                self.subscriptions.truncate(0);
-            },
-            None => self.subscriptions.retain(|s| {
-                s.is_active() && s.query.is_active()
-            })
+    fn handle_live_subscriptions(&mut self) {
+        for subscription in self.subscriptions.drain(..) {
+            if subscription.is_active() && subscription.query.live_stream && subscription.query.is_active() {
+                let _ = self.publisher_sender.send(PublisherAction::AddSubscription(subscription.clone()));
+            }
         }
     }
 
@@ -183,6 +167,7 @@ impl ScannerThread {
                             Ok(line) => match Event::from_tab_separated_str(&line) {
                                 Ok(ref event) => {
                                     for subscription in self.subscriptions.iter_mut().filter(|s| s.matches_event(event)) {
+                                        // TODO: if sending fails it will skip and publish later events, should probable fail and remove subscription
                                         let _ = subscription.send(event.clone());
                                     }
                                     if interval.end == event.id || self.subscriptions.iter().all(|s| !s.query.is_active()) {
@@ -206,7 +191,6 @@ impl ScannerThread {
 pub enum ScannerAction {
     HandleSubscription(Subscription),
     AddLineIndex(u64, u64),
-    SetTailScannerSender(Sender<ScannerAction>),
     Stop
 }
 
@@ -222,10 +206,6 @@ mod tests {
     use std::sync::mpsc::{channel, TryRecvError};
     use std::thread;
     use std::time::Duration;
-
-    fn sleep_duration() -> Duration {
-        Duration::from_millis(10)
-    }
 
     fn create_log() -> Log {
         let ref collection_name = random_collection_name();
@@ -243,8 +223,9 @@ mod tests {
     #[test]
     fn test_scanner_constructor() {
         let (log, line_reader) = create_log_and_line_reader();
+        let (publisher_sender, _) = channel();
 
-        let _ = Scanner::new(line_reader, sleep_duration());
+        let _ = Scanner::new(line_reader, publisher_sender);
 
         assert!(log.remove().is_ok());
     }
@@ -252,8 +233,9 @@ mod tests {
     #[test]
     fn test_scanner_message_passing() {
         let (log, line_reader) = create_log_and_line_reader();
+        let (publisher_sender, _) = channel();
 
-        let mut scanner = Scanner::new(line_reader, sleep_duration());
+        let mut scanner = Scanner::new(line_reader, publisher_sender);
 
         assert!(scanner.stop().is_ok());
 
@@ -282,23 +264,6 @@ mod tests {
             _ => panic!("Expected to receive an HandleSubscription message")
         }
 
-        let (tail_scanner_sender, tail_scanner_receiver) = channel();
-        assert!(scanner.set_tail_scanner_sender(tail_scanner_sender).is_ok());
-
-        match receiver.recv() {
-            Ok(ScannerAction::SetTailScannerSender(sender)) => {
-                assert!(sender.send(ScannerAction::HandleSubscription(subscription.clone())).is_ok())
-            },
-            _ => panic!("Expected to receive a SetTailScannerSender message")
-        }
-
-        match tail_scanner_receiver.recv() {
-            Ok(ScannerAction::HandleSubscription(s)) => {
-                assert_eq!(s.query, subscription.query);
-            },
-            _ => panic!("Expected to receive an HandleSubscription message")
-        }
-
         assert!(scanner.stop().is_ok());
 
         match receiver.recv() {
@@ -316,10 +281,11 @@ mod tests {
     #[test]
     fn test_scanner_thread_stop() {
         let (log, line_reader) = create_log_and_line_reader();
+        let (publisher_sender, _) = channel();
 
         let (sender, receiver) = channel();
-        let scanner_thread = ScannerThread::new(line_reader, receiver);
-        let handle = scanner_thread.run(sleep_duration());
+        let scanner_thread = ScannerThread::new(line_reader, receiver, publisher_sender);
+        let handle = scanner_thread.run();
 
         assert!(sender.send(ScannerAction::Stop).is_ok());
 
@@ -332,10 +298,11 @@ mod tests {
     #[test]
     fn test_scanner_thread_new_indexed_line() {
         let (log, line_reader) = create_log_and_line_reader();
+        let (publisher_sender, _) = channel();
 
         let (sender, receiver) = channel();
-        let scanner_thread = ScannerThread::new(line_reader, receiver);
-        let handle = scanner_thread.run(sleep_duration());
+        let scanner_thread = ScannerThread::new(line_reader, receiver, publisher_sender);
+        let handle = scanner_thread.run();
 
         assert!(sender.send(ScannerAction::AddLineIndex(100, 1234)).is_ok());
         assert!(sender.send(ScannerAction::Stop).is_ok());
@@ -343,25 +310,6 @@ mod tests {
         let scanner_thread = handle.join().expect("Unable to join scanner thread");
         assert_eq!(scanner_thread.index.byte_count_at_pos(&100), Some(1234));
         assert_eq!(scanner_thread.reader.get_index().clone().byte_count_at_pos(&100), Some(1234));
-
-        assert!(log.remove().is_ok());
-    }
-
-    #[test]
-    fn test_scanner_thread_set_tail_scanner_sender() {
-        let (log, line_reader) = create_log_and_line_reader();
-
-        let (sender, receiver) = channel();
-        let scanner_thread = ScannerThread::new(line_reader, receiver);
-        let handle = scanner_thread.run(sleep_duration());
-
-        let (tail_scanner_sender, _) = channel();
-
-        assert!(sender.send(ScannerAction::SetTailScannerSender(tail_scanner_sender)).is_ok());
-        assert!(sender.send(ScannerAction::Stop).is_ok());
-
-        let scanner_thread = handle.join().expect("Unable to join scanner thread");
-        assert!(scanner_thread.tail_scanner_sender.is_some());
 
         assert!(log.remove().is_ok());
     }
@@ -377,15 +325,12 @@ mod tests {
         assert!(logger.log(event).is_ok());
 
         let (thread_sender, thread_receiver) = channel();
-        let scanner_thread = ScannerThread::new(line_reader, thread_receiver);
-        scanner_thread.run(sleep_duration);
+        let (publisher_sender, publisher_receiver) = channel();
+        let scanner_thread = ScannerThread::new(line_reader, thread_receiver, publisher_sender);
+        scanner_thread.run();
 
         let (sender, receiver) = channel();
         let live_subscription = Subscription::new(sender, Query::live());
-
-        let (tail_scanner_sender, tail_scanner_receiver) = channel();
-        assert!(thread_sender.send(ScannerAction::SetTailScannerSender(tail_scanner_sender)).is_ok());
-        thread::sleep(sleep_duration * 2);
 
         assert!(thread_sender.send(ScannerAction::HandleSubscription(live_subscription.clone())).is_ok());
         thread::sleep(sleep_duration * 2);
@@ -394,10 +339,10 @@ mod tests {
             EventStreamMessage::Event(e) => e.id,
             message => panic!("Unexpected event stream message: {:?}", message),
         }), Ok(1));
-        if let Ok(ScannerAction::HandleSubscription(s)) = tail_scanner_receiver.try_recv() {
+        if let Ok(PublisherAction::AddSubscription(s)) = publisher_receiver.try_recv() {
             assert_eq!(s.query.live_stream, true);
         } else {
-            panic!("Unable to receive live subscription from the tail scanner receiver");
+            panic!("Unable to receive live subscription from the publisher receiver");
         }
         assert_eq!(receiver.try_recv().err(), Some(TryRecvError::Empty));
 
@@ -412,35 +357,6 @@ mod tests {
             message => panic!("Unexpected event stream message: {:?}", message),
         }), Ok(1));
         assert_eq!(receiver.try_recv().err(), Some(TryRecvError::Disconnected));
-
-        assert!(log.remove().is_ok());
-    }
-
-    #[test]
-    fn test_tail_scanner_thread_subscriptions_management() {
-        let log = create_log();
-        let mut logger = Logger::new(log.clone()).expect("Unable to create logger");
-        let line_reader = log.open_line_reader().expect("Unable to open line reader");
-        let event = Event::new("data", vec!["tag1", "tag2"]);
-        let sleep_duration = Duration::from_millis(10);
-
-        assert!(logger.log(event).is_ok());
-
-        let (thread_sender, thread_receiver) = channel();
-        let scanner_thread = ScannerThread::new(line_reader, thread_receiver);
-        scanner_thread.run(sleep_duration);
-
-        let (sender, receiver) = channel();
-        let live_subscription = Subscription::new(sender, Query::live());
-
-        assert!(thread_sender.send(ScannerAction::HandleSubscription(live_subscription.clone())).is_ok());
-        thread::sleep(sleep_duration * 2);
-
-        assert_eq!(receiver.try_recv().map(|e| match e {
-            EventStreamMessage::Event(e) => e.id,
-            message => panic!("Unexpected event stream message: {:?}", message),
-        }), Ok(1));
-        assert_eq!(receiver.try_recv().err(), Some(TryRecvError::Empty));
 
         assert!(log.remove().is_ok());
     }

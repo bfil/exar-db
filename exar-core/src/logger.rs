@@ -40,9 +40,9 @@ impl Logger {
         })
     }
 
-    /// Appends the given event to the log and returns the event `id`
+    /// Appends the given event to the log and returns the logged event
     /// or a `DatabaseError` if a failure occurs.
-    pub fn log(&mut self, event: Event) -> Result<u64, DatabaseError> {
+    pub fn log(&mut self, event: Event) -> Result<Event, DatabaseError> {
         match event.validated() {
             Ok(event) => {
                 let event_id = self.offset;
@@ -55,7 +55,7 @@ impl Logger {
                     Ok(bytes_written) => {
                         self.offset += 1;
                         self.bytes_written += bytes_written as u64;
-                        Ok(event_id)
+                        Ok(event)
                     },
                     Err(err) => Err(DatabaseError::from_io_error(err))
                 }
@@ -93,7 +93,7 @@ mod tests {
         assert_eq!(logger.offset, 1);
         assert_eq!(logger.bytes_written, 0);
 
-        assert_eq!(logger.log(event), Ok(1));
+        assert_eq!(logger.log(event).expect("Unable to log event").id, 1);
 
         let logger = Logger::new(log.clone()).expect("Unable to create logger");
 
@@ -121,10 +121,10 @@ mod tests {
 
         let mut logger = Logger::new(log.clone()).expect("Unable to create logger");
 
-        assert_eq!(logger.log(event.clone()), Ok(1));
+        assert_eq!(logger.log(event.clone()).expect("Unable to log event").id, 1);
         assert_eq!(logger.offset, 2);
         assert_eq!(logger.bytes_written, 31);
-        assert_eq!(logger.log(event.clone()), Ok(2));
+        assert_eq!(logger.log(event.clone()).expect("Unable to log event").id, 2);
         assert_eq!(logger.offset, 3);
         assert_eq!(logger.bytes_written, 62);
 

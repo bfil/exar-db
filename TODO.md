@@ -1,1 +1,16 @@
-- Add Architecture Docs
+- Test Subscription Moving From Scanner To Publisher (Should Not Skip Events)
+- Drop Subscriptions If Sending An Event Fails
+- Improve Logger Tests (Now Logger Returns The Complete Event)
+- Consider Flattening/Renaming Scanners Config
+- Improve Config Loading In ExarDB
+- Test Config Loading Defaults
+- Add Publisher Docs
+- Double Check Docs After Changes
+- Improve Writer's Performance
+- Add Versioned Tags & Optimistic Locking
+- Shutdown Collection Threads When Unused
+- Think Whether Named Tags Are Necessary (For Indexes & Projections)
+- Build Non-Blocking Server
+- Build Non-Blocking Client
+- Try To Simplify/Encapsulate Index Management (Now Sent To All Scanners)
+- Architecture Docs

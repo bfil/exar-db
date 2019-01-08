@@ -22,10 +22,10 @@
 //! log4rs_path = "/path/to/log4rs.toml"
 //! [database]
 //! logs_path = "~/exar-db/data"
-//! scanners = { nr_of_scanners = 2, sleep_time_in_ms = 10 }
+//! scanners = { nr_of_scanners = 2 }
 //! [database.collections.my-collection]
 //! routing_strategy = "Random"
-//! scanners = { nr_of_scanners = 4, sleep_time_in_ms = 5 }
+//! scanners = { nr_of_scanners = 4 }
 //! [server]
 //! host = "127.0.0.1"
 //! port = 38580
@@ -64,14 +64,20 @@
 //! ```
 
 extern crate clap;
+
 extern crate exar;
 extern crate exar_server;
-extern crate rustc_serialize;
-extern crate toml_config;
 
 #[macro_use]
 extern crate log;
 extern crate log4rs;
+
+extern crate serde;
+
+#[macro_use]
+extern crate serde_derive;
+
+extern crate toml;
 
 mod config;
 use config::*;
@@ -82,8 +88,10 @@ use exar_server::*;
 use log::LogLevelFilter;
 use log4rs::append::console::ConsoleAppender;
 use log4rs::config::{Appender, Config as Log4rsConfig, Root};
+
+use std::io::Read;
+use std::fs::File;
 use std::path::Path;
-use toml_config::ConfigFactory;
 
 fn main() {
     let matches = App::new("exar-db")
@@ -95,7 +103,25 @@ fn main() {
                       .get_matches();
 
     let config = match matches.value_of("config") {
-        Some(config_file) => ConfigFactory::load(Path::new(config_file)),
+        Some(config_file) => {
+
+            let path = Path::new(config_file);
+
+            let mut toml_config = String::new();
+
+            let mut file = match File::open(path) {
+                Ok(file) => file,
+                Err(_)   => panic!("Config file not found: {}", path.display())
+            };
+
+            file.read_to_string(&mut toml_config)
+                .unwrap_or_else(|err| panic!("Unable to read config file: {}", err));
+
+            match toml::from_str(&toml_config) {
+                Ok(config) => config,
+                Err(_)     => panic!("Config file could not be parsed: {}", path.display())
+            }
+        },
         None => Config::default()
     };
 
@@ -114,6 +140,33 @@ fn main() {
             info!("Unable to load config file '{}', using default console appender", config.log4rs_path);
         }
     };
+
+
+
+
+
+    use std::sync::{Arc, Mutex, Condvar};
+    use std::thread;
+
+    let pair = Arc::new((Mutex::new(false), Condvar::new()));
+    let pair2 = pair.clone();
+
+    thread::spawn(move|| {
+        let &(ref lock, ref cvar) = &*pair2;
+        let mut started = lock.lock().unwrap();
+        *started = true;
+        cvar.notify_all();
+    });
+
+    let &(ref lock, ref cvar) = &*pair;
+    let mut started = lock.lock().unwrap();
+    while !*started {
+        started = cvar.wait(started).unwrap();
+    }
+
+
+
+
 
     let db = Database::new(config.database);
     match Server::new(config.server.clone(), db) {

@@ -1,7 +1,6 @@
 use super::*;
 
 use std::collections::BTreeMap;
-use std::time::Duration;
 
 /// Exar DB's configuration.
 ///
@@ -18,16 +17,14 @@ use std::time::Duration;
 ///     index_granularity: 100000,
 ///     routing_strategy: RoutingStrategy::default(),
 ///     scanners: ScannersConfig {
-///         nr_of_scanners: 2,
-///         sleep_time_in_ms: 10
+///         nr_of_scanners: 2
 ///     },
 ///     collections: BTreeMap::new()
 /// };
 /// # }
 /// ```
-#[cfg_attr(feature = "rustc-serialization", derive(RustcEncodable, RustcDecodable))]
-#[cfg_attr(feature = "serde-serialization", derive(Serialize, Deserialize))]
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct DatabaseConfig  {
     /// Path to the logs directory.
     pub logs_path: String,
@@ -65,12 +62,10 @@ impl DatabaseConfig {
                     index_granularity: config.index_granularity.unwrap_or_else(|| self.index_granularity),
                     scanners: match config.scanners {
                         Some(scanners_config) => ScannersConfig {
-                            nr_of_scanners: scanners_config.nr_of_scanners.unwrap_or(self.scanners.nr_of_scanners),
-                            sleep_time_in_ms: scanners_config.sleep_time_in_ms.unwrap_or(self.scanners.sleep_time_in_ms)
+                            nr_of_scanners: scanners_config.nr_of_scanners.unwrap_or(self.scanners.nr_of_scanners)
                         },
                         None => ScannersConfig {
-                            nr_of_scanners: self.scanners.nr_of_scanners,
-                            sleep_time_in_ms: self.scanners.sleep_time_in_ms
+                            nr_of_scanners: self.scanners.nr_of_scanners
                         }
                     },
                     routing_strategy: config.routing_strategy.unwrap_or_else(|| self.routing_strategy.clone())
@@ -84,10 +79,6 @@ impl DatabaseConfig {
             }
         }
     }
-    /// Returns the scanners sleep as an instance of `Duration`.
-    pub fn scanners_sleep_duration(&self) -> Duration {
-        Duration::from_millis(self.scanners.sleep_time_in_ms)
-    }
 }
 
 /// Exar DB's scanners configuration.
@@ -100,26 +91,21 @@ impl DatabaseConfig {
 /// use exar::*;
 ///
 /// let config = ScannersConfig {
-///     nr_of_scanners: 2,
-///     sleep_time_in_ms: 10
+///     nr_of_scanners: 2
 /// };
 /// # }
 /// ```
-#[cfg_attr(feature = "rustc-serialization", derive(RustcEncodable, RustcDecodable))]
-#[cfg_attr(feature = "serde-serialization", derive(Serialize, Deserialize))]
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct ScannersConfig {
     /// Number of scanners for each log file (spawns 2 threads for each scanner).
-    pub nr_of_scanners: u8,
-    /// Amount of time the scanner threads should sleep between each scan.
-    pub sleep_time_in_ms: u64
+    pub nr_of_scanners: u8
 }
 
 impl Default for ScannersConfig {
     fn default() -> ScannersConfig {
         ScannersConfig {
-            nr_of_scanners: 2,
-            sleep_time_in_ms: 10
+            nr_of_scanners: 2
         }
     }
 }
@@ -135,19 +121,14 @@ impl Default for ScannersConfig {
 /// use exar::*;
 ///
 /// let config = PartialScannersConfig {
-///     nr_of_scanners: Some(2),
-///     sleep_time_in_ms: Some(10)
+///     nr_of_scanners: Some(2)
 /// };
 /// # }
 /// ```
-#[cfg_attr(feature = "rustc-serialization", derive(RustcEncodable, RustcDecodable))]
-#[cfg_attr(feature = "serde-serialization", derive(Serialize, Deserialize))]
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PartialScannersConfig {
     /// Number of scanners for each log file (spawns 2 threads for each scanner).
-    pub nr_of_scanners: Option<u8>,
-    /// Amount of time the scanner threads should sleep between each scan.
-    pub sleep_time_in_ms: Option<u64>
+    pub nr_of_scanners: Option<u8>
 }
 
 /// Exar DB's collection configuration.
@@ -164,15 +145,13 @@ pub struct PartialScannersConfig {
 ///     index_granularity: 100000,
 ///     routing_strategy: RoutingStrategy::default(),
 ///     scanners: ScannersConfig {
-///         nr_of_scanners: 2,
-///         sleep_time_in_ms: 10
+///         nr_of_scanners: 2
 ///     }
 /// };
 /// # }
 /// ```
-#[cfg_attr(feature = "rustc-serialization", derive(RustcEncodable, RustcDecodable))]
-#[cfg_attr(feature = "serde-serialization", derive(Serialize, Deserialize))]
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct CollectionConfig {
     /// Path to the logs directory.
     pub logs_path: String,
@@ -196,13 +175,6 @@ impl Default for CollectionConfig {
     }
 }
 
-impl CollectionConfig {
-    /// Returns the scanners sleep as an instance of `Duration`.
-    pub fn scanners_sleep_duration(&self) -> Duration {
-        Duration::from_millis(self.scanners.sleep_time_in_ms)
-    }
-}
-
 /// Exar DB's partial collection configuration.
 /// Holds overrides for the main database configuration.
 ///
@@ -218,15 +190,12 @@ impl CollectionConfig {
 ///     index_granularity: Some(100000),
 ///     routing_strategy: Some(RoutingStrategy::default()),
 ///     scanners: Some(PartialScannersConfig {
-///         nr_of_scanners: Some(2),
-///         sleep_time_in_ms: Some(10)
+///         nr_of_scanners: Some(2)
 ///     })
 /// };
 /// # }
 /// ```
-#[cfg_attr(feature = "rustc-serialization", derive(RustcEncodable, RustcDecodable))]
-#[cfg_attr(feature = "serde-serialization", derive(Serialize, Deserialize))]
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PartialCollectionConfig {
     /// Path to the logs directory.
     pub logs_path: Option<String>,
@@ -257,8 +226,7 @@ mod tests {
             logs_path: Some("test".to_owned()),
             index_granularity: Some(1000),
             scanners: Some(PartialScannersConfig {
-                nr_of_scanners: Some(3),
-                sleep_time_in_ms: Some(5)
+                nr_of_scanners: Some(3)
             }),
             routing_strategy: Some(RoutingStrategy::Random)
         });
@@ -268,8 +236,7 @@ mod tests {
         assert_eq!(collection_config.logs_path, "test".to_owned());
         assert_eq!(collection_config.index_granularity, 1000);
         assert_eq!(collection_config.scanners, ScannersConfig {
-            nr_of_scanners: 3,
-            sleep_time_in_ms: 5
+            nr_of_scanners: 3
         });
         assert_eq!(collection_config.routing_strategy, RoutingStrategy::Random);
     }

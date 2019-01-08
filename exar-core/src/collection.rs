@@ -27,7 +27,7 @@ pub struct Collection {
     index: LinesIndex,
     log: Log,
     scanners: Vec<Scanner>,
-    tail_scanners: Vec<Scanner>,
+    publisher: Publisher,
     routing_strategy: RoutingStrategy,
     logger: Logger
 }
@@ -39,12 +39,13 @@ impl Collection {
         let log = Log::new(&config.logs_path, collection_name, config.index_granularity);
         log.restore_index().and_then(|index| {
             Logger::new(log.clone()).and_then(|logger| {
-                let (scanners, tail_scanners) = try!(Collection::run_scanners(&log, &index, &config));
+                let publisher = Publisher::new();
+                let scanners = try!(Collection::run_scanners(&log, &index, &config, &publisher));
                 Ok(Collection {
                     index: index,
                     log: log,
                     scanners: scanners,
-                    tail_scanners: tail_scanners,
+                    publisher: publisher,
                     routing_strategy: config.routing_strategy.clone(),
                     logger: logger
                 })
@@ -55,7 +56,9 @@ impl Collection {
     /// Publishes an event into the collection and returns the `id` for the event created
     /// or a `DatabaseError` if a failure occurs.
     pub fn publish(&mut self, event: Event) -> Result<u64, DatabaseError> {
-        self.logger.log(event).and_then(|event_id| {
+        self.logger.log(event).and_then(|event| {
+            let event_id = event.id;
+            try!(self.publisher.publish(event));
             if (event_id + 1) % (self.log.get_index_granularity()) == 0 {
                 self.index.insert(event_id + 1, self.logger.bytes_written());
                 try!(self.log.persist_index(&self.index));
@@ -80,25 +83,17 @@ impl Collection {
     /// Drops the collection, kills the scanner threads and remove the log and index files.
     pub fn drop(&mut self) -> Result<(), DatabaseError> {
         self.scanners.truncate(0);
-        self.tail_scanners.truncate(0);
         self.log.remove()
     }
 
-    fn run_scanners(log: &Log, index: &LinesIndex, config: &CollectionConfig) -> Result<(Vec<Scanner>, Vec<Scanner>), DatabaseError> {
+    fn run_scanners(log: &Log, index: &LinesIndex, config: &CollectionConfig, publisher: &Publisher) -> Result<Vec<Scanner>, DatabaseError> {
         let mut scanners = vec![];
-        let mut tail_scanners = vec![];
         for _ in 0..config.scanners.nr_of_scanners {
             let line_reader = try!(log.open_line_reader_with_index(index.clone()));
-            let mut scanner = Scanner::new(line_reader, config.scanners_sleep_duration());
-
-            let line_reader = try!(log.open_line_reader_with_index(index.clone()));
-            let tail_scanner = Scanner::new(line_reader, config.scanners_sleep_duration());
-            try!(scanner.set_tail_scanner_sender(tail_scanner.clone_action_sender()));
-
+            let mut scanner = Scanner::new(line_reader, publisher.clone_action_sender());
             scanners.push(scanner);
-            tail_scanners.push(tail_scanner);
         }
-        Ok((scanners, tail_scanners))
+        Ok(scanners)
     }
 
     fn apply_routing_strategy(&mut self, subscription: Subscription) -> Result<RoutingStrategy, DatabaseError> {
@@ -141,7 +136,6 @@ mod tests {
         assert_eq!(collection.index, LinesIndex::new(100000));
         assert_eq!(collection.log, Log::new("", collection_name, 100000));
         assert_eq!(collection.scanners.len(), 2);
-        assert_eq!(collection.tail_scanners.len(), 2);
         assert_eq!(collection.routing_strategy, RoutingStrategy::default());
 
         assert!(collection.drop().is_ok());
@@ -195,12 +189,10 @@ mod tests {
         let mut collection = Collection::new(collection_name, &config).expect("Unable to create collection");
 
         assert_eq!(collection.scanners.len(), 2);
-        assert_eq!(collection.tail_scanners.len(), 2);
 
         assert!(collection.drop().is_ok());
 
         assert_eq!(collection.scanners.len(), 0);
-        assert_eq!(collection.tail_scanners.len(), 0);
     }
 
     #[test]

@@ -23,19 +23,22 @@ use std::sync::mpsc::Sender;
 #[derive(Clone, Debug)]
 pub struct Subscription {
     active: bool,
-    /// The channel sender used to stream `EventStreamMessage`s back to the subscriber.
-    pub event_stream_sender: Sender<EventStreamMessage>,
-    /// The query associated to this subscription.
-    pub query: Query
+    event_stream_sender: Sender<EventStreamMessage>,
+    query: Query,
+    offset: u64,
+    count: u64
 }
 
 impl Subscription {
     /// Creates a new `Subscription` with the given channel sender and query.
     pub fn new(sender: Sender<EventStreamMessage>, query: Query) -> Subscription {
+        let offset = query.offset;
         Subscription {
             active: true,
             event_stream_sender: sender,
-            query: query
+            query: query,
+            offset: offset,
+            count: 0
         }
     }
 
@@ -44,8 +47,9 @@ impl Subscription {
         let event_id = event.id;
         match self.event_stream_sender.send(EventStreamMessage::Event(event)) {
             Ok(_) => {
-                self.query.update(event_id);
-                if !self.is_active() || !self.query.is_active() {
+                self.offset = event_id;
+                self.count += 1;
+                if !self.is_active() {
                     self.active = false;
                     match self.event_stream_sender.send(EventStreamMessage::End) {
                         Ok(_) => Ok(()),
@@ -64,12 +68,26 @@ impl Subscription {
 
     /// Returns whether the subscription is still active.
     pub fn is_active(&self) -> bool {
-        self.active
+        let query_within_limit = match self.query.limit {
+            Some(limit) => self.count < limit,
+            None => true
+        };
+        self.active && query_within_limit
+    }
+
+    /// Returns whether the subscription is interested in live `Event`s.
+    pub fn is_live(&self) -> bool {
+        self.query.live_stream
     }
 
     /// Returns whether the subscription is interested in the given `Event`.
     pub fn matches_event(&self, event: &Event) -> bool {
-        self.is_active() && self.query.is_active() && self.query.matches(event)
+        self.is_active() && event.id > self.offset && self.query.matches(event)
+    }
+
+    /// Returns the current offsets interval of the subscription.
+    pub fn interval(&self) -> Interval<u64> {
+        Interval::new(self.offset, self.query.interval().end)
     }
 }
 
@@ -88,13 +106,13 @@ mod tests {
 
         assert!(subscription.send(event.clone()).is_ok());
         assert_eq!(receiver.recv(), Ok(EventStreamMessage::Event(event.clone())));
-        assert_eq!(subscription.query.interval().start, 1);
+        assert_eq!(subscription.interval().start, 1);
         assert!(subscription.is_active());
 
         drop(receiver);
 
         assert_eq!(subscription.send(event.clone()), Err(DatabaseError::EventStreamError(EventStreamError::Closed)));
-        assert_eq!(subscription.query.interval().start, 1);
+        assert_eq!(subscription.interval().start, 1);
         assert!(!subscription.is_active());
     }
 
@@ -108,13 +126,13 @@ mod tests {
         assert!(subscription.send(event.clone()).is_ok());
         assert_eq!(receiver.recv(), Ok(EventStreamMessage::Event(event.clone())));
         assert_eq!(receiver.recv(), Ok(EventStreamMessage::End));
-        assert_eq!(subscription.query.interval().start, 1);
+        assert_eq!(subscription.interval().start, 1);
         assert!(!subscription.is_active());
 
         drop(receiver);
 
         assert_eq!(subscription.send(event.clone()), Err(DatabaseError::EventStreamError(EventStreamError::Closed)));
-        assert_eq!(subscription.query.interval().start, 1);
+        assert_eq!(subscription.interval().start, 1);
         assert!(!subscription.is_active());
     }
 }

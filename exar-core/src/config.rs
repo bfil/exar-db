@@ -19,6 +19,9 @@ use std::collections::BTreeMap;
 ///     scanners: ScannersConfig {
 ///         nr_of_scanners: 2
 ///     },
+///     publisher: PublisherConfig {
+///         buffer_size: 100
+///     },
 ///     collections: BTreeMap::new()
 /// };
 /// # }
@@ -34,6 +37,8 @@ pub struct DatabaseConfig  {
     pub routing_strategy: RoutingStrategy,
     /// Log scanners' configuration.
     pub scanners: ScannersConfig,
+    /// Real-time events publisher's configuration.
+    pub publisher: PublisherConfig,
     /// Holds collection-specific configuration overrides.
     pub collections: BTreeMap<String, PartialCollectionConfig>
 }
@@ -45,6 +50,7 @@ impl Default for DatabaseConfig {
             index_granularity: 100000,
             routing_strategy: RoutingStrategy::default(),
             scanners: ScannersConfig::default(),
+            publisher: PublisherConfig::default(),
             collections: BTreeMap::new()
         }
     }
@@ -60,6 +66,7 @@ impl DatabaseConfig {
                 CollectionConfig {
                     logs_path: config.logs_path.unwrap_or_else(|| self.logs_path.clone()),
                     index_granularity: config.index_granularity.unwrap_or_else(|| self.index_granularity),
+                    routing_strategy: config.routing_strategy.unwrap_or_else(|| self.routing_strategy.clone()),
                     scanners: match config.scanners {
                         Some(scanners_config) => ScannersConfig {
                             nr_of_scanners: scanners_config.nr_of_scanners.unwrap_or(self.scanners.nr_of_scanners)
@@ -68,14 +75,22 @@ impl DatabaseConfig {
                             nr_of_scanners: self.scanners.nr_of_scanners
                         }
                     },
-                    routing_strategy: config.routing_strategy.unwrap_or_else(|| self.routing_strategy.clone())
+                    publisher: match config.publisher {
+                        Some(publisher_config) => PublisherConfig {
+                            buffer_size: publisher_config.buffer_size.unwrap_or(self.publisher.buffer_size)
+                        },
+                        None => PublisherConfig {
+                            buffer_size: self.publisher.buffer_size
+                        }
+                    }
                 }
             },
             None => CollectionConfig {
                 logs_path: self.logs_path.clone(),
                 index_granularity: self.index_granularity,
+                routing_strategy: self.routing_strategy.clone(),
                 scanners: self.scanners.clone(),
-                routing_strategy: self.routing_strategy.clone()
+                publisher: self.publisher.clone()
             }
         }
     }
@@ -98,7 +113,7 @@ impl DatabaseConfig {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ScannersConfig {
-    /// Number of scanners for each log file (spawns 2 threads for each scanner).
+    /// Number of scanners for each log file.
     pub nr_of_scanners: u8
 }
 
@@ -127,8 +142,58 @@ impl Default for ScannersConfig {
 /// ```
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PartialScannersConfig {
-    /// Number of scanners for each log file (spawns 2 threads for each scanner).
+    /// Number of scanners for each log file.
     pub nr_of_scanners: Option<u8>
+}
+
+/// Exar DB's publisher configuration.
+///
+/// # Examples
+/// ```
+/// extern crate exar;
+///
+/// # fn main() {
+/// use exar::*;
+///
+/// let config = PublisherConfig {
+///     buffer_size: 100
+/// };
+/// # }
+/// ```
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PublisherConfig {
+    /// Buffer size for events buffered in the `Publisher`.
+    pub buffer_size: usize
+}
+
+impl Default for PublisherConfig {
+    fn default() -> PublisherConfig {
+        PublisherConfig {
+            buffer_size: 100
+        }
+    }
+}
+
+/// Exar DB's partial scanners configuration.
+/// Holds overrides for the main database configuration.
+///
+/// # Examples
+/// ```
+/// extern crate exar;
+///
+/// # fn main() {
+/// use exar::*;
+///
+/// let config = PartialPublisherConfig {
+///     buffer_size: Some(1000)
+/// };
+/// # }
+/// ```
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PartialPublisherConfig {
+    /// Buffer size for events buffered in the `Publisher`.
+    pub buffer_size: Option<usize>
 }
 
 /// Exar DB's collection configuration.
@@ -146,6 +211,9 @@ pub struct PartialScannersConfig {
 ///     routing_strategy: RoutingStrategy::default(),
 ///     scanners: ScannersConfig {
 ///         nr_of_scanners: 2
+///     },
+///     publisher: PublisherConfig {
+///         buffer_size: 100
 ///     }
 /// };
 /// # }
@@ -160,7 +228,9 @@ pub struct CollectionConfig {
     /// Subscriptions' routing strategy.
     pub routing_strategy: RoutingStrategy,
     /// Log scanners' configuration.
-    pub scanners: ScannersConfig
+    pub scanners: ScannersConfig,
+    /// Real-time events publisher's configuration.
+    pub publisher: PublisherConfig
 }
 
 impl Default for CollectionConfig {
@@ -169,8 +239,9 @@ impl Default for CollectionConfig {
         CollectionConfig {
             logs_path: db_defaults.logs_path,
             index_granularity: db_defaults.index_granularity,
+            routing_strategy: db_defaults.routing_strategy,
             scanners: db_defaults.scanners,
-            routing_strategy: db_defaults.routing_strategy
+            publisher: db_defaults.publisher
         }
     }
 }
@@ -191,6 +262,9 @@ impl Default for CollectionConfig {
 ///     routing_strategy: Some(RoutingStrategy::default()),
 ///     scanners: Some(PartialScannersConfig {
 ///         nr_of_scanners: Some(2)
+///     }),
+///     publisher: Some(PartialPublisherConfig {
+///         buffer_size: Some(1000)
 ///     })
 /// };
 /// # }
@@ -204,7 +278,9 @@ pub struct PartialCollectionConfig {
     /// Subscriptions' routing strategy.
     pub routing_strategy: Option<RoutingStrategy>,
     /// Log scanners' configuration.
-    pub scanners: Option<PartialScannersConfig>
+    pub scanners: Option<PartialScannersConfig>,
+    /// Real-time events publisher's configuration.
+    pub publisher: Option<PartialPublisherConfig>
 }
 
 #[cfg(test)]
@@ -225,19 +301,25 @@ mod tests {
         db_config.collections.insert("test".to_owned(), PartialCollectionConfig {
             logs_path: Some("test".to_owned()),
             index_granularity: Some(1000),
+            routing_strategy: Some(RoutingStrategy::Random),
             scanners: Some(PartialScannersConfig {
                 nr_of_scanners: Some(3)
             }),
-            routing_strategy: Some(RoutingStrategy::Random)
+            publisher: Some(PartialPublisherConfig {
+                buffer_size: Some(1000)
+            })
         });
 
         let collection_config = db_config.collection_config("test");
 
         assert_eq!(collection_config.logs_path, "test".to_owned());
         assert_eq!(collection_config.index_granularity, 1000);
+        assert_eq!(collection_config.routing_strategy, RoutingStrategy::Random);
         assert_eq!(collection_config.scanners, ScannersConfig {
             nr_of_scanners: 3
         });
-        assert_eq!(collection_config.routing_strategy, RoutingStrategy::Random);
+        assert_eq!(collection_config.publisher, PublisherConfig {
+            buffer_size: 1000
+        });
     }
 }

@@ -1,5 +1,6 @@
 use super::*;
 
+use std::collections::VecDeque;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
 use std::thread::JoinHandle;
@@ -23,9 +24,9 @@ pub struct Publisher {
 }
 
 impl Publisher {
-    pub fn new() -> Publisher {
+    pub fn new(buffer_size: usize) -> Publisher {
         let (sender, receiver) = channel();
-        PublisherThread::new(receiver).run();
+        PublisherThread::new(receiver, buffer_size).run();
         Publisher {
             action_sender: sender
         }
@@ -62,13 +63,17 @@ impl Drop for Publisher {
 
 struct PublisherThread {
     action_receiver: Receiver<PublisherAction>,
+    buffer_size: usize,
+    events_buffer: VecDeque<Event>,
     subscriptions: Vec<Subscription>
 }
 
 impl PublisherThread {
-    fn new(receiver: Receiver<PublisherAction>) -> PublisherThread {
+    fn new(receiver: Receiver<PublisherAction>, buffer_size: usize) -> PublisherThread {
         PublisherThread {
             action_receiver: receiver,
+            buffer_size: buffer_size,
+            events_buffer: VecDeque::with_capacity(buffer_size),
             subscriptions: vec![]
         }
     }
@@ -78,12 +83,26 @@ impl PublisherThread {
             'main: loop {
                 while let Ok(action) = self.action_receiver.recv() {
                     match action {
-                        PublisherAction::AddSubscription(subscription) => {
-                            self.subscriptions.push(subscription);
+                        PublisherAction::AddSubscription(mut subscription) => {
+                            let interval = subscription.interval();
+                            match self.events_buffer.get(0) {
+                                Some(first_buffered_event) if interval.start < first_buffered_event.id => {
+                                    drop(subscription)
+                                },
+                                Some(first_buffered_event) => {
+                                    for event in self.events_buffer.iter().skip((interval.start - first_buffered_event.id) as usize) {
+                                        if subscription.matches_event(event) {
+                                            let _ = subscription.send(event.clone());
+                                        }
+                                    }
+                                    self.subscriptions.push(subscription)
+                                },
+                                None => self.subscriptions.push(subscription)
+                            }
                         },
                         PublisherAction::PublishEvent(ref event) => {
+                            self.buffer_event(event);
                             for subscription in self.subscriptions.iter_mut().filter(|s| s.matches_event(event)) {
-                                // TODO: if sending fails it will skip and publish later events, should probable fail and remove subscription
                                 let _ = subscription.send(event.clone());
                             }
                         },
@@ -94,6 +113,13 @@ impl PublisherThread {
             self.subscriptions.truncate(0);
             self
         })
+    }
+
+    fn buffer_event(&mut self, event: &Event) {
+        if self.events_buffer.len() == self.buffer_size {
+            self.events_buffer.pop_front();
+        }
+        self.events_buffer.push_back(event.clone());
     }
 }
 

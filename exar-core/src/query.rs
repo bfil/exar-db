@@ -24,9 +24,7 @@ pub struct Query {
     /// Indicates the maximum number of events to be returned by the query, if specified.
     pub limit: Option<u64>,
     /// Indicates the query target event tag, if specified.
-    pub tag: Option<String>,
-    position: u64,
-    count: u64
+    pub tag: Option<String>
 }
 
 impl Query {
@@ -36,9 +34,7 @@ impl Query {
             offset: offset,
             limit: limit,
             tag: tag,
-            live_stream: live_stream,
-            position: offset,
-            count: 0
+            live_stream: live_stream
         }
     }
 
@@ -55,7 +51,6 @@ impl Query {
     /// Mutates and returns the query by updating its target offset.
     pub fn offset(mut self, offset: u64) -> Query {
         self.offset = offset;
-        self.position = offset;
         self
     }
 
@@ -74,28 +69,14 @@ impl Query {
     /// Returns whether a given `Event` matches the query.
     pub fn matches(&self, event: &Event) -> bool {
         match self.tag {
-            Some(ref tag) => self.position < event.id && event.tags.contains(tag),
-            None => self.position < event.id
-        }
-    }
-
-    /// Returns whether the query is still active.
-    pub fn is_active(&self) -> bool {
-        match self.limit {
-            Some(limit) => self.count < limit,
+            Some(ref tag) => event.tags.contains(tag),
             None => true
         }
     }
 
-    /// Updates the internal state of the query given the last matching event `id`.
-    pub fn update(&mut self, event_id: u64) {
-        self.position = event_id;
-        self.count += 1;
-    }
-
     /// Returns the offsets interval the query targets.
     pub fn interval(&self) -> Interval<u64> {
-        let start = self.position;
+        let start = self.offset;
         let end = if self.limit.is_none() || self.tag.is_some() {
             u64::max_value()
         } else {
@@ -141,40 +122,13 @@ mod tests {
 
     #[test]
     fn test_event_matching() {
-        let mut query = Query::current();
+        let query = Query::current();
 
         assert!(query.matches(&Event::new("data", vec!["tag1"]).with_id(1)));
 
-        query.update(1);
-
-        assert!(!query.matches(&Event::new("data", vec!["tag1"]).with_id(1)));
-
-        let mut query = Query::current().by_tag("tag1");
+        let query = Query::current().by_tag("tag1");
 
         assert!(query.matches(&Event::new("data", vec!["tag1"]).with_id(1)));
         assert!(!query.matches(&Event::new("data", vec!["tag2"]).with_id(1)));
-
-        query.update(1);
-
-        assert!(!query.matches(&Event::new("data", vec!["tag1"]).with_id(1)));
-    }
-
-    #[test]
-    fn test_is_active() {
-        let query = Query::current();
-
-        assert!(query.is_active());
-
-        let mut query = query.limit(3);
-
-        assert!(query.is_active());
-
-        query.update(1);
-        query.update(2);
-        query.update(3);
-
-        assert_eq!(query.position, 3);
-        assert_eq!(query.count, 3);
-        assert!(!query.is_active());
     }
 }

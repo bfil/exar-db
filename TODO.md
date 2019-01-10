@@ -1,16 +1,20 @@
-- Test Subscription Moving From Scanner To Publisher (Should Not Skip Events)
-- Drop Subscriptions If Sending An Event Fails
-- Improve Logger Tests (Now Logger Returns The Complete Event)
+- Routing Strategy should be encapsulated within Scanner and there should only be a single Scanner and multiple ScannerThreads
 - Consider Flattening/Renaming Scanners Config
-- Improve Config Loading In ExarDB
-- Test Config Loading Defaults
+- Add Tests for Subscription moving from Scanner to Publisher (Should NOT skip Events)
+- Add Tests & Doc Tests to Publisher
 - Add Publisher Docs
-- Double Check Docs After Changes
-- Improve Writer's Performance
+- Drop Subscriptions if sending an Event fails
+- Add Query Test for Interval
+- Improve Logger Tests (Logger now returns the complete Event)
+- Improve Config loading in ExarDB
+- Test loading Config defaults
+- Double-check Docs after changes
+- Improve Writer's performance
 - Add Versioned Tags & Optimistic Locking
-- Shutdown Collection Threads When Unused
-- Think Whether Named Tags Are Necessary (For Indexes & Projections)
-- Build Non-Blocking Server
-- Build Non-Blocking Client
-- Try To Simplify/Encapsulate Index Management (Now Sent To All Scanners)
+- Shutdown Collection's threads when unused
+- Add ability to switch Collection & drop it in the Client
+- Evaluate whether Named Tags are necessary (For Indexes & Projections)
+- Build non-blocking Server
+- Build non-blocking Client
+- Try to simplify/encapsulate Index management (Now sent to all Scanners)
 - Architecture Docs

@@ -148,14 +148,14 @@ impl ScannerThread {
 
     fn handle_live_subscriptions(&mut self) {
         for subscription in self.subscriptions.drain(..) {
-            if subscription.is_active() && subscription.query.live_stream && subscription.query.is_active() {
+            if subscription.is_active() && subscription.is_live() {
                 let _ = self.publisher_sender.send(PublisherAction::AddSubscription(subscription.clone()));
             }
         }
     }
 
     fn subscriptions_intervals(&self) -> Vec<Interval<u64>> {
-        self.subscriptions.iter().map(|s| s.query.interval()).collect()
+        self.subscriptions.iter().map(|s| s.interval()).collect()
     }
 
     fn scan(&mut self) -> Result<(), DatabaseError> {
@@ -167,10 +167,9 @@ impl ScannerThread {
                             Ok(line) => match Event::from_tab_separated_str(&line) {
                                 Ok(ref event) => {
                                     for subscription in self.subscriptions.iter_mut().filter(|s| s.matches_event(event)) {
-                                        // TODO: if sending fails it will skip and publish later events, should probable fail and remove subscription
                                         let _ = subscription.send(event.clone());
                                     }
-                                    if interval.end == event.id || self.subscriptions.iter().all(|s| !s.query.is_active()) {
+                                    if interval.end == event.id || self.subscriptions.iter().all(|s| !s.is_active()) {
                                         break;
                                     }
                                 },
@@ -249,7 +248,7 @@ mod tests {
 
         match receiver.recv() {
             Ok(ScannerAction::HandleSubscription(s)) => {
-                assert_eq!(s.query, subscription.query);
+                assert_eq!(s.is_live(), true);
             },
             _ => panic!("Expected to receive an HandleSubscription message")
         }
@@ -340,7 +339,7 @@ mod tests {
             message => panic!("Unexpected event stream message: {:?}", message),
         }), Ok(1));
         if let Ok(PublisherAction::AddSubscription(s)) = publisher_receiver.try_recv() {
-            assert_eq!(s.query.live_stream, true);
+            assert_eq!(s.is_live(), true);
         } else {
             panic!("Unable to receive live subscription from the publisher receiver");
         }

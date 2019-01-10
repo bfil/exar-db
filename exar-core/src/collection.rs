@@ -39,7 +39,7 @@ impl Collection {
         let log = Log::new(&config.logs_path, collection_name, config.index_granularity);
         log.restore_index().and_then(|index| {
             Logger::new(log.clone()).and_then(|logger| {
-                let publisher = Publisher::new();
+                let publisher = Publisher::new(config.publisher.buffer_size);
                 let scanners = try!(Collection::run_scanners(&log, &index, &config, &publisher));
                 Ok(Collection {
                     index: index,

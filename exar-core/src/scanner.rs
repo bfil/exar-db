@@ -22,16 +22,14 @@ use std::thread::JoinHandle;
 /// use exar::*;
 /// use std::sync::mpsc::channel;
 ///
-/// let log = Log::new("/path/to/logs", "test", 100);
-/// let event = Event::new("data", vec!["tag1", "tag2"]);
+/// let log       = Log::new("/path/to/logs", "test", 100).expect("Unable to create log");
+/// let publisher = Publisher::new(1000);
+/// let event     = Event::new("data", vec!["tag1", "tag2"]);
 ///
 /// let line_reader = log.open_line_reader().unwrap();
-/// let (publisher_sender, _) = channel();
-/// let mut scanner = Scanner::new(line_reader, publisher_sender);
+/// let mut scanner = Scanner::new(&log, &publisher, &CollectionConfig::default()).expect("Unable to create scanner");
 ///
-/// let (sender, _) = channel();
-/// let subscription = Subscription::new(sender, Query::live());
-/// scanner.handle_subscription(subscription).unwrap();
+/// scanner.handle_query(Query::live()).unwrap();
 ///
 /// drop(scanner);
 /// # }
@@ -64,11 +62,10 @@ impl Scanner {
 
     /// Subscribes to the collection of events using the given query and returns an event stream
     /// or a `DatabaseError` if a failure occurs.
-    pub fn handle_subscription(&mut self, query: Query) -> Result<EventStream, DatabaseError> {
+    pub fn handle_query(&mut self, query: Query) -> Result<EventStream, DatabaseError> {
         let (sender, receiver) = channel();
-        self.send_subscription(Subscription::new(sender, query)).and_then(|_| {
-            Ok(EventStream::new(receiver))
-        })
+        self.send_subscription(Subscription::new(sender, query))?;
+        Ok(EventStream::new(receiver))
     }
 
     /// Adds the given line to the `LinesIndex` or returns a `DatabaseError` if a failure occurs.
@@ -79,19 +76,19 @@ impl Scanner {
     fn send_subscription(&mut self, subscription: Subscription) -> Result<(), DatabaseError> {
         (match self.routing_strategy {
             RoutingStrategy::Random => match rand::thread_rng().choose(&self.action_senders) {
-                Some(action_sender) =>
-                    self.send_action(action_sender, ScannerAction::HandleSubscription(subscription)).and_then(|_| {
-                        Ok(RoutingStrategy::Random)
-                    }),
+                Some(action_sender) => {
+                    self.send_action(action_sender, ScannerAction::HandleSubscription(subscription))?;
+                    Ok(RoutingStrategy::Random)
+                },
                 None => Err(DatabaseError::SubscriptionError)
             },
             RoutingStrategy::RoundRobin(ref last_index) => {
                 let new_index = if last_index + 1 < self.action_senders.len() { last_index + 1 } else { 0 };
                 match self.action_senders.get(new_index) {
-                    Some(action_sender) =>
-                        self.send_action(action_sender, ScannerAction::HandleSubscription(subscription)).and_then(|_| {
-                            Ok(RoutingStrategy::RoundRobin(new_index))
-                        }),
+                    Some(action_sender) => {
+                        self.send_action(action_sender, ScannerAction::HandleSubscription(subscription))?;
+                        Ok(RoutingStrategy::RoundRobin(new_index))
+                    },
                     None => Err(DatabaseError::SubscriptionError)
                 }
             }
@@ -173,7 +170,7 @@ impl ScannerThread {
                     }
                     if !self.subscriptions.is_empty() {
                         match self.scan() {
-                            Ok(_) => self.send_subscriptions_to_publisher(),
+                            Ok(_)    => self.forward_subscriptions_to_publisher(),
                             Err(err) => error!("Unable to scan log: {}", err)
                         }
                     }
@@ -184,7 +181,7 @@ impl ScannerThread {
         })
     }
 
-    fn send_subscriptions_to_publisher(&mut self) {
+    fn forward_subscriptions_to_publisher(&mut self) {
         for subscription in self.subscriptions.drain(..) {
             let _ = self.publisher.handle_subscription(subscription.clone());
         }
@@ -242,45 +239,35 @@ mod tests {
     use std::thread;
     use std::time::Duration;
 
-    fn create_log() -> Log {
-        let ref collection_name = random_collection_name();
-        let log = Log::new("", collection_name, 100);
-        assert!(log.open_writer().is_ok());
-        log
-    }
-
-    fn create_log_and_line_reader() -> (Log, IndexedLineReader<BufReader<File>>) {
-        let log = create_log();
+    fn setup() -> (Log, IndexedLineReader<BufReader<File>>, Publisher, CollectionConfig) {
+        let log         = Log::new("", &random_collection_name(), 10).expect("Unable to create log");
         let line_reader = log.open_line_reader().expect("Unable to open line reader");
-        (log, line_reader)
+        let publisher   = Publisher::new(1000);
+        let config      = CollectionConfig::default();
+        (log, line_reader, publisher, config)
     }
 
     #[test]
     fn test_scanner_constructor() {
-        let (log, line_reader) = create_log_and_line_reader();
-        let (publisher_sender, _) = channel();
+        let (log, _, publisher, config) = setup();
 
-        let _ = Scanner::new(line_reader, publisher_sender);
-
+        assert!(Scanner::new(&log, &publisher, &config).is_ok());
         assert!(log.remove().is_ok());
     }
 
     #[test]
     fn test_scanner_message_passing() {
-        let (log, line_reader) = create_log_and_line_reader();
-        let (publisher_sender, _) = channel();
+        let (log, _, publisher, config) = setup();
 
-        let mut scanner = Scanner::new(line_reader, publisher_sender);
+        let mut scanner = Scanner::new(&log, &publisher, &config).expect("Unable to create scanner");
 
         assert!(scanner.stop().is_ok());
 
-        let (sender, _) = channel();
-        let subscription = Subscription::new(sender, Query::live());
-
+        let query              = Query::live();
         let (sender, receiver) = channel();
-        scanner.action_sender = sender;
+        scanner.action_senders = vec![sender];
 
-        assert!(scanner.handle_subscription(subscription.clone()).is_ok());
+        assert!(scanner.handle_query(query.clone()).is_ok());
 
         match receiver.recv() {
             Ok(ScannerAction::HandleSubscription(s)) => {
@@ -289,14 +276,15 @@ mod tests {
             _ => panic!("Expected to receive an HandleSubscription message")
         }
 
-        assert!(scanner.add_line_index(100, 1000).is_ok());
+        let index = LinesIndex::new(100);
+
+        assert!(scanner.update_index(&index).is_ok());
 
         match receiver.recv() {
-            Ok(ScannerAction::AddLineIndex(pos, byte_count)) => {
-                assert_eq!(pos, 100);
-                assert_eq!(byte_count, 1000);
+            Ok(ScannerAction::UpdateIndex(received_index)) => {
+                assert_eq!(received_index, index);
             },
-            _ => panic!("Expected to receive an HandleSubscription message")
+            _ => panic!("Expected to receive an UpdateIndex message")
         }
 
         assert!(scanner.stop().is_ok());
@@ -315,11 +303,10 @@ mod tests {
 
     #[test]
     fn test_scanner_thread_stop() {
-        let (log, line_reader) = create_log_and_line_reader();
-        let (publisher_sender, _) = channel();
+        let (log, line_reader, publisher, _) = setup();
 
         let (sender, receiver) = channel();
-        let scanner_thread = ScannerThread::new(line_reader, receiver, publisher_sender);
+        let scanner_thread = ScannerThread::new(line_reader, receiver, publisher.clone());
         let handle = scanner_thread.run();
 
         assert!(sender.send(ScannerAction::Stop).is_ok());
@@ -332,36 +319,38 @@ mod tests {
 
     #[test]
     fn test_scanner_thread_new_indexed_line() {
-        let (log, line_reader) = create_log_and_line_reader();
-        let (publisher_sender, _) = channel();
+        let (log, line_reader, publisher, _) = setup();
 
         let (sender, receiver) = channel();
-        let scanner_thread = ScannerThread::new(line_reader, receiver, publisher_sender);
-        let handle = scanner_thread.run();
+        let scanner_thread     = ScannerThread::new(line_reader, receiver, publisher.clone());
+        let handle             = scanner_thread.run();
 
-        assert!(sender.send(ScannerAction::AddLineIndex(100, 1234)).is_ok());
+        let mut index = LinesIndex::new(100);
+        index.insert(100, 1234);
+
+        assert!(sender.send(ScannerAction::UpdateIndex(index.clone())).is_ok());
         assert!(sender.send(ScannerAction::Stop).is_ok());
 
         let scanner_thread = handle.join().expect("Unable to join scanner thread");
-        assert_eq!(scanner_thread.index.byte_count_at_pos(&100), Some(1234));
-        assert_eq!(scanner_thread.reader.get_index().clone().byte_count_at_pos(&100), Some(1234));
+        assert_eq!(scanner_thread.reader.get_index().byte_count_at_pos(&100), Some(1234));
 
         assert!(log.remove().is_ok());
     }
 
     #[test]
     fn test_scanner_thread_subscriptions_management() {
-        let log = create_log();
-        let mut logger = Logger::new(log.clone()).expect("Unable to create logger");
-        let line_reader = log.open_line_reader().expect("Unable to open line reader");
-        let event = Event::new("data", vec!["tag1", "tag2"]);
+        let (log, _, publisher, config) = setup();
+
+        let scanner        = Scanner::new(&log, &publisher, &config).expect("Unable to create scanner");
+        let mut logger     = Logger::new(&log, &publisher, &scanner).expect("Unable to create logger");
+        let line_reader    = log.open_line_reader().expect("Unable to open line reader");
+        let event          = Event::new("data", vec!["tag1", "tag2"]);
         let sleep_duration = Duration::from_millis(10);
 
         assert!(logger.log(event).is_ok());
 
         let (thread_sender, thread_receiver) = channel();
-        let (publisher_sender, publisher_receiver) = channel();
-        let scanner_thread = ScannerThread::new(line_reader, thread_receiver, publisher_sender);
+        let scanner_thread = ScannerThread::new(line_reader, thread_receiver, publisher.clone());
         scanner_thread.run();
 
         let (sender, receiver) = channel();
@@ -374,11 +363,6 @@ mod tests {
             EventStreamMessage::Event(e) => e.id,
             message => panic!("Unexpected event stream message: {:?}", message),
         }), Ok(1));
-        if let Ok(PublisherAction::AddSubscription(s)) = publisher_receiver.try_recv() {
-            assert_eq!(s.is_live(), true);
-        } else {
-            panic!("Unable to receive live subscription from the publisher receiver");
-        }
         assert_eq!(receiver.try_recv().err(), Some(TryRecvError::Empty));
 
         let (sender, receiver) = channel();
@@ -398,28 +382,23 @@ mod tests {
 
     #[test]
     fn test_apply_round_robin_routing_strategy() {
-        let ref collection_name = random_collection_name();
-        let config = CollectionConfig::default();
-        let mut collection = Collection::new(collection_name, &config)
-            .expect("Unable to create collection");
+        let (log, _, publisher, config) = setup();
 
-        let (sender, _) = channel();
+        let mut scanner = Scanner::new(&log, &publisher, &config).expect("Unable to create scanner");
+
+        let (sender, _)  = channel();
         let subscription = Subscription::new(sender, Query::current());
 
-        collection.routing_strategy = RoutingStrategy::RoundRobin(0);
+        scanner.routing_strategy = RoutingStrategy::RoundRobin(0);
 
-        let updated_strategy = collection.apply_routing_strategy(subscription.clone())
-            .expect("Unable to apply routing strategy");
+        scanner.send_subscription(subscription.clone()).expect("Unable to apply routing strategy");
 
-        assert_eq!(updated_strategy, RoutingStrategy::RoundRobin(1));
+        assert_eq!(scanner.routing_strategy, RoutingStrategy::RoundRobin(1));
 
-        collection.routing_strategy = updated_strategy;
+        scanner.send_subscription(subscription).expect("Unable to apply routing strategy");
 
-        let updated_strategy = collection.apply_routing_strategy(subscription)
-            .expect("Unable to apply routing strategy");
+        assert_eq!(scanner.routing_strategy, RoutingStrategy::RoundRobin(0));
 
-        assert_eq!(updated_strategy, RoutingStrategy::RoundRobin(0));
-
-        assert!(collection.drop().is_ok());
+        assert!(scanner.stop().is_ok());
     }
 }

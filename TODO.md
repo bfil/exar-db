@@ -1,11 +1,15 @@
 - Make tests compile and run again
+- Index updates do not update line and byte count
 - Add Tests for Subscription moving from Scanner to Publisher (Should NOT skip Events)
 - Add Tests & Doc Tests to Publisher
 - Add Publisher Docs
 - Add Query Test for Interval
 - Improve Logger Tests
+- Refactor OpenOptions logic by reusing the Ok/Err match case
+- Move routing strategy config under scanner config
 - Drop Subscriptions if sending an Event fails
 - Consider creating an Indexer thread to persist updated indexes
+- Consider returning the new index in Log's restore_index method
 - Handle changes of index granularity if necessary
 - Improve Config loading in ExarDB
 - Test loading Config defaults

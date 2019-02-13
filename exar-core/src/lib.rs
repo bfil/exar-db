@@ -24,11 +24,11 @@
 //! let mut db = Database::new(config);
 //!
 //! let collection_name = "test";
-//! let connection = db.connect(collection_name).unwrap();
+//! let connection      = db.connect(collection_name).unwrap();
 //!
 //! match connection.publish(Event::new("payload", vec!["tag1", "tag2"])) {
 //!     Ok(event_id) => println!("Published event with ID: {}", event_id),
-//!     Err(err) => panic!("Unable to publish event: {}", err)
+//!     Err(err)     => panic!("Unable to publish event: {}", err)
 //! };
 //! # }
 //! ```
@@ -43,9 +43,9 @@
 //! let mut db = Database::new(config);
 //!
 //! let collection_name = "test";
-//! let connection = db.connect(collection_name).unwrap();
+//! let connection      = db.connect(collection_name).unwrap();
 //!
-//! let query = Query::live().offset(0).limit(10).by_tag("tag1");
+//! let query        = Query::live().offset(0).limit(10).by_tag("tag1");
 //! let event_stream = connection.subscribe(query).unwrap();
 //! for event in event_stream {
 //!     println!("Received event: {}", event);

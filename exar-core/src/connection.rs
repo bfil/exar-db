@@ -13,10 +13,10 @@ use std::sync::{Arc, Mutex};
 /// use exar::*;
 /// use std::sync::{Arc, Mutex};
 ///
-/// let collection_name = "test";
+/// let collection_name   = "test";
 /// let collection_config = CollectionConfig::default();
-/// let collection = Collection::new(collection_name, &collection_config).unwrap();
-/// let connection = Connection::new(Arc::new(Mutex::new(collection)));
+/// let collection        = Collection::new(collection_name, &collection_config).unwrap();
+/// let connection        = Connection::new(Arc::new(Mutex::new(collection)));
 /// # }
 /// ```
 #[derive(Clone, Debug)]
@@ -27,9 +27,7 @@ pub struct Connection {
 impl Connection {
     /// Creates a new instance of a connection with the given collection.
     pub fn new(collection: Arc<Mutex<Collection>>) -> Connection {
-        Connection {
-            collection: collection
-        }
+        Connection { collection }
     }
 
     /// Publishes an event into the underlying collection and returns the `id` for the event created
@@ -57,19 +55,18 @@ mod tests {
 
     #[test]
     fn test_connection() {
-        let mut db = Database::new(DatabaseConfig::default());
-
+        let mut db              = Database::new(DatabaseConfig::default());
         let ref collection_name = random_collection_name();
-        let collection = db.get_collection(collection_name).expect("Unable to get collection");
+        let collection          = db.get_collection(collection_name).expect("Unable to get collection");
+        let connection          = Connection::new(collection);
+        let test_event          = Event::new("data", vec!["tag1", "tag2"]);
 
-        let connection = Connection::new(collection);
-
-        let test_event = Event::new("data", vec!["tag1", "tag2"]);
         assert_eq!(connection.publish(test_event.clone()), Ok(1));
 
-        let query = Query::current();
+        let query                    = Query::current();
         let retrieved_events: Vec<_> = connection.subscribe(query).unwrap().take(1).collect();
-        let expected_event = test_event.clone().with_id(1).with_timestamp(retrieved_events[0].timestamp);
+        let expected_event           = test_event.clone().with_id(1).with_timestamp(retrieved_events[0].timestamp);
+
         assert_eq!(retrieved_events, vec![expected_event]);
 
         connection.close();

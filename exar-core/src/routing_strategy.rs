@@ -14,7 +14,7 @@ pub enum RoutingStrategy {
 impl Serialize for RoutingStrategy {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         match *self {
-            RoutingStrategy::Random => serializer.serialize_str("Random"),
+            RoutingStrategy::Random        => serializer.serialize_str("Random"),
             RoutingStrategy::RoundRobin(_) => serializer.serialize_str("RoundRobin")
         }
     }
@@ -35,9 +35,9 @@ impl<'de> Visitor<'de> for RoutingStrategyVisitor {
     }
     fn visit_str<E: Error>(self, s: &str) -> Result<RoutingStrategy, E> {
         match s {
-            "Random" => Ok(RoutingStrategy::Random),
+            "Random"     => Ok(RoutingStrategy::Random),
             "RoundRobin" => Ok(RoutingStrategy::RoundRobin(0)),
-            _ => Ok(RoutingStrategy::default())
+            _            => Ok(RoutingStrategy::default())
         }
     }
 }

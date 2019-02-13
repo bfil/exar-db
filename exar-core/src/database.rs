@@ -17,7 +17,7 @@ use std::sync::{Arc, Mutex};
 /// let mut db = Database::new(config);
 ///
 /// let collection_name = "test";
-/// let connection = db.connect(collection_name).unwrap();
+/// let connection      = db.connect(collection_name).unwrap();
 /// # }
 /// ```
 #[derive(Clone, Debug)]
@@ -39,7 +39,7 @@ impl Database {
     pub fn connect(&mut self, collection_name: &str) -> Result<Connection, DatabaseError> {
         match self.get_collection(collection_name) {
             Ok(collection) => Ok(Connection::new(collection)),
-            Err(err) => Err(err)
+            Err(err)       => Err(err)
         }
     }
 
@@ -51,7 +51,7 @@ impl Database {
         } else {
             match self.collections.get(collection_name) {
                 Some(collection) => Ok(collection.clone()),
-                None => unreachable!()
+                None             => unreachable!()
             }
         }
     }
@@ -60,21 +60,17 @@ impl Database {
     /// or a `DatabaseError` if a failure occurs.
     pub fn create_collection(&mut self, collection_name: &str) -> Result<Arc<Mutex<Collection>>, DatabaseError> {
         let collection_config = self.config.collection_config(collection_name);
-        Collection::new(collection_name, &collection_config).and_then(|collection| {
-            let collection = Arc::new(Mutex::new(collection));
-            self.collections.insert(collection_name.to_owned(), collection.clone());
-            Ok(collection)
-        })
+        let collection        = Arc::new(Mutex::new(Collection::new(collection_name, &collection_config)?));
+        self.collections.insert(collection_name.to_owned(), collection.clone());
+        Ok(collection)
     }
 
     /// Drops the collection with the given name or returns an error if a failure occurs.
     pub fn drop_collection(&mut self, collection_name: &str) -> Result<(), DatabaseError> {
-        self.get_collection(collection_name).and_then(|collection| {
-            (*collection.lock().unwrap()).drop().and_then(|_| {
-                self.collections.remove(collection_name);
-                Ok(())
-            })
-        })
+        let collection = self.get_collection(collection_name)?;
+        (*collection.lock().unwrap()).drop()?;
+        self.collections.remove(collection_name);
+        Ok(())
     }
 
     /// Returns whether a collection with the given name exists.

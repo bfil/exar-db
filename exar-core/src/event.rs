@@ -73,11 +73,11 @@ impl ToTabSeparatedString for Event {
 
 impl FromTabSeparatedStr for Event {
     fn from_tab_separated_str(s: &str) -> Result<Event, ParseError> {
-        let mut parser = TabSeparatedParser::new(4, s);
-        let id = try!(parser.parse_next());
-        let timestamp = try!(parser.parse_next());
-        let tags: String = try!(parser.parse_next());
-        let data: String = try!(parser.parse_next());
+        let mut parser   = TabSeparatedParser::new(4, s);
+        let id           = parser.parse_next()?;
+        let timestamp    = parser.parse_next()?;
+        let tags: String = parser.parse_next()?;
+        let data: String = parser.parse_next()?;
         let tags: Vec<_> = tags.split(' ').map(|x| x.to_owned()).collect();
         Ok(Event {
             id: id,
@@ -110,10 +110,11 @@ impl Validation for Event {
 /// use std::sync::mpsc::channel;
 ///
 /// let (sender, receiver) = channel();
-/// let mut event_stream = EventStream::new(receiver);
+/// let mut event_stream   = EventStream::new(receiver);
 ///
-/// let event = Event::new("data", vec!["tag1", "tag2"]);
+/// let event                = Event::new("data", vec!["tag1", "tag2"]);
 /// let event_stream_message = EventStreamMessage::Event(event);
+///
 /// sender.send(event_stream_message);
 /// # }
 /// ```
@@ -146,11 +147,11 @@ impl EventStream {
     pub fn try_recv(&self) -> Result<Event, EventStreamError> {
         match self.event_stream_receiver.try_recv() {
             Ok(EventStreamMessage::Event(event)) => Ok(event),
-            Ok(EventStreamMessage::End) => Err(EventStreamError::Closed),
-            Err(err) => match err {
-                TryRecvError::Empty => Err(EventStreamError::Empty),
-                TryRecvError::Disconnected => Err(EventStreamError::Closed)
-            }
+            Ok(EventStreamMessage::End)          => Err(EventStreamError::Closed),
+            Err(err)                             => match err {
+                                                        TryRecvError::Empty        => Err(EventStreamError::Empty),
+                                                        TryRecvError::Disconnected => Err(EventStreamError::Closed)
+                                                    }
         }
     }
 }
@@ -174,9 +175,9 @@ impl Iterator for EventStream {
 /// # fn main() {
 /// use exar::*;
 ///
-/// let event = Event::new("data", vec!["tag1", "tag2"]);
+/// let event                = Event::new("data", vec!["tag1", "tag2"]);
 /// let event_stream_message = EventStreamMessage::Event(event);
-/// let event_stream_end = EventStreamMessage::End;
+/// let event_stream_end     = EventStreamMessage::End;
 /// # }
 /// ```
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -223,7 +224,7 @@ mod tests {
         assert_eq!(event.timestamp, 1234567890);
 
         let event = event.with_current_timestamp();
-        assert!(event.timestamp != 1234567890);
+        assert_ne!(event.timestamp, 1234567890);
         assert!(event.timestamp <= get_current_timestamp_in_ms());
     }
 

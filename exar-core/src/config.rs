@@ -295,8 +295,9 @@ mod tests {
 
         assert_eq!(collection_config.logs_path, db_config.logs_path);
         assert_eq!(collection_config.index_granularity, db_config.index_granularity);
-        assert_eq!(collection_config.scanner, db_config.scanner);
         assert_eq!(collection_config.routing_strategy, db_config.routing_strategy);
+        assert_eq!(collection_config.scanner, db_config.scanner);
+        assert_eq!(collection_config.publisher, db_config.publisher);
 
         db_config.collections.insert("test".to_owned(), PartialCollectionConfig {
             logs_path: Some("test".to_owned()),

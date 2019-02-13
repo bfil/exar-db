@@ -37,7 +37,7 @@ impl Publisher {
     }
 
     pub fn handle_subscription(&self, subscription: Subscription) -> Result<(), DatabaseError> {
-        self.send_action(PublisherAction::AddSubscription(subscription))
+        self.send_action(PublisherAction::HandleSubscription(subscription))
     }
 
     fn send_action(&self, action: PublisherAction) -> Result<(), DatabaseError> {
@@ -83,14 +83,14 @@ impl PublisherThread {
             'main: loop {
                 while let Ok(action) = self.action_receiver.recv() {
                     match action {
-                        PublisherAction::AddSubscription(mut subscription) => {
-                            let interval = subscription.interval();
+                        PublisherAction::HandleSubscription(mut subscription) => {
+                            let min_subscription_event_id = subscription.interval().start + 1;
                             match self.events_buffer.get(0) {
-                                Some(first_buffered_event) if interval.start < first_buffered_event.id => {
+                                Some(first_buffered_event) if min_subscription_event_id < first_buffered_event.id => {
                                     drop(subscription)
                                 },
                                 Some(first_buffered_event) => {
-                                    for event in self.events_buffer.iter().skip((interval.start - first_buffered_event.id) as usize) {
+                                    for event in self.events_buffer.iter().skip((min_subscription_event_id - first_buffered_event.id) as usize) {
                                         if subscription.matches_event(event) {
                                             let _ = subscription.send(event.clone());
                                         }
@@ -127,7 +127,7 @@ impl PublisherThread {
 
 #[derive(Clone, Debug)]
 pub enum PublisherAction {
-    AddSubscription(Subscription),
+    HandleSubscription(Subscription),
     PublishEvent(Event),
     Stop
 }

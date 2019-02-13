@@ -30,12 +30,7 @@ pub struct Query {
 impl Query {
     /// Creates a new `Query` from the given parameters.
     pub fn new(live_stream: bool, offset: u64, limit: Option<u64>, tag: Option<String>) -> Query {
-        Query {
-            offset: offset,
-            limit: limit,
-            tag: tag,
-            live_stream: live_stream
-        }
+        Query { offset, limit, tag, live_stream }
     }
 
     /// Initializes a `Query` targeting the current events in the event log.
@@ -70,7 +65,7 @@ impl Query {
     pub fn matches(&self, event: &Event) -> bool {
         match self.tag {
             Some(ref tag) => event.tags.contains(tag),
-            None => true
+            None          => true
         }
     }
 

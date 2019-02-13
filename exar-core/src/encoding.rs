@@ -48,7 +48,7 @@ impl Display for ParseError {
     fn fmt(&self, f: &mut Formatter) -> DisplayResult {
         match *self {
             ParseError::ParseError(ref description) => write!(f, "{}", description),
-            ParseError::MissingField(index) => write!(f, "missing field at index {}", index)
+            ParseError::MissingField(index)         => write!(f, "missing field at index {}", index)
         }
     }
 }
@@ -64,7 +64,7 @@ impl Display for ParseError {
 /// use exar::*;
 ///
 /// let tab_separated_value = tab_separated!("hello", "world");
-/// let mut parser = TabSeparatedParser::new(2, &tab_separated_value);
+/// let mut parser          = TabSeparatedParser::new(2, &tab_separated_value);
 ///
 /// let hello: String = parser.parse_next().unwrap();
 /// let world: String = parser.parse_next().unwrap();
@@ -93,7 +93,7 @@ impl<'a> TabSeparatedParser<'a> {
                 Ok(value)
             },
             Some(Err(err)) => Err(ParseError::ParseError(format!("{}", err))),
-            None => Err(ParseError::MissingField(self.index))
+            None           => Err(ParseError::MissingField(self.index))
         }
     }
 }
@@ -114,10 +114,10 @@ mod tests {
     #[test]
     fn test_tab_separated_parser() {
         let tab_separated_value = tab_separated!("hello", "world", "!");
-        let mut parser = TabSeparatedParser::new(3, &tab_separated_value);
+        let mut parser          = TabSeparatedParser::new(3, &tab_separated_value);
 
-        let hello: String = parser.parse_next().expect("Unable to parse value");
-        let world: String = parser.parse_next().expect("Unable to parse value");
+        let hello: String            = parser.parse_next().expect("Unable to parse value");
+        let world: String            = parser.parse_next().expect("Unable to parse value");
         let exclamation_mark: String = parser.parse_next().expect("Unable to parse value");
 
         assert_eq!(hello, "hello".to_owned());
@@ -125,7 +125,7 @@ mod tests {
         assert_eq!(exclamation_mark, "!".to_owned());
 
         let tab_separated_value = tab_separated!(1, 2);
-        let mut parser = TabSeparatedParser::new(2, &tab_separated_value);
+        let mut parser          = TabSeparatedParser::new(2, &tab_separated_value);
 
         let one: u8 = parser.parse_next().expect("Unable to parse value");
         let two: u8 = parser.parse_next().expect("Unable to parse value");
@@ -137,7 +137,7 @@ mod tests {
     #[test]
     fn test_parse_error() {
         let tab_separated_value = tab_separated!("hello", "world");
-        let mut parser = TabSeparatedParser::new(2, &tab_separated_value);
+        let mut parser          = TabSeparatedParser::new(2, &tab_separated_value);
 
         assert_eq!(parser.parse_next::<u8>(), Err(ParseError::ParseError("invalid digit found in string".to_owned())));
     }
@@ -145,7 +145,7 @@ mod tests {
     #[test]
     fn test_missing_field_error() {
         let tab_separated_value = tab_separated!("hello", "world");
-        let mut parser = TabSeparatedParser::new(2, &tab_separated_value);
+        let mut parser          = TabSeparatedParser::new(2, &tab_separated_value);
 
         let hello: String = parser.parse_next().expect("Unable to parse value");
         let world: String = parser.parse_next().expect("Unable to parse value");

@@ -12,11 +12,13 @@ use std::io::BufWriter;
 /// # fn main() {
 /// use exar::*;
 ///
-/// let log = Log::new("/path/to/logs", "test", 100);
-/// let event = Event::new("data", vec!["tag1", "tag2"]);
+/// let log       = Log::new("/path/to/logs", "test", 100).expect("Unable to create log");
+/// let publisher = Publisher::new(1000);
+/// let scanner   = Scanner::new(&log, &publisher, &CollectionConfig::default()).expect("Unable to create scanner");
+/// let event     = Event::new("data", vec!["tag1", "tag2"]);
 ///
-/// let mut logger = Logger::new(log).unwrap();
-/// let event_id = logger.log(event).unwrap();
+/// let mut logger = Logger::new(&log, &publisher, &scanner).unwrap();
+/// let event_id   = logger.log(event).unwrap();
 /// # }
 /// ```
 #[derive(Debug)]
@@ -85,25 +87,34 @@ mod tests {
 
     use std::io::{BufRead, BufReader};
 
-    fn create_log() -> Log {
-        let ref collection_name = random_collection_name();
-        Log::new("", collection_name, 100)
+    fn setup() -> (Log, Publisher, Scanner, Event) {
+        let log       = Log::new("", &random_collection_name(), 10).expect("Unable to create log");
+        let publisher = Publisher::new(1000);
+        let scanner   = Scanner::new(&log, &publisher, &CollectionConfig::default()).expect("Unable to create scanner");
+        let event     = Event::new("data", vec!["tag1", "tag2"]);
+        (log, publisher, scanner, event)
     }
 
     #[test]
     fn test_constructor() {
-        let log = create_log();
-        let event = Event::new("data", vec!["tag1", "tag2"]);
+        let (log, publisher, scanner, event) = setup();
 
-        let mut logger = Logger::new(log.clone()).expect("Unable to create logger");
+        assert!(log.remove().is_ok());
+
+        let collection_name = random_collection_name();
+        let log             = Log::new("", &collection_name, 10).expect("Unable to create log");
+        let mut logger      = Logger::new(&log, &publisher, &scanner).expect("Unable to create logger");
 
         assert_eq!(logger.writer.get_ref().metadata().unwrap().is_file(), true);
         assert_eq!(logger.offset, 1);
         assert_eq!(logger.bytes_written, 0);
 
-        assert_eq!(logger.log(event).expect("Unable to log event").id, 1);
+        assert_eq!(logger.log(event).expect("Unable to log event"), 1);
 
-        let logger = Logger::new(log.clone()).expect("Unable to create logger");
+        drop(logger);
+
+        let log    = Log::new("", &collection_name, 10).expect("Unable to create log");
+        let logger = Logger::new(&log, &publisher, &scanner).expect("Unable to create logger");
 
         assert_eq!(logger.writer.get_ref().metadata().unwrap().is_file(), true);
         assert_eq!(logger.offset, 2);
@@ -113,28 +124,19 @@ mod tests {
     }
 
     #[test]
-    fn test_constructor_failure() {
-        let ref collection_name = invalid_collection_name();
-        let log = Log::new("", collection_name, 10);
-
-        assert!(Logger::new(log.clone()).is_err());
-
-        assert!(log.remove().is_err());
-    }
-
-    #[test]
     fn test_log() {
-        let log = create_log();
-        let event = Event::new("data", vec!["tag1", "tag2"]);
+        let (log, publisher, scanner, event) = setup();
 
-        let mut logger = Logger::new(log.clone()).expect("Unable to create logger");
+        let mut logger = Logger::new(&log, &publisher, &scanner).expect("Unable to create logger");
 
-        assert_eq!(logger.log(event.clone()).expect("Unable to log event").id, 1);
+        assert_eq!(logger.log(event.clone()).expect("Unable to log event"), 1);
         assert_eq!(logger.offset, 2);
         assert_eq!(logger.bytes_written, 31);
-        assert_eq!(logger.log(event.clone()).expect("Unable to log event").id, 2);
+        assert_eq!(logger.log(event.clone()).expect("Unable to log event"), 2);
         assert_eq!(logger.offset, 3);
         assert_eq!(logger.bytes_written, 62);
+
+        drop(logger);
 
         let reader = log.open_reader().expect("Unable to open reader");
 
@@ -166,11 +168,27 @@ mod tests {
     }
 
     #[test]
+    fn test_index_updates() {
+        let (log, publisher, scanner, event) = setup();
+
+        let mut logger = Logger::new(&log, &publisher, &scanner).expect("Unable to create logger");
+
+        for i in 0..100 {
+            assert_eq!(logger.log(event.clone()), Ok(i+1));
+        }
+
+        assert_eq!(logger.log.get_index().get_ref().len(), 10);
+
+        assert!(log.remove().is_ok());
+    }
+
+    #[test]
     fn test_event_validation_failure() {
-        let log = create_log();
+        let (log, publisher, scanner, _) = setup();
+
         let event = Event::new("data", vec![]);
 
-        let mut logger = Logger::new(log.clone()).expect("Unable to create logger");
+        let mut logger = Logger::new(&log, &publisher, &scanner).expect("Unable to create logger");
 
         let expected_validation_error = ValidationError::new("event must contain at least one tag");
         assert_eq!(logger.log(event.clone()), Err(DatabaseError::ValidationError(expected_validation_error)));

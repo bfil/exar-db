@@ -2,7 +2,7 @@ use exar::*;
 use super::*;
 
 use std::io::prelude::*;
-use std::io::{BufReader, BufWriter, Lines};
+use std::io::{BufReader, Lines, LineWriter};
 use std::net::TcpStream;
 
 /// A bidiectional TCP message stream.
@@ -11,7 +11,7 @@ use std::net::TcpStream;
 #[derive(Debug)]
 pub struct TcpMessageStream<T: Read + Write> {
     reader: BufReader<T>,
-    writer: BufWriter<T>
+    writer: LineWriter<T>
 }
 
 impl<T: Read + Write + TryClone> TcpMessageStream<T> {
@@ -21,7 +21,7 @@ impl<T: Read + Write + TryClone> TcpMessageStream<T> {
         stream.try_clone().and_then(|cloned_stream| {
             Ok(TcpMessageStream {
                 reader: BufReader::new(cloned_stream),
-                writer: BufWriter::new(stream)
+                writer: LineWriter::new(stream)
             })
         })
     }

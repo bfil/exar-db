@@ -30,17 +30,21 @@ use std::io::{BufReader, BufWriter, BufRead};
 pub struct Log {
     path: String,
     name: String,
+    index: LinesIndex,
     index_granularity: u64
 }
 
 impl Log {
     /// Returns a new `Log` pointing to the given path/name and using the given index granularity.
-    pub fn new(path: &str, name: &str, index_granularity: u64) -> Log {
-        Log {
+    pub fn new(path: &str, name: &str, index_granularity: u64) ->  Result<Log, DatabaseError> {
+        let mut log = Log {
             path: path.to_owned(),
             name: name.to_owned(),
+            index: LinesIndex::new(index_granularity),
             index_granularity: index_granularity
-        }
+        };
+        log.restore_index()?;
+        Ok(log)
     }
 
     /// Ensure the underlying log file exists and creates it if it does not exist,
@@ -72,9 +76,9 @@ impl Log {
 
     /// Returns an indexed line reader for the underlying log file and restores the index
     /// using the given `LinesIndex` or a `DatabaseError` if a failure occurs.
-    pub fn open_line_reader_with_index(&self, index: LinesIndex) -> Result<IndexedLineReader<BufReader<File>>, DatabaseError> {
+    pub fn open_indexed_line_reader(&self) -> Result<IndexedLineReader<BufReader<File>>, DatabaseError> {
         self.open_line_reader().and_then(|mut reader| {
-            reader.restore_index(index);
+            reader.restore_index(self.index.clone());
             Ok(reader)
         })
     }
@@ -97,19 +101,6 @@ impl Log {
         }
     }
 
-    /// Computes and returns the `LinesIndex` for the underlying log file
-    /// or a `DatabaseError` if a failure occurs.
-    pub fn compute_index(&self) -> Result<LinesIndex, DatabaseError> {
-        self.ensure_exists().and_then(|_| {
-            self.open_line_reader().and_then(|mut reader| {
-                match reader.compute_index() {
-                    Ok(_) => Ok(reader.get_index().clone()),
-                    Err(err) => Err(DatabaseError::from_io_error(err))
-                }
-            })
-        })
-    }
-
     /// Returns a buffered reader for the log index file or a `DatabaseError` if a failure occurs.
     pub fn open_index_reader(&self) -> Result<BufReader<File>, DatabaseError> {
         match OpenOptions::new().read(true).open(self.get_index_path()) {
@@ -126,11 +117,18 @@ impl Log {
         }
     }
 
-    /// Restores and returns the log `LinesIndex` from the log index file
-    /// or a `DatabaseError` if a failure occurs.
-    ///
-    /// If the log index file does not exist it will be computed and persisted.
-    pub fn restore_index(&self) -> Result<LinesIndex, DatabaseError> {
+    fn compute_index(&self) -> Result<LinesIndex, DatabaseError> {
+        self.ensure_exists().and_then(|_| {
+            self.open_line_reader().and_then(|mut reader| {
+                match reader.compute_index() {
+                    Ok(_) => Ok(reader.get_index().clone()),
+                    Err(err) => Err(DatabaseError::from_io_error(err))
+                }
+            })
+        })
+    }
+
+    fn restore_index(&mut self) -> Result<(), DatabaseError> {
         match self.open_index_reader() {
             Ok(reader) => {
                 let mut index = LinesIndex::new(self.index_granularity);
@@ -148,24 +146,24 @@ impl Log {
                 self.open_line_reader().and_then(|mut reader| {
                     reader.restore_index(index);
                     match reader.compute_index() {
-                        Ok(_) => Ok(reader.get_index().clone()),
+                        Ok(_)    => {
+                            self.index = reader.get_index().clone();
+                            Ok(())
+                        },
                         Err(err) => Err(DatabaseError::from_io_error(err))
                     }
                 })
             },
-            Err(_) => self.compute_index().and_then(|index| {
-                self.persist_index(&index).and_then(|_| {
-                    Ok(index)
-                })
-            })
+            Err(_) => {
+                self.index = self.compute_index()?;
+                self.persist_index()
+            }
         }
     }
 
-    /// Persists the given `LinesIndex` to a log index file
-    /// or returns a `DatabaseError` if a failure occurs.
-    pub fn persist_index(&self, index: &LinesIndex) -> Result<(), DatabaseError> {
+    fn persist_index(&self) -> Result<(), DatabaseError> {
         self.open_index_writer().and_then(|mut writer| {
-            for (line_count, byte_count) in index.get_ref() {
+            for (line_count, byte_count) in self.index.get_ref() {
                 match writer.write_line(&format!("{} {}", line_count, byte_count)) {
                     Ok(_) => (),
                     Err(err) => return Err(DatabaseError::from_io_error(err))
@@ -173,6 +171,12 @@ impl Log {
             }
             Ok(())
         })
+    }
+
+    /// Adds a line to the lines index or returns a `DatabaseError` if a failure occurs.
+    pub fn index_line(&mut self, offset: u64, bytes: u64) -> Result<(), DatabaseError> {
+        self.index.insert(offset, bytes);
+        self.persist_index()
     }
 
     /// Returns the path to the log file.
@@ -191,6 +195,11 @@ impl Log {
         } else {
             format!("{}/{}.index.log", self.path, self.name)
         }
+    }
+
+    /// Returns the lines index for the log file.
+    pub fn get_index(&self) -> &LinesIndex {
+        &self.index
     }
 
     /// Returns the lines index granularity for the log file.

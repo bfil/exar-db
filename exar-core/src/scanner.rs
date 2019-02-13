@@ -1,7 +1,8 @@
 use super::*;
 
 use indexed_line_reader::*;
-
+use rand;
+use rand::Rng;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Seek, SeekFrom};
 use std::sync::mpsc::{channel, Receiver, Sender};
@@ -37,45 +38,85 @@ use std::thread::JoinHandle;
 /// ```
 #[derive(Clone, Debug)]
 pub struct Scanner {
-    action_sender: Sender<ScannerAction>
+    action_senders: Vec<Sender<ScannerAction>>,
+    routing_strategy: RoutingStrategy
 }
 
 impl Scanner {
     /// Creates a new log scanner using the given `IndexedLineReader` and a `Publisher`.
-    pub fn new(reader: IndexedLineReader<BufReader<File>>, publisher_sender: Sender<PublisherAction>) -> Scanner {
-        let (sender, receiver) = channel();
-        ScannerThread::new(reader, receiver, publisher_sender).run();
-        Scanner {
-            action_sender: sender
-        }
+    pub fn new(log: &Log, publisher: &Publisher, config: &CollectionConfig) -> Result<Scanner, DatabaseError> {
+        Ok(Scanner {
+            action_senders: Scanner::run_scanner_threads(log, publisher, config)?,
+            routing_strategy: config.routing_strategy.clone()
+        })
     }
 
-    /// Handles the given `Subscription` or returns a `DatabaseError` if a failure occurs.
-    pub fn handle_subscription(&self, subscription: Subscription) -> Result<(), DatabaseError> {
-        match self.action_sender.send(ScannerAction::HandleSubscription(subscription)) {
-            Ok(()) => Ok(()),
-            Err(_) => Err(DatabaseError::EventStreamError(EventStreamError::Closed))
+    fn run_scanner_threads(log: &Log, publisher: &Publisher, config: &CollectionConfig) -> Result<Vec<Sender<ScannerAction>>, DatabaseError> {
+        let mut action_senders = vec![];
+        for _ in 0..config.scanner.threads {
+            let (sender, receiver) = channel();
+            let line_reader = log.open_indexed_line_reader()?;
+            ScannerThread::new(line_reader, receiver, publisher.clone()).run();
+            action_senders.push(sender);
         }
+        Ok(action_senders)
+    }
+
+    /// Subscribes to the collection of events using the given query and returns an event stream
+    /// or a `DatabaseError` if a failure occurs.
+    pub fn handle_subscription(&mut self, query: Query) -> Result<EventStream, DatabaseError> {
+        let (sender, receiver) = channel();
+        self.send_subscription(Subscription::new(sender, query)).and_then(|_| {
+            Ok(EventStream::new(receiver))
+        })
     }
 
     /// Adds the given line to the `LinesIndex` or returns a `DatabaseError` if a failure occurs.
-    pub fn add_line_index(&self, line: u64, byte_count: u64) -> Result<(), DatabaseError> {
-        match self.action_sender.send(ScannerAction::AddLineIndex(line, byte_count)) {
+    pub fn update_index(&self, index: &LinesIndex) -> Result<(), DatabaseError> {
+        self.broadcast_action(ScannerAction::UpdateIndex(index.clone()))
+    }
+
+    fn send_subscription(&mut self, subscription: Subscription) -> Result<(), DatabaseError> {
+        (match self.routing_strategy {
+            RoutingStrategy::Random => match rand::thread_rng().choose(&self.action_senders) {
+                Some(action_sender) =>
+                    self.send_action(action_sender, ScannerAction::HandleSubscription(subscription)).and_then(|_| {
+                        Ok(RoutingStrategy::Random)
+                    }),
+                None => Err(DatabaseError::SubscriptionError)
+            },
+            RoutingStrategy::RoundRobin(ref last_index) => {
+                let new_index = if last_index + 1 < self.action_senders.len() { last_index + 1 } else { 0 };
+                match self.action_senders.get(new_index) {
+                    Some(action_sender) =>
+                        self.send_action(action_sender, ScannerAction::HandleSubscription(subscription)).and_then(|_| {
+                            Ok(RoutingStrategy::RoundRobin(new_index))
+                        }),
+                    None => Err(DatabaseError::SubscriptionError)
+                }
+            }
+        }).and_then(|updated_strategy| {
+            self.routing_strategy = updated_strategy;
+            Ok(())
+        })
+    }
+
+    fn send_action(&self, action_sender: &Sender<ScannerAction>, action: ScannerAction) -> Result<(), DatabaseError> {
+        match action_sender.send(action) {
             Ok(()) => Ok(()),
             Err(_) => Err(DatabaseError::EventStreamError(EventStreamError::Closed))
         }
     }
 
-    /// Clones the channel sender responsible to send `ScannerAction`s to the scanner thread.
-    pub fn clone_action_sender(&self) -> Sender<ScannerAction> {
-        self.action_sender.clone()
+    fn broadcast_action(&self, action: ScannerAction) -> Result<(), DatabaseError> {
+        for action_sender in &self.action_senders {
+            self.send_action(action_sender, action.clone())?;
+        }
+        Ok(())
     }
 
     fn stop(&self) -> Result<(), DatabaseError> {
-        match self.action_sender.send(ScannerAction::Stop) {
-            Ok(()) => Ok(()),
-            Err(_) => Err(DatabaseError::EventStreamError(EventStreamError::Closed))
-        }
+        self.broadcast_action(ScannerAction::Stop)
     }
 }
 
@@ -95,20 +136,18 @@ impl Drop for Scanner {
 /// depending on the subscriptions query parameters.
 #[derive(Debug)]
 pub struct ScannerThread {
-    index: LinesIndex,
     reader: IndexedLineReader<BufReader<File>>,
     action_receiver: Receiver<ScannerAction>,
-    publisher_sender: Sender<PublisherAction>,
+    publisher: Publisher,
     subscriptions: Vec<Subscription>
 }
 
 impl ScannerThread {
-    fn new(reader: IndexedLineReader<BufReader<File>>, receiver: Receiver<ScannerAction>, publisher_sender: Sender<PublisherAction>) -> ScannerThread {
+    fn new(reader: IndexedLineReader<BufReader<File>>, receiver: Receiver<ScannerAction>, publisher: Publisher) -> ScannerThread {
         ScannerThread {
-            index: reader.get_index().clone(),
             reader: reader,
             action_receiver: receiver,
-            publisher_sender: publisher_sender,
+            publisher: publisher,
             subscriptions: vec![]
         }
     }
@@ -126,16 +165,15 @@ impl ScannerThread {
                             ScannerAction::HandleSubscription(subscription) => {
                                 self.subscriptions.push(subscription);
                             },
-                            ScannerAction::AddLineIndex(line, byte_count) => {
-                                self.index.insert(line, byte_count);
-                                self.reader.restore_index(self.index.clone());
+                            ScannerAction::UpdateIndex(index) => {
+                                self.reader.restore_index(index);
                             },
                             ScannerAction::Stop => break 'main
                         }
                     }
                     if !self.subscriptions.is_empty() {
                         match self.scan() {
-                            Ok(_) => self.handle_live_subscriptions(),
+                            Ok(_) => self.send_subscriptions_to_publisher(),
                             Err(err) => error!("Unable to scan log: {}", err)
                         }
                     }
@@ -146,11 +184,9 @@ impl ScannerThread {
         })
     }
 
-    fn handle_live_subscriptions(&mut self) {
+    fn send_subscriptions_to_publisher(&mut self) {
         for subscription in self.subscriptions.drain(..) {
-            if subscription.is_active() && subscription.is_live() {
-                let _ = self.publisher_sender.send(PublisherAction::AddSubscription(subscription.clone()));
-            }
+            let _ = self.publisher.handle_subscription(subscription.clone());
         }
     }
 
@@ -189,7 +225,7 @@ impl ScannerThread {
 #[derive(Clone, Debug)]
 pub enum ScannerAction {
     HandleSubscription(Subscription),
-    AddLineIndex(u64, u64),
+    UpdateIndex(LinesIndex),
     Stop
 }
 
@@ -358,5 +394,32 @@ mod tests {
         assert_eq!(receiver.try_recv().err(), Some(TryRecvError::Disconnected));
 
         assert!(log.remove().is_ok());
+    }
+
+    #[test]
+    fn test_apply_round_robin_routing_strategy() {
+        let ref collection_name = random_collection_name();
+        let config = CollectionConfig::default();
+        let mut collection = Collection::new(collection_name, &config)
+            .expect("Unable to create collection");
+
+        let (sender, _) = channel();
+        let subscription = Subscription::new(sender, Query::current());
+
+        collection.routing_strategy = RoutingStrategy::RoundRobin(0);
+
+        let updated_strategy = collection.apply_routing_strategy(subscription.clone())
+            .expect("Unable to apply routing strategy");
+
+        assert_eq!(updated_strategy, RoutingStrategy::RoundRobin(1));
+
+        collection.routing_strategy = updated_strategy;
+
+        let updated_strategy = collection.apply_routing_strategy(subscription)
+            .expect("Unable to apply routing strategy");
+
+        assert_eq!(updated_strategy, RoutingStrategy::RoundRobin(0));
+
+        assert!(collection.drop().is_ok());
     }
 }

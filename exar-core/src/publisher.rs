@@ -18,7 +18,7 @@ use std::thread::JoinHandle;
 /// use exar::*;
 /// # }
 /// ```
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Publisher {
     action_sender: Sender<PublisherAction>
 }
@@ -33,22 +33,22 @@ impl Publisher {
     }
 
     pub fn publish(&self, event: Event) -> Result<(), DatabaseError> {
-        match self.action_sender.send(PublisherAction::PublishEvent(event)) {
+        self.send_action(PublisherAction::PublishEvent(event))
+    }
+
+    pub fn handle_subscription(&self, subscription: Subscription) -> Result<(), DatabaseError> {
+        self.send_action(PublisherAction::AddSubscription(subscription))
+    }
+
+    fn send_action(&self, action: PublisherAction) -> Result<(), DatabaseError> {
+        match self.action_sender.send(action) {
             Ok(()) => Ok(()),
             Err(_) => Err(DatabaseError::EventStreamError(EventStreamError::Closed))
         }
-    }
-
-    /// Clones the channel sender responsible to send `PublisherAction`s to the publisher.
-    pub fn clone_action_sender(&self) -> Sender<PublisherAction> {
-        self.action_sender.clone()
     }
 
     fn stop(&self) -> Result<(), DatabaseError> {
-        match self.action_sender.send(PublisherAction::Stop) {
-            Ok(()) => Ok(()),
-            Err(_) => Err(DatabaseError::EventStreamError(EventStreamError::Closed))
-        }
+        self.send_action(PublisherAction::Stop)
     }
 }
 
@@ -95,7 +95,9 @@ impl PublisherThread {
                                             let _ = subscription.send(event.clone());
                                         }
                                     }
-                                    self.subscriptions.push(subscription)
+                                    if subscription.is_active() && subscription.is_live() {
+                                        self.subscriptions.push(subscription)
+                                    }
                                 },
                                 None => self.subscriptions.push(subscription)
                             }

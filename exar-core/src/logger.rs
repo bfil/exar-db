@@ -22,27 +22,30 @@ use std::io::BufWriter;
 #[derive(Debug)]
 pub struct Logger {
     writer: BufWriter<File>,
+    log: Log,
+    publisher: Publisher,
+    scanner: Scanner,
     offset: u64,
     bytes_written: u64
 }
 
 impl Logger {
     /// Creates a new logger for the given `Log` or returns a `DatabaseError` if a failure occurs.
-    pub fn new(log: Log) -> Result<Logger, DatabaseError> {
-        log.restore_index().and_then(|index| {
-            log.open_writer().and_then(|writer| {
-                Ok(Logger {
-                    writer: writer,
-                    offset: index.line_count() + 1,
-                    bytes_written: index.byte_count()
-                })
-            })
+    pub fn new(log: &Log, publisher: &Publisher, scanner: &Scanner) -> Result<Logger, DatabaseError> {
+        let index = log.get_index();
+        Ok(Logger {
+            writer: log.open_writer()?,
+            log: log.clone(),
+            publisher: publisher.clone(),
+            scanner: scanner.clone(),
+            offset: index.line_count() + 1,
+            bytes_written: index.byte_count()
         })
     }
 
-    /// Appends the given event to the log and returns the logged event
+    /// Appends the given event to the log and returns the `id` for the event logged
     /// or a `DatabaseError` if a failure occurs.
-    pub fn log(&mut self, event: Event) -> Result<Event, DatabaseError> {
+    pub fn log(&mut self, event: Event) -> Result<u64, DatabaseError> {
         match event.validated() {
             Ok(event) => {
                 let event_id = self.offset;
@@ -53,9 +56,14 @@ impl Logger {
                 let event_string = event.to_tab_separated_string();
                 match self.writer.write_line(&event_string) {
                     Ok(bytes_written) => {
+                        self.publisher.publish(event)?;
                         self.offset += 1;
                         self.bytes_written += bytes_written as u64;
-                        Ok(event)
+                        if self.offset % self.log.get_index_granularity() == 0 {
+                            self.log.index_line(self.offset, self.bytes_written)?;
+                            self.scanner.update_index(self.log.get_index())?;
+                        }
+                        Ok(event_id)
                     },
                     Err(err) => Err(DatabaseError::from_io_error(err))
                 }

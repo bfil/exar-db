@@ -122,13 +122,19 @@ impl Log {
         match self.open_index_reader() {
             Ok(reader) => {
                 let mut index = LinesIndex::new(self.index_granularity);
-                for line in reader.lines() {
+                let mut index_granularity_changed = false;
+                for (i, line) in reader.lines().enumerate() {
                     match line {
                         Ok(line) => {
                             let parts: Vec<_> = line.split(' ').collect();
                             let line_count: u64 = parts[0].parse().unwrap();
                             let byte_count: u64 = parts[1].parse().unwrap();
-                            index.insert(line_count, byte_count);
+                            if i == 0 && line_count != self.index_granularity {
+                                index_granularity_changed = true;
+                            }
+                            if !index_granularity_changed {
+                                index.insert(line_count, byte_count);
+                            }
                         },
                         Err(err) => return Err(DatabaseError::from_io_error(err))
                     }
@@ -269,6 +275,15 @@ mod tests {
 
         log.restore_index().expect("Unable to restore persisted index");
         assert_eq!(*log.get_index(), index);
+
+        let mut log = Log::new("", collection_name, 100).expect("Unable to create log");
+
+        log.restore_index().expect("Unable to restore persisted index");
+
+        let mut expected_recomputed_index = LinesIndex::new(100);
+        expected_recomputed_index.insert(100, 500);
+
+        assert_eq!(*log.get_index(), expected_recomputed_index);
 
         assert!(log.remove().is_ok());
 

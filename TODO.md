@@ -1,14 +1,8 @@
 # Improvements
 
 - Drop Subscriptions if sending an Event fails
-- Consider creating an Indexer thread to persist updated indexes
 - Consider returning the new index in Log's restore_index method
-- Handle changes of index granularity if necessary
 - Shutdown Collection's threads when unused
-
-# Known Issues
-
-- Index updates do not update line and byte count
 
 # New Features
 
@@ -18,6 +12,7 @@
 - Evaluate whether Named Tags are necessary (For Indexes & Projections)
 - Build non-blocking Server
 - Build non-blocking Client
+- Consider creating an Indexer thread to persist updated indexes without slowing down writes
 
 # Tests
 

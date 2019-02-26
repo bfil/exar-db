@@ -1,7 +1,6 @@
 # Improvements
 
 - Drop Subscriptions if sending an Event fails
-- Consider returning the new index in Log's restore_index method
 - Shutdown Collection's threads when unused
 
 # New Features

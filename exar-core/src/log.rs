@@ -109,11 +109,12 @@ impl Log {
         self.open_index_file(OpenOptions::new().create(true).write(true).truncate(true)).map(|file| BufWriter::new(file))
     }
 
-    fn compute_index(&self) -> Result<LinesIndex, DatabaseError> {
+    fn compute_index(&mut self, existing_index: Option<LinesIndex>) -> Result<(), DatabaseError> {
         self.ensure_exists()?;
         let mut reader = self.open_line_reader()?;
+        existing_index.map(|index| reader.restore_index(index));
         match reader.compute_index() {
-            Ok(_)    => Ok(reader.get_index().clone()),
+            Ok(_)    => Ok(self.index = reader.get_index().clone()),
             Err(err) => Err(DatabaseError::from_io_error(err))
         }
     }
@@ -139,18 +140,10 @@ impl Log {
                         Err(err) => return Err(DatabaseError::from_io_error(err))
                     }
                 }
-                let mut reader = self.open_line_reader()?;
-                reader.restore_index(index);
-                match reader.compute_index() {
-                    Ok(_)    => {
-                        self.index = reader.get_index().clone();
-                        Ok(())
-                    },
-                    Err(err) => Err(DatabaseError::from_io_error(err))
-                }
+                self.compute_index(Some(index))
             },
             Err(_) => {
-                self.index = self.compute_index()?;
+                self.compute_index(None)?;
                 self.persist_index()
             }
         }
@@ -234,8 +227,11 @@ mod tests {
         assert!(log.open_writer().is_ok());
         assert!(log.open_reader().is_ok());
 
-        let index = log.compute_index().expect("Unable to compute index");
-        assert_eq!(index.line_count(), 0);
+        log.compute_index(None).expect("Unable to compute index");
+
+        let expected_index = LinesIndex::new(10);
+
+        assert_eq!(*log.get_index(), expected_index);
 
         let mut writer = log.open_writer().expect("Unable to open writer");
         for _ in 0..100 {
@@ -243,16 +239,27 @@ mod tests {
         }
         drop(writer);
 
-        let index = log.compute_index().expect("Unable to compute index");
-        assert_eq!(index.line_count(), 100);
+        log.compute_index(None).expect("Unable to compute index");
 
-        log.index = index.clone();
+        let mut expected_index = LinesIndex::new(10);
+        expected_index.insert( 10, 50);
+        expected_index.insert( 20, 100);
+        expected_index.insert( 30, 150);
+        expected_index.insert( 40, 200);
+        expected_index.insert( 50, 250);
+        expected_index.insert( 60, 300);
+        expected_index.insert( 70, 350);
+        expected_index.insert( 80, 400);
+        expected_index.insert( 90, 450);
+        expected_index.insert(100, 500);
+
+        assert_eq!(*log.get_index(), expected_index);
 
         let reader = log.open_line_reader().expect("Unable to open reader");
         assert_eq!(*reader.get_index(), LinesIndex::new(10));
 
         let reader = log.open_indexed_line_reader().expect("Unable to open indexed reader");
-        assert_eq!(*reader.get_index(), index);
+        assert_eq!(*reader.get_index(), expected_index);
 
         assert!(log.remove().is_ok());
         assert!(log.open_index_reader().is_err());
@@ -264,26 +271,26 @@ mod tests {
         drop(writer);
 
         log.restore_index().expect("Unable to compute, persist and restore index");
-        assert_eq!(*log.get_index(), index);
+        assert_eq!(*log.get_index(), expected_index);
 
         assert!(log.open_index_reader().is_ok());
 
         log.restore_index().expect("Unable to restore persisted index");
-        assert_eq!(*log.get_index(), index);
+        assert_eq!(*log.get_index(), expected_index);
 
         assert!(log.persist_index().is_ok());
 
         log.restore_index().expect("Unable to restore persisted index");
-        assert_eq!(*log.get_index(), index);
+        assert_eq!(*log.get_index(), expected_index);
 
         let mut log = Log::new("", collection_name, 100).expect("Unable to create log");
 
         log.restore_index().expect("Unable to restore persisted index");
 
-        let mut expected_recomputed_index = LinesIndex::new(100);
-        expected_recomputed_index.insert(100, 500);
+        let mut expected_index = LinesIndex::new(100);
+        expected_index.insert(100, 500);
 
-        assert_eq!(*log.get_index(), expected_recomputed_index);
+        assert_eq!(*log.get_index(), expected_index);
 
         assert!(log.remove().is_ok());
 

@@ -24,9 +24,9 @@ pub struct Publisher {
 }
 
 impl Publisher {
-    pub fn new(buffer_size: usize) -> Publisher {
+    pub fn new(config: &PublisherConfig) -> Publisher {
         let (sender, receiver) = channel();
-        PublisherThread::new(receiver, buffer_size).run();
+        PublisherThread::new(receiver, config).run();
         Publisher {
             action_sender: sender
         }
@@ -69,11 +69,11 @@ struct PublisherThread {
 }
 
 impl PublisherThread {
-    fn new(receiver: Receiver<PublisherAction>, buffer_size: usize) -> PublisherThread {
+    fn new(receiver: Receiver<PublisherAction>, config: &PublisherConfig) -> PublisherThread {
         PublisherThread {
             action_receiver: receiver,
-            buffer_size: buffer_size,
-            events_buffer: VecDeque::with_capacity(buffer_size),
+            buffer_size: config.buffer_size,
+            events_buffer: VecDeque::with_capacity(config.buffer_size),
             subscriptions: vec![]
         }
     }

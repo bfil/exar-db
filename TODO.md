@@ -1,8 +1,5 @@
 # Improvements
 
-- Improve Config loading in ExarDB
-- Test loading Config defaults
-- Move routing strategy config under scanner config
 - Refactor OpenOptions logic by reusing the Ok/Err match case
 - Drop Subscriptions if sending an Event fails
 - Consider creating an Indexer thread to persist updated indexes
@@ -29,6 +26,8 @@
 - Add Tests for Publisher
 - Add Query Test for Interval
 - Improve Logger Tests
+- Improve Config::load Tests
+- Review Tests
 
 # Docs
 

@@ -15,8 +15,8 @@ use std::collections::BTreeMap;
 /// let config = DatabaseConfig {
 ///     logs_path: "/path/to/logs".to_owned(),
 ///     index_granularity: 100000,
-///     routing_strategy: RoutingStrategy::default(),
 ///     scanner: ScannerConfig {
+///         routing_strategy: RoutingStrategy::default(),
 ///         threads: 2
 ///     },
 ///     publisher: PublisherConfig {
@@ -33,8 +33,6 @@ pub struct DatabaseConfig  {
     pub logs_path: String,
     /// Granularity of the log lines index (used by `IndexedLineReader`).
     pub index_granularity: u64,
-    /// Subscriptions' routing strategy.
-    pub routing_strategy: RoutingStrategy,
     /// Log scanners' configuration.
     pub scanner: ScannerConfig,
     /// Real-time events publisher's configuration.
@@ -48,7 +46,6 @@ impl Default for DatabaseConfig {
         DatabaseConfig {
             logs_path: "".to_owned(),
             index_granularity: 100000,
-            routing_strategy: RoutingStrategy::default(),
             scanner: ScannerConfig::default(),
             publisher: PublisherConfig::default(),
             collections: BTreeMap::new()
@@ -66,29 +63,24 @@ impl DatabaseConfig {
                 CollectionConfig {
                     logs_path: config.logs_path.unwrap_or_else(|| self.logs_path.clone()),
                     index_granularity: config.index_granularity.unwrap_or_else(|| self.index_granularity),
-                    routing_strategy: config.routing_strategy.unwrap_or_else(|| self.routing_strategy.clone()),
                     scanner: match config.scanner {
                         Some(scanners_config) => ScannerConfig {
+                            routing_strategy: scanners_config.routing_strategy.unwrap_or_else(|| self.scanner.routing_strategy.clone()),
                             threads: scanners_config.threads.unwrap_or(self.scanner.threads)
                         },
-                        None => ScannerConfig {
-                            threads: self.scanner.threads
-                        }
+                        None => self.scanner.clone()
                     },
                     publisher: match config.publisher {
                         Some(publisher_config) => PublisherConfig {
                             buffer_size: publisher_config.buffer_size.unwrap_or(self.publisher.buffer_size)
                         },
-                        None => PublisherConfig {
-                            buffer_size: self.publisher.buffer_size
-                        }
+                        None => self.publisher.clone()
                     }
                 }
             },
             None => CollectionConfig {
                 logs_path: self.logs_path.clone(),
                 index_granularity: self.index_granularity,
-                routing_strategy: self.routing_strategy.clone(),
                 scanner: self.scanner.clone(),
                 publisher: self.publisher.clone()
             }
@@ -106,6 +98,7 @@ impl DatabaseConfig {
 /// use exar::*;
 ///
 /// let config = ScannerConfig {
+///     routing_strategy: RoutingStrategy::default(),
 ///     threads: 2
 /// };
 /// # }
@@ -113,6 +106,8 @@ impl DatabaseConfig {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ScannerConfig {
+    /// Subscriptions' routing strategy.
+    pub routing_strategy: RoutingStrategy,
     /// Number of scanner threads for each log file.
     pub threads: u8
 }
@@ -120,6 +115,7 @@ pub struct ScannerConfig {
 impl Default for ScannerConfig {
     fn default() -> ScannerConfig {
         ScannerConfig {
+            routing_strategy: RoutingStrategy::default(),
             threads: 2
         }
     }
@@ -136,12 +132,15 @@ impl Default for ScannerConfig {
 /// use exar::*;
 ///
 /// let config = PartialScannerConfig {
+///     routing_strategy: Some(RoutingStrategy::default()),
 ///     threads: Some(2)
 /// };
 /// # }
 /// ```
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PartialScannerConfig {
+    /// Subscriptions' routing strategy.
+    pub routing_strategy: Option<RoutingStrategy>,
     /// Number of scanner threads for each log file.
     pub threads: Option<u8>
 }
@@ -208,8 +207,8 @@ pub struct PartialPublisherConfig {
 /// let config = CollectionConfig {
 ///     logs_path: "/path/to/logs".to_owned(),
 ///     index_granularity: 100000,
-///     routing_strategy: RoutingStrategy::default(),
 ///     scanner: ScannerConfig {
+///         routing_strategy: RoutingStrategy::default(),
 ///         threads: 2
 ///     },
 ///     publisher: PublisherConfig {
@@ -225,8 +224,6 @@ pub struct CollectionConfig {
     pub logs_path: String,
     /// Granularity of the log lines index (used by `IndexedLineReader`).
     pub index_granularity: u64,
-    /// Subscriptions' routing strategy.
-    pub routing_strategy: RoutingStrategy,
     /// Log scanners' configuration.
     pub scanner: ScannerConfig,
     /// Real-time events publisher's configuration.
@@ -239,7 +236,6 @@ impl Default for CollectionConfig {
         CollectionConfig {
             logs_path: db_defaults.logs_path,
             index_granularity: db_defaults.index_granularity,
-            routing_strategy: db_defaults.routing_strategy,
             scanner: db_defaults.scanner,
             publisher: db_defaults.publisher
         }
@@ -259,8 +255,8 @@ impl Default for CollectionConfig {
 /// let config = PartialCollectionConfig {
 ///     logs_path: Some("/path/to/logs".to_owned()),
 ///     index_granularity: Some(100000),
-///     routing_strategy: Some(RoutingStrategy::default()),
 ///     scanner: Some(PartialScannerConfig {
+///         routing_strategy: Some(RoutingStrategy::default()),
 ///         threads: Some(2)
 ///     }),
 ///     publisher: Some(PartialPublisherConfig {
@@ -275,8 +271,6 @@ pub struct PartialCollectionConfig {
     pub logs_path: Option<String>,
     /// Granularity of the log lines index (used by `IndexedLineReader`).
     pub index_granularity: Option<u64>,
-    /// Subscriptions' routing strategy.
-    pub routing_strategy: Option<RoutingStrategy>,
     /// Log scanners' configuration.
     pub scanner: Option<PartialScannerConfig>,
     /// Real-time events publisher's configuration.
@@ -295,15 +289,14 @@ mod tests {
 
         assert_eq!(collection_config.logs_path, db_config.logs_path);
         assert_eq!(collection_config.index_granularity, db_config.index_granularity);
-        assert_eq!(collection_config.routing_strategy, db_config.routing_strategy);
         assert_eq!(collection_config.scanner, db_config.scanner);
         assert_eq!(collection_config.publisher, db_config.publisher);
 
         db_config.collections.insert("test".to_owned(), PartialCollectionConfig {
             logs_path: Some("test".to_owned()),
             index_granularity: Some(1000),
-            routing_strategy: Some(RoutingStrategy::Random),
             scanner: Some(PartialScannerConfig {
+                routing_strategy: Some(RoutingStrategy::Random),
                 threads: Some(3)
             }),
             publisher: Some(PartialPublisherConfig {
@@ -315,8 +308,8 @@ mod tests {
 
         assert_eq!(collection_config.logs_path, "test".to_owned());
         assert_eq!(collection_config.index_granularity, 1000);
-        assert_eq!(collection_config.routing_strategy, RoutingStrategy::Random);
         assert_eq!(collection_config.scanner, ScannerConfig {
+            routing_strategy: RoutingStrategy::Random,
             threads: 3
         });
         assert_eq!(collection_config.publisher, PublisherConfig {

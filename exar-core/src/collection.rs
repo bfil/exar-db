@@ -30,8 +30,8 @@ impl Collection {
     /// or a `DatabaseError` if a failure occurs.
     pub fn new(collection_name: &str, config: &CollectionConfig) -> Result<Collection, DatabaseError> {
         let log       = Log::new(&config.logs_path, collection_name, config.index_granularity)?;
-        let publisher = Publisher::new(config.publisher.buffer_size);
-        let scanner   = Scanner::new(&log, &publisher, &config)?;
+        let publisher = Publisher::new(&config.publisher);
+        let scanner   = Scanner::new(&log, &publisher, &config.scanner)?;
         let logger    = Logger::new(&log, &publisher, &scanner)?;
         Ok(Collection { log, logger, publisher, scanner })
     }

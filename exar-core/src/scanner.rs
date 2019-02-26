@@ -23,11 +23,11 @@ use std::thread::JoinHandle;
 /// use std::sync::mpsc::channel;
 ///
 /// let log       = Log::new("/path/to/logs", "test", 100).expect("Unable to create log");
-/// let publisher = Publisher::new(1000);
+/// let publisher = Publisher::new(&PublisherConfig::default());
 /// let event     = Event::new("data", vec!["tag1", "tag2"]);
 ///
 /// let line_reader = log.open_line_reader().unwrap();
-/// let mut scanner = Scanner::new(&log, &publisher, &CollectionConfig::default()).expect("Unable to create scanner");
+/// let mut scanner = Scanner::new(&log, &publisher, &ScannerConfig::default()).expect("Unable to create scanner");
 ///
 /// scanner.handle_query(Query::live()).unwrap();
 ///
@@ -42,16 +42,16 @@ pub struct Scanner {
 
 impl Scanner {
     /// Creates a new log scanner using the given `IndexedLineReader` and a `Publisher`.
-    pub fn new(log: &Log, publisher: &Publisher, config: &CollectionConfig) -> Result<Scanner, DatabaseError> {
+    pub fn new(log: &Log, publisher: &Publisher, config: &ScannerConfig) -> Result<Scanner, DatabaseError> {
         Ok(Scanner {
             action_senders: Scanner::run_scanner_threads(log, publisher, config)?,
             routing_strategy: config.routing_strategy.clone()
         })
     }
 
-    fn run_scanner_threads(log: &Log, publisher: &Publisher, config: &CollectionConfig) -> Result<Vec<Sender<ScannerAction>>, DatabaseError> {
+    fn run_scanner_threads(log: &Log, publisher: &Publisher, config: &ScannerConfig) -> Result<Vec<Sender<ScannerAction>>, DatabaseError> {
         let mut action_senders = vec![];
-        for _ in 0..config.scanner.threads {
+        for _ in 0..config.threads {
             let (sender, receiver) = channel();
             let line_reader = log.open_indexed_line_reader()?;
             ScannerThread::new(line_reader, receiver, publisher.clone()).run();
@@ -239,11 +239,11 @@ mod tests {
     use std::thread;
     use std::time::Duration;
 
-    fn setup() -> (Log, IndexedLineReader<BufReader<File>>, Publisher, CollectionConfig) {
+    fn setup() -> (Log, IndexedLineReader<BufReader<File>>, Publisher, ScannerConfig) {
         let log         = Log::new("", &random_collection_name(), 10).expect("Unable to create log");
         let line_reader = log.open_line_reader().expect("Unable to open line reader");
-        let publisher   = Publisher::new(1000);
-        let config      = CollectionConfig::default();
+        let publisher   = Publisher::new(&PublisherConfig::default());
+        let config      = ScannerConfig::default();
         (log, line_reader, publisher, config)
     }
 

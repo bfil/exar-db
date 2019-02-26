@@ -50,31 +50,26 @@ impl Log {
         Ok(log)
     }
 
+    fn open_file(&self, open_options: &mut OpenOptions) -> Result<File, DatabaseError> {
+        open_options.open(self.get_path()).map_err(DatabaseError::from_io_error)
+    }
+
     /// Ensure the underlying log file exists and creates it if it does not exist,
     /// it returns a `DatabaseError` if a failure occurs while creating the log file.
     pub fn ensure_exists(&self) -> Result<(), DatabaseError> {
-        match OpenOptions::new().create(true).write(true).open(self.get_path()) {
-            Ok(_)    => Ok(()),
-            Err(err) => Err(DatabaseError::from_io_error(err))
-        }
+        self.open_file(OpenOptions::new().create(true).write(true)).map(|_| ())
     }
 
     /// Returns a buffered reader for the underlying log file
     /// or a `DatabaseError` if a failure occurs.
     pub fn open_reader(&self) -> Result<BufReader<File>, DatabaseError> {
-        match OpenOptions::new().read(true).open(self.get_path()) {
-            Ok(file) => Ok(BufReader::new(file)),
-            Err(err) => Err(DatabaseError::from_io_error(err))
-        }
+        self.open_file(OpenOptions::new().read(true)).map(|file| BufReader::new(file))
     }
 
     /// Returns an indexed line reader for the underlying log file
     /// or a `DatabaseError` if a failure occurs.
     pub fn open_line_reader(&self) -> Result<IndexedLineReader<BufReader<File>>, DatabaseError> {
-        match OpenOptions::new().read(true).open(self.get_path()) {
-            Ok(file) => Ok(IndexedLineReader::new(BufReader::new(file), self.index_granularity)),
-            Err(err) => Err(DatabaseError::from_io_error(err))
-        }
+        self.open_file(OpenOptions::new().read(true)).map(|file| IndexedLineReader::new(BufReader::new(file), self.index_granularity))
     }
 
     /// Returns an indexed line reader for the underlying log file and restores the index
@@ -87,36 +82,31 @@ impl Log {
 
     /// Returns a buffered writer for the underlying log file or a `DatabaseError` if a failure occurs.
     pub fn open_writer(&self) -> Result<BufWriter<File>, DatabaseError> {
-        match OpenOptions::new().create(true).write(true).append(true).open(self.get_path()) {
-            Ok(file) => Ok(BufWriter::new(file)),
-            Err(err) => Err(DatabaseError::from_io_error(err))
-        }
+        self.open_file(OpenOptions::new().create(true).write(true).append(true)).map(|file| BufWriter::new(file))
     }
 
     /// Removes the underlying log file and its index or a `DatabaseError` if a failure occurs.
     pub fn remove(&self) -> Result<(), DatabaseError> {
         match remove_file(self.get_path()) {
-            Ok(()) => match remove_file(self.get_index_path()) {
-                Ok(()) | Err(_) => Ok(())
-            },
+            Ok(())   => match remove_file(self.get_index_path()) {
+                            Ok(()) | Err(_) => Ok(())
+                        },
             Err(err) => Err(DatabaseError::from_io_error(err))
         }
+    }
+
+    fn open_index_file(&self, open_options: &mut OpenOptions) -> Result<File, DatabaseError> {
+        open_options.open(self.get_index_path()).map_err(DatabaseError::from_io_error)
     }
 
     /// Returns a buffered reader for the log index file or a `DatabaseError` if a failure occurs.
     pub fn open_index_reader(&self) -> Result<BufReader<File>, DatabaseError> {
-        match OpenOptions::new().read(true).open(self.get_index_path()) {
-            Ok(file) => Ok(BufReader::new(file)),
-            Err(err) => Err(DatabaseError::from_io_error(err))
-        }
+        self.open_index_file(OpenOptions::new().read(true)).map(|file| BufReader::new(file))
     }
 
     /// Returns a buffered writer for the log index file or a `DatabaseError` if a failure occurs.
     pub fn open_index_writer(&self) -> Result<BufWriter<File>, DatabaseError> {
-        match OpenOptions::new().create(true).write(true).truncate(true).open(self.get_index_path()) {
-            Ok(file) => Ok(BufWriter::new(file)),
-            Err(err) => Err(DatabaseError::from_io_error(err))
-        }
+        self.open_index_file(OpenOptions::new().create(true).write(true).truncate(true)).map(|file| BufWriter::new(file))
     }
 
     fn compute_index(&self) -> Result<LinesIndex, DatabaseError> {

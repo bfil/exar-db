@@ -1,6 +1,5 @@
 # Improvements
 
-- Refactor OpenOptions logic by reusing the Ok/Err match case
 - Drop Subscriptions if sending an Event fails
 - Consider creating an Indexer thread to persist updated indexes
 - Consider returning the new index in Log's restore_index method

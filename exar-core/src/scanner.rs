@@ -400,5 +400,7 @@ mod tests {
         assert_eq!(scanner.routing_strategy, RoutingStrategy::RoundRobin(0));
 
         assert!(scanner.stop().is_ok());
+
+        assert!(log.remove().is_ok());
     }
 }

@@ -217,7 +217,10 @@ mod tests {
     fn test_get_path() {
         let ref collection_name = random_collection_name();
         let log = Log::new("", collection_name, 100).expect("Unable to create log");
+
         assert_eq!(log.get_path(), format!("{}.log", collection_name));
+
+        assert!(log.remove().is_ok());
     }
 
     #[test]

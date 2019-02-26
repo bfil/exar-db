@@ -52,7 +52,7 @@ impl Subscription {
                 if !self.is_active() {
                     self.active = false;
                     match self.event_stream_sender.send(EventStreamMessage::End) {
-                        Ok(_) => Ok(()),
+                        Ok(_)  => Ok(()),
                         Err(_) => Err(DatabaseError::EventStreamError(EventStreamError::Closed))
                     }
                 } else {
@@ -70,7 +70,7 @@ impl Subscription {
     pub fn is_active(&self) -> bool {
         let query_within_limit = match self.query.limit {
             Some(limit) => self.count < limit,
-            None => true
+            None        => true
         };
         self.active && query_within_limit
     }

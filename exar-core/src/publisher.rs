@@ -107,6 +107,7 @@ impl PublisherThread {
                             for subscription in self.subscriptions.iter_mut().filter(|s| s.matches_event(event)) {
                                 let _ = subscription.send(event.clone());
                             }
+                            self.subscriptions.retain(|s| s.is_active())
                         },
                         PublisherAction::Stop => break 'main
                     }

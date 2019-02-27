@@ -166,6 +166,11 @@ impl Log {
         self.persist_index()
     }
 
+    /// Returns the name of the log file.
+    pub fn get_name(&self) -> &str {
+        &self.name
+    }
+
     /// Returns the path to the log file.
     pub fn get_path(&self) -> String {
         if self.path.is_empty() {

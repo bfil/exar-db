@@ -1,7 +1,7 @@
 use super::*;
 
 use std::fs::File;
-use std::io::BufWriter;
+use std::io::{BufWriter, Write};
 
 /// Exar DB's event logger.
 ///
@@ -72,6 +72,11 @@ impl Logger {
             },
             Err(err) => Err(DatabaseError::ValidationError(err))
         }
+    }
+
+    /// Flushes the buffered data to the log file.
+    pub fn flush(&mut self) -> Result<(), DatabaseError> {
+        self.writer.flush().map_err(DatabaseError::from_io_error)
     }
 
     /// Returns the total number of bytes logged.

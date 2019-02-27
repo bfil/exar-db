@@ -11,11 +11,12 @@
 //! # fn main() {
 //! use exar::*;
 //! use exar_server::*;
+//! use std::sync::{Arc, Mutex};
 //!
 //! let db = Database::new(DatabaseConfig::default());
 //!
 //! let server_config = ServerConfig::default();
-//! let server = Server::new(server_config.clone(), db).unwrap();
+//! let server = Server::new(server_config.clone(), Arc::new(Mutex::new(db))).unwrap();
 //!
 //! println!("ExarDB's server running at {}", server_config.address());
 //! server.listen();

@@ -73,6 +73,11 @@ impl Database {
         Ok(())
     }
 
+    /// Returns all active collections.
+    pub fn collections(&self) -> &HashMap<String, Arc<Mutex<Collection>>> {
+        &self.collections
+    }
+
     /// Returns whether a collection with the given name exists.
     pub fn contains_collection(&self, collection_name: &str) -> bool {
         self.collections.contains_key(collection_name)

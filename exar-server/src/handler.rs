@@ -37,7 +37,7 @@ impl Handler {
                     let _ = match message {
                         Ok(message) => match self.recv(message) {
                             Ok(result) => self.send(result),
-                            Err(err) => self.fail(err)
+                            Err(err)   => self.fail(err)
                         },
                         Err(err) => self.fail(err)
                     };
@@ -109,8 +109,7 @@ impl Handler {
     }
 
     fn fail(&mut self, error: DatabaseError) -> Result<(), DatabaseError> {
-        let error = TcpMessage::Error(error);
-        self.stream.send_message(error)
+        self.stream.send_message(TcpMessage::Error(error))
     }
 }
 
@@ -126,7 +125,7 @@ pub enum State {
 impl ToString for State {
     fn to_string(&self) -> String {
         match *self {
-            State::Idle(_) => "Idle".to_owned(),
+            State::Idle(_)      => "Idle".to_owned(),
             State::Connected(_) => "Connected".to_owned()
         }
     }

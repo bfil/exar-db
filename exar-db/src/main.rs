@@ -77,6 +77,8 @@ extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 
+extern crate signal_hook;
+
 extern crate toml;
 
 mod config;
@@ -88,7 +90,10 @@ use exar_server::*;
 use log::LogLevelFilter;
 use log4rs::append::console::ConsoleAppender;
 use log4rs::config::{Appender, Config as Log4rsConfig, Root};
+use signal_hook::{SIGTERM, SIGINT, SIGQUIT};
+use signal_hook::iterator::Signals;
 use std::path::Path;
+use std::sync::{Arc, Mutex};
 
 fn main() {
     let matches = App::new("exar-db")
@@ -119,13 +124,34 @@ fn main() {
         }
     };
 
-    let db = Database::new(config.database);
-    match Server::new(config.server.clone(), db) {
+    let db = Arc::new(Mutex::new(Database::new(config.database.clone())));
+
+    match Server::new(config.server.clone(), db.clone()) {
         Ok(server) => {
-            info!("ExarDB running at {}", config.server.address());
-            server.listen();
-            info!("ExarDB shutting down");
+            std::thread::spawn(move || {
+                info!("ExarDB running at {}", config.server.address());
+                server.listen();
+                info!("ExarDB's server shutting down");
+            });
         },
         Err(err) => error!("Unable to run ExarDB: {}", err)
+    }
+
+    let signals = Signals::new(&[SIGTERM, SIGINT, SIGQUIT]).expect("Failed to initialize signals");
+    for signal in signals.forever() {
+        match signal {
+            SIGTERM | SIGINT | SIGQUIT => {
+                info!("ExarDB shutting down");
+                for collection in db.lock().unwrap().collections().values().into_iter() {
+                    let mut collection = collection.lock().unwrap();
+                    match collection.flush() {
+                        Ok(_)    => (),
+                        Err(err) => warn!("Unable to flush data to log file for collection '{}': {}", collection.get_name(), err)
+                    }
+                }
+                break;
+            },
+            _ => unreachable!()
+        }
     }
 }

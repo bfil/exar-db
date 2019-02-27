@@ -28,8 +28,8 @@ pub struct Collection {
 impl Collection {
     /// Creates a new instance of a collection with the given name and configuration
     /// or a `DatabaseError` if a failure occurs.
-    pub fn new(collection_name: &str, config: &CollectionConfig) -> Result<Collection, DatabaseError> {
-        let log       = Log::new(&config.logs_path, collection_name, config.index_granularity)?;
+    pub fn new(name: &str, config: &CollectionConfig) -> Result<Collection, DatabaseError> {
+        let log       = Log::new(&config.logs_path, name, config.index_granularity)?;
         let publisher = Publisher::new(&config.publisher);
         let scanner   = Scanner::new(&log, &publisher, &config.scanner)?;
         let logger    = Logger::new(&log, &publisher, &scanner)?;
@@ -48,9 +48,19 @@ impl Collection {
         self.scanner.handle_query(query)
     }
 
+    /// Returns the name of the collection.
+    pub fn get_name(&self) -> &str {
+        self.log.get_name()
+    }
+
     /// Drops the collection and removes the log and index files.
     pub fn drop(&mut self) -> Result<(), DatabaseError> {
         self.log.remove()
+    }
+
+    /// Flushes the collection log's buffer.
+    pub fn flush(&mut self) -> Result<(), DatabaseError> {
+        self.logger.flush()
     }
 }
 

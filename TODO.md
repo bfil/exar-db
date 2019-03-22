@@ -1,6 +1,8 @@
 # Improvements
 
-- Shutdown Collection's threads when unused
+- Connection responsible to tell the collection to increase/decrease count to start/stop threads
+- Stopping already stopped Scanner/Thread should return Err
+- Decrease cloning where possible
 
 # New Features
 

@@ -13,7 +13,7 @@ use std::io::{BufWriter, Write};
 /// use exar::*;
 ///
 /// let log       = Log::new("/path/to/logs", "test", 100).expect("Unable to create log");
-/// let publisher = Publisher::new(&PublisherConfig::default());
+/// let publisher = Publisher::new(&PublisherConfig::default()).expect("Unable to create publisher");
 /// let scanner   = Scanner::new(&log, &publisher, &ScannerConfig::default()).expect("Unable to create scanner");
 /// let event     = Event::new("data", vec!["tag1", "tag2"]);
 ///
@@ -34,14 +34,13 @@ pub struct Logger {
 impl Logger {
     /// Creates a new logger for the given `Log` or returns a `DatabaseError` if a failure occurs.
     pub fn new(log: &Log, publisher: &Publisher, scanner: &Scanner) -> Result<Logger, DatabaseError> {
-        let index = log.get_index();
         Ok(Logger {
             writer: log.open_writer()?,
             log: log.clone(),
             publisher: publisher.clone(),
             scanner: scanner.clone(),
-            offset: index.line_count() + 1,
-            bytes_written: index.byte_count()
+            offset: log.line_count() + 1,
+            bytes_written: log.byte_count()
         })
     }
 
@@ -63,7 +62,7 @@ impl Logger {
                         self.bytes_written += bytes_written as u64;
                         if self.offset % self.log.get_index_granularity() == 0 {
                             self.log.index_line(self.offset, self.bytes_written)?;
-                            self.scanner.update_index(self.log.get_index())?;
+                            self.scanner.update_index(self.log.clone_index())?;
                         }
                         Ok(event_id)
                     },
@@ -90,11 +89,13 @@ mod tests {
     use super::super::*;
     use exar_testkit::*;
 
+    use indexed_line_reader::*;
+
     use std::io::{BufRead, BufReader};
 
     fn setup() -> (Log, Publisher, Scanner, Event) {
         let log       = Log::new("", &random_collection_name(), 10).expect("Unable to create log");
-        let publisher = Publisher::new(&PublisherConfig::default());
+        let publisher = Publisher::new(&PublisherConfig::default()).expect("Unable to create publisher");
         let scanner   = Scanner::new(&log, &publisher, &ScannerConfig::default()).expect("Unable to create scanner");
         let event     = Event::new("data", vec!["tag1", "tag2"]);
         (log, publisher, scanner, event)
@@ -182,7 +183,19 @@ mod tests {
             assert_eq!(logger.log(event.clone()), Ok(i+1));
         }
 
-        assert_eq!(logger.log.get_index().get_ref().len(), 10);
+        let mut expected_index = LinesIndex::new(10);
+        expected_index.insert( 10,  279);
+        expected_index.insert( 20,  599);
+        expected_index.insert( 30,  919);
+        expected_index.insert( 40, 1239);
+        expected_index.insert( 50, 1559);
+        expected_index.insert( 60, 1879);
+        expected_index.insert( 70, 2199);
+        expected_index.insert( 80, 2519);
+        expected_index.insert( 90, 2839);
+        expected_index.insert(100, 3159);
+
+        assert_eq!(logger.log.clone_index(), expected_index);
 
         assert!(log.remove().is_ok());
     }

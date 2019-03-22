@@ -7,7 +7,6 @@ use std::fs::File;
 use std::io::{BufRead, BufReader, Seek, SeekFrom};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
-use std::thread::JoinHandle;
 
 /// Exar DB's log file scanner.
 ///
@@ -23,7 +22,7 @@ use std::thread::JoinHandle;
 /// use std::sync::mpsc::channel;
 ///
 /// let log       = Log::new("/path/to/logs", "test", 100).expect("Unable to create log");
-/// let publisher = Publisher::new(&PublisherConfig::default());
+/// let publisher = Publisher::new(&PublisherConfig::default()).expect("Unable to create publisher");
 /// let event     = Event::new("data", vec!["tag1", "tag2"]);
 ///
 /// let line_reader = log.open_line_reader().unwrap();
@@ -37,27 +36,24 @@ use std::thread::JoinHandle;
 #[derive(Clone, Debug)]
 pub struct Scanner {
     action_senders: Vec<Sender<ScannerAction>>,
+    config: ScannerConfig,
+    log: Log,
+    publisher: Publisher,
     routing_strategy: RoutingStrategy
 }
 
 impl Scanner {
     /// Creates a new log scanner using the given `IndexedLineReader` and a `Publisher`.
     pub fn new(log: &Log, publisher: &Publisher, config: &ScannerConfig) -> Result<Scanner, DatabaseError> {
-        Ok(Scanner {
-            action_senders: Scanner::run_scanner_threads(log, publisher, config)?,
+        let mut scanner = Scanner {
+            action_senders: vec![],
+            config: config.clone(),
+            log: log.clone(),
+            publisher: publisher.clone(),
             routing_strategy: config.routing_strategy.clone()
-        })
-    }
-
-    fn run_scanner_threads(log: &Log, publisher: &Publisher, config: &ScannerConfig) -> Result<Vec<Sender<ScannerAction>>, DatabaseError> {
-        let mut action_senders = vec![];
-        for _ in 0..config.threads {
-            let (sender, receiver) = channel();
-            let line_reader = log.open_indexed_line_reader()?;
-            ScannerThread::new(line_reader, receiver, publisher.clone()).run();
-            action_senders.push(sender);
-        }
-        Ok(action_senders)
+        };
+        scanner.start()?;
+        Ok(scanner)
     }
 
     /// Subscribes to the collection of events using the given query and returns an event stream
@@ -69,8 +65,8 @@ impl Scanner {
     }
 
     /// Adds the given line to the `LinesIndex` or returns a `DatabaseError` if a failure occurs.
-    pub fn update_index(&self, index: &LinesIndex) -> Result<(), DatabaseError> {
-        self.broadcast_action(ScannerAction::UpdateIndex(index.clone()))
+    pub fn update_index(&mut self, index: LinesIndex) -> Result<(), DatabaseError> {
+        self.broadcast_action(ScannerAction::UpdateIndex(index))
     }
 
     fn send_subscription(&mut self, subscription: Subscription) -> Result<(), DatabaseError> {
@@ -112,17 +108,37 @@ impl Scanner {
         Ok(())
     }
 
-    fn stop(&self) -> Result<(), DatabaseError> {
-        self.broadcast_action(ScannerAction::Stop)
+    pub fn start(&mut self) -> Result<(), DatabaseError> {
+        match self.action_senders.len() {
+            0 => {
+                for _ in 0..self.config.threads {
+                    let (sender, receiver) = channel();
+                    self.action_senders.push(sender);
+                    let line_reader = self.log.open_line_reader_with_index()?;
+                    let publisher = self.publisher.clone();
+                    thread::spawn(|| {
+                        ScannerThread::new(line_reader, receiver, publisher).run();
+                    });
+                }
+                Ok(())
+            },
+            _ => {
+                Err(DatabaseError::EventStreamError(EventStreamError::Closed))
+            }
+        }
+    }
+
+    pub fn stop(&mut self) -> Result<(), DatabaseError> {
+        self.broadcast_action(ScannerAction::Stop).and_then(|result| {
+            self.action_senders.truncate(0);
+            Ok(result)
+        })
     }
 }
 
 impl Drop for Scanner {
     fn drop(&mut self) {
-        match self.stop() {
-            Ok(_) => (),
-            Err(err) => error!("Unable to stop scanner thread: {}", err)
-        }
+        let _ =  self.stop();
     }
 }
 
@@ -149,36 +165,33 @@ impl ScannerThread {
         }
     }
 
-    fn run(mut self) -> JoinHandle<Self> {
-        thread::spawn(move || {
-            'main: loop {
-                while let Ok(action) = self.action_receiver.recv() {
-                    let mut actions = vec![ action ];
-                    while let Ok(action) = self.action_receiver.try_recv() {
-                        actions.push(action);
-                    }
-                    for action in actions {
-                        match action {
-                            ScannerAction::HandleSubscription(subscription) => {
-                                self.subscriptions.push(subscription);
-                            },
-                            ScannerAction::UpdateIndex(index) => {
-                                self.reader.restore_index(index);
-                            },
-                            ScannerAction::Stop => break 'main
-                        }
-                    }
-                    if !self.subscriptions.is_empty() {
-                        match self.scan() {
-                            Ok(_)    => self.forward_subscriptions_to_publisher(),
-                            Err(err) => error!("Unable to scan log: {}", err)
-                        }
+    fn run(mut self) -> Self {
+        'main: loop {
+            while let Ok(action) = self.action_receiver.recv() {
+                let mut actions = vec![ action ];
+                while let Ok(action) = self.action_receiver.try_recv() {
+                    actions.push(action);
+                }
+                for action in actions {
+                    match action {
+                        ScannerAction::HandleSubscription(subscription) => {
+                            self.subscriptions.push(subscription);
+                        },
+                        ScannerAction::UpdateIndex(index) => {
+                            self.reader.restore_index(index);
+                        },
+                        ScannerAction::Stop => break 'main
                     }
                 }
-            };
-            self.subscriptions.truncate(0);
-            self
-        })
+                if !self.subscriptions.is_empty() {
+                    match self.scan() {
+                        Ok(_)    => self.forward_subscriptions_to_publisher(),
+                        Err(err) => error!("Unable to scan log: {}", err)
+                    }
+                }
+            }
+        };
+        self
     }
 
     fn forward_subscriptions_to_publisher(&mut self) {
@@ -242,7 +255,7 @@ mod tests {
     fn setup() -> (Log, IndexedLineReader<BufReader<File>>, Publisher, ScannerConfig) {
         let log         = Log::new("", &random_collection_name(), 10).expect("Unable to create log");
         let line_reader = log.open_line_reader().expect("Unable to open line reader");
-        let publisher   = Publisher::new(&PublisherConfig::default());
+        let publisher   = Publisher::new(&PublisherConfig::default()).expect("Unable to create publisher");
         let config      = ScannerConfig::default();
         (log, line_reader, publisher, config)
     }
@@ -278,7 +291,7 @@ mod tests {
 
         let index = LinesIndex::new(100);
 
-        assert!(scanner.update_index(&index).is_ok());
+        assert!(scanner.update_index(index.clone()).is_ok());
 
         match receiver.recv() {
             Ok(ScannerAction::UpdateIndex(received_index)) => {
@@ -291,12 +304,12 @@ mod tests {
 
         match receiver.recv() {
             Ok(ScannerAction::Stop) => (),
-            _ => panic!("Expected to receive a Stop message")
+            _                       => panic!("Expected to receive a Stop message")
         }
 
         drop(receiver);
 
-        assert!(scanner.stop().is_err());
+        assert!(scanner.stop().is_ok());
 
         assert!(log.remove().is_ok());
     }
@@ -306,8 +319,8 @@ mod tests {
         let (log, line_reader, publisher, _) = setup();
 
         let (sender, receiver) = channel();
-        let scanner_thread = ScannerThread::new(line_reader, receiver, publisher.clone());
-        let handle = scanner_thread.run();
+        let scanner_thread     = ScannerThread::new(line_reader, receiver, publisher.clone());
+        let handle             = thread::spawn(|| { scanner_thread.run() });
 
         assert!(sender.send(ScannerAction::Stop).is_ok());
 
@@ -323,7 +336,7 @@ mod tests {
 
         let (sender, receiver) = channel();
         let scanner_thread     = ScannerThread::new(line_reader, receiver, publisher.clone());
-        let handle             = scanner_thread.run();
+        let handle             = thread::spawn(|| { scanner_thread.run() });
 
         let mut index = LinesIndex::new(100);
         index.insert(100, 1234);
@@ -351,7 +364,7 @@ mod tests {
 
         let (thread_sender, thread_receiver) = channel();
         let scanner_thread = ScannerThread::new(line_reader, thread_receiver, publisher.clone());
-        scanner_thread.run();
+        thread::spawn(|| { scanner_thread.run() });
 
         let (sender, receiver) = channel();
         let live_subscription = Subscription::new(sender, Query::live());

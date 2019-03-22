@@ -81,16 +81,16 @@ impl Client {
         username: Option<&str>, password: Option<&str>) -> Result<Client, DatabaseError> {
         match TcpStream::connect(address) {
             Ok(stream) => {
-                let mut stream = try!(TcpMessageStream::new(stream));
+                let mut stream = TcpMessageStream::new(stream)?;
                 let username = username.map(|u| u.to_owned());
                 let password = password.map(|p| p.to_owned());
                 let connection_message = TcpMessage::Connect(collection_name.to_owned(), username, password);
-                try!(stream.send_message(connection_message));
+                stream.send_message(connection_message)?;
                 match stream.recv_message() {
-                    Ok(TcpMessage::Connected) => Ok(Client { stream: stream }),
+                    Ok(TcpMessage::Connected)    => Ok(Client { stream }),
                     Ok(TcpMessage::Error(error)) => Err(error),
-                    Ok(_) => Err(DatabaseError::ConnectionError),
-                    Err(err) => Err(err)
+                    Ok(_)                        => Err(DatabaseError::ConnectionError),
+                    Err(err)                     => Err(err)
                 }
             },
             Err(err) => Err(DatabaseError::from_io_error(err))
@@ -100,12 +100,12 @@ impl Client {
     /// Publishes an event and returns the `id` for the event created
     /// or a `DatabaseError` if a failure occurs.
     pub fn publish(&mut self, event: Event) -> Result<u64, DatabaseError> {
-        try!(self.stream.send_message(TcpMessage::Publish(event)));
+        self.stream.send_message(TcpMessage::Publish(event))?;
         match self.stream.recv_message() {
             Ok(TcpMessage::Published(event_id)) => Ok(event_id),
-            Ok(TcpMessage::Error(error)) => Err(error),
-            Ok(_) => Err(DatabaseError::IoError(ErrorKind::InvalidData, "unexpected TCP message".to_owned())),
-            Err(err) => Err(err)
+            Ok(TcpMessage::Error(error))        => Err(error),
+            Ok(_)                               => Err(DatabaseError::IoError(ErrorKind::InvalidData, "unexpected TCP message".to_owned())),
+            Err(err)                            => Err(err)
         }
     }
 
@@ -140,7 +140,7 @@ impl Client {
                         })
                     },
                     TcpMessage::Error(err) => Err(err),
-                    _ => Err(DatabaseError::SubscriptionError)
+                    _                      => Err(DatabaseError::SubscriptionError)
                 }
             })
         })

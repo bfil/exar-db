@@ -22,7 +22,8 @@ pub struct Collection {
     log: Log,
     logger: Logger,
     publisher: Publisher,
-    scanner: Scanner
+    scanner: Scanner,
+    connections_count: u16
 }
 
 impl Collection {
@@ -30,10 +31,10 @@ impl Collection {
     /// or a `DatabaseError` if a failure occurs.
     pub fn new(name: &str, config: &CollectionConfig) -> Result<Collection, DatabaseError> {
         let log       = Log::new(&config.logs_path, name, config.index_granularity)?;
-        let publisher = Publisher::new(&config.publisher);
+        let publisher = Publisher::new(&config.publisher)?;
         let scanner   = Scanner::new(&log, &publisher, &config.scanner)?;
         let logger    = Logger::new(&log, &publisher, &scanner)?;
-        Ok(Collection { log, logger, publisher, scanner })
+        Ok(Collection { log, logger, publisher, scanner, connections_count: 0 })
     }
 
     /// Publishes an event into the collection and returns the `id` for the event created
@@ -62,6 +63,22 @@ impl Collection {
     pub fn flush(&mut self) -> Result<(), DatabaseError> {
         self.logger.flush()
     }
+
+    pub fn increase_connections_count(&mut self) {
+        if self.connections_count == 0 {
+            let _ = self.publisher.start();
+            let _ = self.scanner.start();
+        }
+        self.connections_count += 1;
+    }
+
+    pub fn decrease_connections_count(&mut self) {
+        self.connections_count -= 1;
+        if self.connections_count == 0 {
+            let _ =  self.publisher.stop();
+            let _ =  self.scanner.stop();
+        }
+    }
 }
 
 #[cfg(test)]
@@ -75,7 +92,9 @@ mod tests {
         let config              = CollectionConfig::default();
         let mut collection      = Collection::new(collection_name, &config).expect("Unable to create collection");
 
-        assert_eq!(collection.log, Log::new("", collection_name, 100000).expect("Unable to create log"));
+        assert_eq!(collection.log.get_path(), format!("{}.log", collection_name));
+        assert_eq!(collection.log.get_name(), collection_name);
+        assert_eq!(collection.log.get_index_granularity(), 100000);
 
         assert!(collection.drop().is_ok());
     }

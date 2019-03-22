@@ -27,6 +27,7 @@ pub struct Connection {
 impl Connection {
     /// Creates a new instance of a connection with the given collection.
     pub fn new(collection: Arc<Mutex<Collection>>) -> Connection {
+        collection.lock().unwrap().increase_connections_count();
         Connection { collection }
     }
 
@@ -44,6 +45,7 @@ impl Connection {
 
     /// Closes the connection.
     pub fn close(self) {
+        self.collection.lock().unwrap().decrease_connections_count();
         drop(self)
     }
 }

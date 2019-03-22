@@ -30,7 +30,7 @@ impl Handler {
     }
 
     /// Runs the connection handler which processes one incoming TCP message at a time.
-    pub fn run(&mut self) {
+    pub fn run(mut self) {
         match self.stream.try_clone() {
             Ok(stream) => {
                 for message in stream.messages() {
@@ -41,6 +41,10 @@ impl Handler {
                         },
                         Err(err) => self.fail(err)
                     };
+                }
+                match self.state {
+                    State::Connected(connection) => connection.close(),
+                    _                            => ()
                 }
             },
             Err(err) => warn!("Unable to accept client connection: {}", err)

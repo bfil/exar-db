@@ -84,7 +84,7 @@ impl Server {
                         let peer_addr = stream.peer_addr().ok().map(|addr| format!("{}", addr))
                                                                .unwrap_or("unknown peer address".to_owned());
                         match Handler::new(stream, db, config) {
-                            Ok(mut handler) => {
+                            Ok(handler) => {
                                 info!("Client connected: {}", peer_addr);
                                 handler.run();
                                 info!("Client disconnected: {}", peer_addr);

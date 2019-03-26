@@ -17,7 +17,7 @@ pub struct TcpMessageStream<T: Read + Write> {
 impl<T: Read + Write + TryClone> TcpMessageStream<T> {
     /// Creates a `TcpMessageStream` from a given `TcpStream`,
     /// or returns a `DatabaseError` if a failure occurs.
-    pub fn new(stream: T) -> Result<TcpMessageStream<T>, DatabaseError> {
+    pub fn new(stream: T) -> DatabaseResult<TcpMessageStream<T>> {
         stream.try_clone().and_then(|cloned_stream| {
             Ok(TcpMessageStream {
                 reader: BufReader::new(cloned_stream),
@@ -28,7 +28,7 @@ impl<T: Read + Write + TryClone> TcpMessageStream<T> {
 
     /// Receives and returns a `TcpMessage` from the TCP stream,
     /// or a `DatabaseError` if a failure occurs.
-    pub fn recv_message(&mut self) -> Result<TcpMessage, DatabaseError> {
+    pub fn recv_message(&mut self) -> DatabaseResult<TcpMessage> {
         let mut line = String::new();
         match self.reader.read_line(&mut line) {
             Ok(_) => {
@@ -44,7 +44,7 @@ impl<T: Read + Write + TryClone> TcpMessageStream<T> {
 
     /// Sends a `TcpMessage` to the TCP stream,
     /// or returns a `DatabaseError` if a failure occurs.
-    pub fn send_message(&mut self, message: TcpMessage) -> Result<(), DatabaseError> {
+    pub fn send_message(&mut self, message: TcpMessage) -> DatabaseResult<()> {
         match self.writer.write_line(&message.to_tab_separated_string()) {
             Ok(_) => Ok(()),
             Err(err) => Err(DatabaseError::from_io_error(err))
@@ -58,11 +58,11 @@ impl<T: Read + Write + TryClone> TcpMessageStream<T> {
 }
 
 pub trait TryClone where Self: Sized {
-    fn try_clone(&self) -> Result<Self, DatabaseError>;
+    fn try_clone(&self) -> DatabaseResult<Self>;
 }
 
 impl TryClone for TcpStream {
-    fn try_clone(&self) -> Result<Self, DatabaseError> {
+    fn try_clone(&self) -> DatabaseResult<Self> {
         match self.try_clone() {
             Ok(cloned_stream) => Ok(cloned_stream),
             Err(err) => Err(DatabaseError::from_io_error(err))
@@ -71,7 +71,7 @@ impl TryClone for TcpStream {
 }
 
 impl<T: Read + Write + TryClone> TryClone for TcpMessageStream<T> {
-    fn try_clone(&self) -> Result<Self, DatabaseError> {
+    fn try_clone(&self) -> DatabaseResult<Self> {
         self.writer.get_ref().try_clone().and_then(|cloned_stream| {
             TcpMessageStream::new(cloned_stream)
         })
@@ -92,7 +92,7 @@ impl<T: Read + Write> TcpMessages<T> {
 }
 
 impl<T: Read + Write> Iterator for TcpMessages<T> {
-    type Item = Result<TcpMessage, DatabaseError>;
+    type Item = DatabaseResult<TcpMessage>;
     fn next(&mut self) -> Option<Self::Item> {
         match self.lines.next() {
             Some(Ok(ref message)) => match TcpMessage::from_tab_separated_str(message) {
@@ -149,7 +149,7 @@ mod tests {
     }
 
     impl TryClone for LogStream {
-        fn try_clone(&self) -> Result<Self, DatabaseError> {
+        fn try_clone(&self) -> DatabaseResult<Self> {
             match LogStream::new(&self.path) {
                 Ok(cloned_stream) => Ok(cloned_stream),
                 Err(err) => Err(DatabaseError::from_io_error(err))

@@ -78,7 +78,7 @@ impl Client {
     /// Connects to the given address and collection, optionally using the credentials provided,
     /// it returns a `Client` or a `DatabaseError` if a failure occurs.
     pub fn connect<A: ToSocketAddrs>(address: A, collection_name: &str,
-        username: Option<&str>, password: Option<&str>) -> Result<Client, DatabaseError> {
+        username: Option<&str>, password: Option<&str>) -> DatabaseResult<Client> {
         match TcpStream::connect(address) {
             Ok(stream) => {
                 let mut stream = TcpMessageStream::new(stream)?;
@@ -99,7 +99,7 @@ impl Client {
 
     /// Publishes an event and returns the `id` for the event created
     /// or a `DatabaseError` if a failure occurs.
-    pub fn publish(&mut self, event: Event) -> Result<u64, DatabaseError> {
+    pub fn publish(&mut self, event: Event) -> DatabaseResult<u64> {
         self.stream.send_message(TcpMessage::Publish(event))?;
         match self.stream.recv_message() {
             Ok(TcpMessage::Published(event_id)) => Ok(event_id),
@@ -111,7 +111,7 @@ impl Client {
 
     /// Subscribes using the given query and returns an event stream
     /// or a `DatabaseError` if a failure occurs.
-    pub fn subscribe(&mut self, query: Query) -> Result<EventStream, DatabaseError> {
+    pub fn subscribe(&mut self, query: Query) -> DatabaseResult<EventStream> {
         let subscribe_message = TcpMessage::Subscribe(query.live_stream, query.offset, query.limit, query.tag);
         self.stream.send_message(subscribe_message).and_then(|_| {
             self.stream.recv_message().and_then(|message| {

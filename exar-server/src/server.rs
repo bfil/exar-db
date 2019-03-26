@@ -37,7 +37,7 @@ pub struct Server {
 impl Server {
     /// Creates a server with the given config and database and binds it to the configured host and port,
     /// or returns a `DatabaseError` if a failure occurs.
-    pub fn new(config: ServerConfig, db: Arc<Mutex<Database>>) -> Result<Server, DatabaseError> {
+    pub fn new(config: ServerConfig, db: Arc<Mutex<Database>>) -> DatabaseResult<Server> {
         match TcpListener::bind(&*config.address()) {
             Ok(listener) => Ok(Server {
                 credentials: Credentials {
@@ -53,7 +53,7 @@ impl Server {
 
     /// Creates a server database and binds it to the given address,
     /// or returns a `DatabaseError` if a failure occurs.
-    pub fn bind<A: ToSocketAddrs>(address: A, db: Arc<Mutex<Database>>) -> Result<Server, DatabaseError> {
+    pub fn bind<A: ToSocketAddrs>(address: A, db: Arc<Mutex<Database>>) -> DatabaseResult<Server> {
         match TcpListener::bind(address) {
             Ok(listener) => {
                 Ok(Server {

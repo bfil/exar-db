@@ -1,12 +1,9 @@
 use super::*;
 
 use indexed_line_reader::*;
-use rand;
-use rand::Rng;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Seek, SeekFrom};
 use std::sync::mpsc::{channel, Receiver, Sender};
-use std::thread;
 
 /// Exar DB's log file scanner.
 ///
@@ -33,112 +30,69 @@ use std::thread;
 /// drop(scanner);
 /// # }
 /// ```
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct Scanner {
-    action_senders: Vec<Sender<ScannerAction>>,
-    config: ScannerConfig,
-    log: Log,
-    publisher: Publisher,
-    routing_strategy: RoutingStrategy
+    threads: ControllableThreads<ScannerSender, ScannerThread>
 }
 
 impl Scanner {
     /// Creates a new log scanner using the given `IndexedLineReader` and a `Publisher`.
-    pub fn new(log: &Log, publisher: &Publisher, config: &ScannerConfig) -> Result<Scanner, DatabaseError> {
-        let mut scanner = Scanner {
-            action_senders: vec![],
-            config: config.clone(),
-            log: log.clone(),
-            publisher: publisher.clone(),
-            routing_strategy: config.routing_strategy.clone()
-        };
-        scanner.start()?;
-        Ok(scanner)
-    }
-
-    /// Subscribes to the collection of events using the given query and returns an event stream
-    /// or a `DatabaseError` if a failure occurs.
-    pub fn handle_query(&mut self, query: Query) -> Result<EventStream, DatabaseError> {
-        let (sender, receiver) = channel();
-        self.send_subscription(Subscription::new(sender, query))?;
-        Ok(EventStream::new(receiver))
-    }
-
-    /// Adds the given line to the `LinesIndex` or returns a `DatabaseError` if a failure occurs.
-    pub fn update_index(&mut self, index: LinesIndex) -> Result<(), DatabaseError> {
-        self.broadcast_action(ScannerAction::UpdateIndex(index))
-    }
-
-    fn send_subscription(&mut self, subscription: Subscription) -> Result<(), DatabaseError> {
-        (match self.routing_strategy {
-            RoutingStrategy::Random => match rand::thread_rng().choose(&self.action_senders) {
-                Some(action_sender) => {
-                    self.send_action(action_sender, ScannerAction::HandleSubscription(subscription))?;
-                    Ok(RoutingStrategy::Random)
-                },
-                None => Err(DatabaseError::SubscriptionError)
-            },
-            RoutingStrategy::RoundRobin(ref last_index) => {
-                let new_index = if last_index + 1 < self.action_senders.len() { last_index + 1 } else { 0 };
-                match self.action_senders.get(new_index) {
-                    Some(action_sender) => {
-                        self.send_action(action_sender, ScannerAction::HandleSubscription(subscription))?;
-                        Ok(RoutingStrategy::RoundRobin(new_index))
-                    },
-                    None => Err(DatabaseError::SubscriptionError)
-                }
-            }
-        }).and_then(|updated_strategy| {
-            self.routing_strategy = updated_strategy;
-            Ok(())
+    pub fn new(log: &Log, publisher: &Publisher, config: &ScannerConfig) -> DatabaseResult<Self> {
+        let mut senders = vec![];
+        let mut threads = vec![];
+        for _ in 0..config.threads {
+            let (sender, receiver) = channel();
+            senders.push(sender);
+            let line_reader = log.open_line_reader_with_index()?;
+            let publisher_sender = publisher.sender().clone();
+            threads.push(ScannerThread::new(line_reader, receiver, publisher_sender))
+        }
+        let scanner_sender = ScannerSender::new(senders, config.routing_strategy.clone());
+        Ok(Scanner {
+            threads: ControllableThreads::new(scanner_sender, threads)
         })
     }
 
-    fn send_action(&self, action_sender: &Sender<ScannerAction>, action: ScannerAction) -> Result<(), DatabaseError> {
-        match action_sender.send(action) {
-            Ok(()) => Ok(()),
-            Err(_) => Err(DatabaseError::EventStreamError(EventStreamError::Closed))
-        }
+    pub fn sender(&self) -> &ScannerSender {
+        self.threads.sender()
     }
 
-    fn broadcast_action(&self, action: ScannerAction) -> Result<(), DatabaseError> {
-        for action_sender in &self.action_senders {
-            self.send_action(action_sender, action.clone())?;
-        }
-        Ok(())
+    pub fn start(&mut self) -> DatabaseResult<()> {
+        self.threads.start()
     }
 
-    pub fn start(&mut self) -> Result<(), DatabaseError> {
-        match self.action_senders.len() {
-            0 => {
-                for _ in 0..self.config.threads {
-                    let (sender, receiver) = channel();
-                    self.action_senders.push(sender);
-                    let line_reader = self.log.open_line_reader_with_index()?;
-                    let publisher = self.publisher.clone();
-                    thread::spawn(|| {
-                        ScannerThread::new(line_reader, receiver, publisher).run();
-                    });
-                }
-                Ok(())
-            },
-            _ => {
-                Err(DatabaseError::EventStreamError(EventStreamError::Closed))
-            }
-        }
-    }
-
-    pub fn stop(&mut self) -> Result<(), DatabaseError> {
-        self.broadcast_action(ScannerAction::Stop).and_then(|result| {
-            self.action_senders.truncate(0);
-            Ok(result)
-        })
+    pub fn stop(&mut self) -> DatabaseResult<()> {
+        self.threads.stop()
     }
 }
 
-impl Drop for Scanner {
-    fn drop(&mut self) {
-        let _ =  self.stop();
+#[derive(Clone, Debug)]
+pub struct ScannerSender {
+    senders: Vec<Sender<ScannerAction>>,
+    routing_strategy: RoutingStrategy
+}
+
+impl ScannerSender {
+    pub fn new(senders: Vec<Sender<ScannerAction>>, routing_strategy: RoutingStrategy) -> Self {
+        ScannerSender { senders, routing_strategy }
+    }
+
+    pub fn handle_query(&mut self, query: Query) -> DatabaseResult<EventStream> {
+        let (sender, receiver) = channel();
+        let subscription = Subscription::new(sender, query);
+        let updated_strategy = self.senders.route_action(ScannerAction::HandleSubscription(subscription), &self.routing_strategy)?;
+        self.routing_strategy = updated_strategy;
+        Ok(EventStream::new(receiver))
+    }
+
+    pub fn update_index(&mut self, index: LinesIndex) -> DatabaseResult<()> {
+        self.senders.broadcast_action(ScannerAction::UpdateIndex(index))
+    }
+}
+
+impl Stop for ScannerSender {
+    fn stop(&mut self) -> DatabaseResult<()> {
+        self.senders.broadcast_action(ScannerAction::Stop)
     }
 }
 
@@ -151,20 +105,59 @@ impl Drop for Scanner {
 pub struct ScannerThread {
     reader: IndexedLineReader<BufReader<File>>,
     action_receiver: Receiver<ScannerAction>,
-    publisher: Publisher,
+    publisher_sender: PublisherSender,
     subscriptions: Vec<Subscription>
 }
 
 impl ScannerThread {
-    fn new(reader: IndexedLineReader<BufReader<File>>, receiver: Receiver<ScannerAction>, publisher: Publisher) -> ScannerThread {
+    fn new(reader: IndexedLineReader<BufReader<File>>, receiver: Receiver<ScannerAction>, publisher_sender: PublisherSender) -> ScannerThread {
         ScannerThread {
             reader: reader,
             action_receiver: receiver,
-            publisher: publisher,
+            publisher_sender: publisher_sender,
             subscriptions: vec![]
         }
     }
 
+    fn forward_subscriptions_to_publisher(&mut self) {
+        for subscription in self.subscriptions.drain(..) {
+            let _ = self.publisher_sender.handle_subscription(subscription.clone());
+        }
+    }
+
+    fn subscriptions_intervals(&self) -> Vec<Interval<u64>> {
+        self.subscriptions.iter().map(|s| s.interval()).collect()
+    }
+
+    fn scan(&mut self) -> DatabaseResult<()> {
+        for interval in self.subscriptions_intervals().merged() {
+            match self.reader.seek(SeekFrom::Start(interval.start)) {
+                Ok(_) => {
+                    for line in (&mut self.reader).lines() {
+                        match line {
+                            Ok(line) => match Event::from_tab_separated_str(&line) {
+                                Ok(ref event) => {
+                                    for subscription in self.subscriptions.iter_mut().filter(|s| s.matches_event(event)) {
+                                        let _ = subscription.send(event.clone());
+                                    }
+                                    if interval.end == event.id || self.subscriptions.iter().all(|s| !s.is_active()) {
+                                        break;
+                                    }
+                                },
+                                Err(err) => warn!("Unable to deserialize log line: {}", err)
+                            },
+                            Err(err) => warn!("Unable to read log line: {}", err)
+                        }
+                    }
+                },
+                Err(err) => return Err(DatabaseError::from_io_error(err))
+            }
+        }
+        Ok(())
+    }
+}
+
+impl Run<Self> for ScannerThread {
     fn run(mut self) -> Self {
         'main: loop {
             while let Ok(action) = self.action_receiver.recv() {
@@ -192,43 +185,6 @@ impl ScannerThread {
             }
         };
         self
-    }
-
-    fn forward_subscriptions_to_publisher(&mut self) {
-        for subscription in self.subscriptions.drain(..) {
-            let _ = self.publisher.handle_subscription(subscription.clone());
-        }
-    }
-
-    fn subscriptions_intervals(&self) -> Vec<Interval<u64>> {
-        self.subscriptions.iter().map(|s| s.interval()).collect()
-    }
-
-    fn scan(&mut self) -> Result<(), DatabaseError> {
-        for interval in self.subscriptions_intervals().merged() {
-            match self.reader.seek(SeekFrom::Start(interval.start)) {
-                Ok(_) => {
-                    for line in (&mut self.reader).lines() {
-                        match line {
-                            Ok(line) => match Event::from_tab_separated_str(&line) {
-                                Ok(ref event) => {
-                                    for subscription in self.subscriptions.iter_mut().filter(|s| s.matches_event(event)) {
-                                        let _ = subscription.send(event.clone());
-                                    }
-                                    if interval.end == event.id || self.subscriptions.iter().all(|s| !s.is_active()) {
-                                        break;
-                                    }
-                                },
-                                Err(err) => warn!("Unable to deserialize log line: {}", err)
-                            },
-                            Err(err) => warn!("Unable to read log line: {}", err)
-                        }
-                    }
-                },
-                Err(err) => return Err(DatabaseError::from_io_error(err))
-            }
-        }
-        Ok(())
     }
 }
 

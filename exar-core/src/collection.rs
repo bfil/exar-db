@@ -23,30 +23,32 @@ pub struct Collection {
     logger: Logger,
     publisher: Publisher,
     scanner: Scanner,
+    scanner_sender: ScannerSender,
     connections_count: u16
 }
 
 impl Collection {
     /// Creates a new instance of a collection with the given name and configuration
     /// or a `DatabaseError` if a failure occurs.
-    pub fn new(name: &str, config: &CollectionConfig) -> Result<Collection, DatabaseError> {
-        let log       = Log::new(&config.logs_path, name, config.index_granularity)?;
-        let publisher = Publisher::new(&config.publisher)?;
-        let scanner   = Scanner::new(&log, &publisher, &config.scanner)?;
-        let logger    = Logger::new(&log, &publisher, &scanner)?;
-        Ok(Collection { log, logger, publisher, scanner, connections_count: 0 })
+    pub fn new(name: &str, config: &CollectionConfig) -> DatabaseResult<Collection> {
+        let log            = Log::new(&config.logs_path, name, config.index_granularity)?;
+        let publisher      = Publisher::new(&config.publisher);
+        let scanner        = Scanner::new(&log, &publisher, &config.scanner)?;
+        let scanner_sender = scanner.sender().clone();
+        let logger         = Logger::new(&log, &publisher, &scanner)?;
+        Ok(Collection { log, logger, publisher, scanner, scanner_sender, connections_count: 0 })
     }
 
     /// Publishes an event into the collection and returns the `id` for the event created
     /// or a `DatabaseError` if a failure occurs.
-    pub fn publish(&mut self, event: Event) -> Result<u64, DatabaseError> {
+    pub fn publish(&mut self, event: Event) -> DatabaseResult<u64> {
         self.logger.log(event)
     }
 
     /// Subscribes to the collection of events using the given query and returns an event stream
     /// or a `DatabaseError` if a failure occurs.
-    pub fn subscribe(&mut self, query: Query) -> Result<EventStream, DatabaseError> {
-        self.scanner.handle_query(query)
+    pub fn subscribe(&mut self, query: Query) -> DatabaseResult<EventStream> {
+        self.scanner_sender.handle_query(query)
     }
 
     /// Returns the name of the collection.
@@ -55,12 +57,12 @@ impl Collection {
     }
 
     /// Drops the collection and removes the log and index files.
-    pub fn drop(&mut self) -> Result<(), DatabaseError> {
+    pub fn drop(&mut self) -> DatabaseResult<()> {
         self.log.remove()
     }
 
     /// Flushes the collection log's buffer.
-    pub fn flush(&mut self) -> Result<(), DatabaseError> {
+    pub fn flush(&mut self) -> DatabaseResult<()> {
         self.logger.flush()
     }
 

@@ -19,7 +19,9 @@ pub enum DatabaseError {
     /// The attempted subscription failed.
     SubscriptionError,
     /// The validation of the event failed.
-    ValidationError(ValidationError)
+    ValidationError(ValidationError),
+    /// An unexpected error occurred.
+    UnexpectedError
 }
 
 impl DatabaseError {
@@ -48,7 +50,8 @@ impl ToTabSeparatedString for DatabaseError {
                 ParseError::MissingField(index)         => tab_separated!("ParseError", "MissingField", index)
             },
             DatabaseError::SubscriptionError          => tab_separated!("SubscriptionError"),
-            DatabaseError::ValidationError(ref error) => tab_separated!("ValidationError", error.description)
+            DatabaseError::ValidationError(ref error) => tab_separated!("ValidationError", error.description),
+            DatabaseError::UnexpectedError            => tab_separated!("UnexpectedError")
         }
     }
 }
@@ -97,6 +100,7 @@ impl FromTabSeparatedStr for DatabaseError {
                 let description: String = parser.parse_next()?;
                 Ok(DatabaseError::ValidationError(ValidationError::new(&description)))
             },
+            "UnexpectedError" => Ok(DatabaseError::UnexpectedError),
             x => Err(ParseError::ParseError(format!("unknown database error: {}", x)))
         }
     }
@@ -164,7 +168,8 @@ impl Display for DatabaseError {
             DatabaseError::IoError(_, ref error)                      => write!(f, "{}", error),
             DatabaseError::ParseError(ref error)                      => write!(f, "{}", error),
             DatabaseError::SubscriptionError                          => write!(f, "subscription failure"),
-            DatabaseError::ValidationError(ref error)                 => write!(f, "{}", error)
+            DatabaseError::ValidationError(ref error)                 => write!(f, "{}", error),
+            DatabaseError::UnexpectedError                            => write!(f, "unexpected error")
         }
     }
 }
@@ -186,6 +191,7 @@ mod tests {
         let missig_field         = DatabaseError::ParseError(ParseError::MissingField(1));
         let subscription_error   = DatabaseError::SubscriptionError;
         let validation_error     = DatabaseError::ValidationError(ValidationError { description: "error".to_owned() });
+        let unexpected_error     = DatabaseError::UnexpectedError;
 
         assert_encoded_eq!(authentication_error, "AuthenticationError");
         assert_encoded_eq!(connection_error, "ConnectionError");
@@ -196,6 +202,7 @@ mod tests {
         assert_encoded_eq!(missig_field, "ParseError\tMissingField\t1");
         assert_encoded_eq!(subscription_error, "SubscriptionError");
         assert_encoded_eq!(validation_error, "ValidationError\terror");
+        assert_encoded_eq!(unexpected_error, "UnexpectedError");
     }
 
     #[test]
@@ -209,6 +216,7 @@ mod tests {
         let missing_field        = DatabaseError::ParseError(ParseError::MissingField(1));
         let subscription_error   = DatabaseError::SubscriptionError;
         let validation_error     = DatabaseError::ValidationError(ValidationError { description: "error".to_owned() });
+        let unexpected_error     = DatabaseError::UnexpectedError;
 
         assert_decoded_eq!("AuthenticationError", authentication_error);
         assert_decoded_eq!("ConnectionError", connection_error);
@@ -219,5 +227,6 @@ mod tests {
         assert_decoded_eq!("ParseError\tMissingField\t1", missing_field);
         assert_decoded_eq!("SubscriptionError", subscription_error);
         assert_decoded_eq!("ValidationError\terror", validation_error);
+        assert_decoded_eq!("UnexpectedError", unexpected_error);
     }
 }

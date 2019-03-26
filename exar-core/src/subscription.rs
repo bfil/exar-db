@@ -43,7 +43,7 @@ impl Subscription {
     }
 
     /// Sends an `Event` to the subscriber or returns a `DatabaseError` if a failure occurs.
-    pub fn send(&mut self, event: Event) -> Result<(), DatabaseError> {
+    pub fn send(&mut self, event: Event) -> DatabaseResult<()> {
         let event_id = event.id;
         match self.event_stream_sender.send(EventStreamMessage::Event(event)) {
             Ok(_) => {

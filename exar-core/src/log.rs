@@ -4,7 +4,6 @@ use indexed_line_reader::*;
 
 use std::fs::*;
 use std::io::{BufReader, BufWriter, BufRead};
-use std::sync::{Arc, Mutex};
 
 /// Exar DB's log file abstraction.
 ///
@@ -34,60 +33,60 @@ use std::sync::{Arc, Mutex};
 pub struct Log {
     path: String,
     name: String,
-    index: Arc<Mutex<LinesIndex>>,
+    index: LinesIndex,
     index_granularity: u64
 }
 
 impl Log {
     /// Returns a new `Log` pointing to the given path/name and using the given index granularity.
-    pub fn new(path: &str, name: &str, index_granularity: u64) ->  Result<Log, DatabaseError> {
+    pub fn new(path: &str, name: &str, index_granularity: u64) ->  DatabaseResult<Log> {
         let mut log = Log {
             path: path.to_owned(),
             name: name.to_owned(),
-            index: Arc::new(Mutex::new(LinesIndex::new(index_granularity))),
+            index: LinesIndex::new(index_granularity),
             index_granularity: index_granularity
         };
         log.restore_index()?;
         Ok(log)
     }
 
-    fn open_file(&self, open_options: &mut OpenOptions) -> Result<File, DatabaseError> {
+    fn open_file(&self, open_options: &mut OpenOptions) -> DatabaseResult<File> {
         open_options.open(self.get_path()).map_err(DatabaseError::from_io_error)
     }
 
     /// Ensure the underlying log file exists and creates it if it does not exist,
     /// it returns a `DatabaseError` if a failure occurs while creating the log file.
-    pub fn ensure_exists(&self) -> Result<(), DatabaseError> {
+    pub fn ensure_exists(&self) -> DatabaseResult<()> {
         self.open_file(OpenOptions::new().create(true).write(true)).map(|_| ())
     }
 
     /// Returns a buffered reader for the underlying log file
     /// or a `DatabaseError` if a failure occurs.
-    pub fn open_reader(&self) -> Result<BufReader<File>, DatabaseError> {
+    pub fn open_reader(&self) -> DatabaseResult<BufReader<File>> {
         self.open_file(OpenOptions::new().read(true)).map(|file| BufReader::new(file))
     }
 
     /// Returns an indexed line reader for the underlying log file
     /// or a `DatabaseError` if a failure occurs.
-    pub fn open_line_reader(&self) -> Result<IndexedLineReader<BufReader<File>>, DatabaseError> {
+    pub fn open_line_reader(&self) -> DatabaseResult<IndexedLineReader<BufReader<File>>> {
         self.open_file(OpenOptions::new().read(true)).map(|file| IndexedLineReader::new(BufReader::new(file), self.index_granularity))
     }
 
     /// Returns an indexed line reader for the underlying log file and restores the index
     /// using the given `LinesIndex` or a `DatabaseError` if a failure occurs.
-    pub fn open_line_reader_with_index(&self) -> Result<IndexedLineReader<BufReader<File>>, DatabaseError> {
+    pub fn open_line_reader_with_index(&self) -> DatabaseResult<IndexedLineReader<BufReader<File>>> {
         let mut reader = self.open_line_reader()?;
-        reader.restore_index(self.index.lock().unwrap().clone());
+        reader.restore_index(self.index.clone());
         Ok(reader)
     }
 
     /// Returns a buffered writer for the underlying log file or a `DatabaseError` if a failure occurs.
-    pub fn open_writer(&self) -> Result<BufWriter<File>, DatabaseError> {
+    pub fn open_writer(&self) -> DatabaseResult<BufWriter<File>> {
         self.open_file(OpenOptions::new().create(true).write(true).append(true)).map(|file| BufWriter::new(file))
     }
 
     /// Removes the underlying log file and its index or a `DatabaseError` if a failure occurs.
-    pub fn remove(&self) -> Result<(), DatabaseError> {
+    pub fn remove(&self) -> DatabaseResult<()> {
         match remove_file(self.get_path()) {
             Ok(())   => match remove_file(self.get_index_path()) {
                             Ok(()) | Err(_) => Ok(())
@@ -96,31 +95,31 @@ impl Log {
         }
     }
 
-    fn open_index_file(&self, open_options: &mut OpenOptions) -> Result<File, DatabaseError> {
+    fn open_index_file(&self, open_options: &mut OpenOptions) -> DatabaseResult<File> {
         open_options.open(self.get_index_path()).map_err(DatabaseError::from_io_error)
     }
 
     /// Returns a buffered reader for the log index file or a `DatabaseError` if a failure occurs.
-    pub fn open_index_reader(&self) -> Result<BufReader<File>, DatabaseError> {
+    pub fn open_index_reader(&self) -> DatabaseResult<BufReader<File>> {
         self.open_index_file(OpenOptions::new().read(true)).map(|file| BufReader::new(file))
     }
 
     /// Returns a buffered writer for the log index file or a `DatabaseError` if a failure occurs.
-    pub fn open_index_writer(&self) -> Result<BufWriter<File>, DatabaseError> {
+    pub fn open_index_writer(&self) -> DatabaseResult<BufWriter<File>> {
         self.open_index_file(OpenOptions::new().create(true).write(true).truncate(true)).map(|file| BufWriter::new(file))
     }
 
-    fn compute_index(&mut self, existing_index: Option<LinesIndex>) -> Result<(), DatabaseError> {
+    fn compute_index(&mut self, existing_index: Option<LinesIndex>) -> DatabaseResult<()> {
         self.ensure_exists()?;
         let mut reader = self.open_line_reader()?;
         existing_index.map(|index| reader.restore_index(index));
         match reader.compute_index() {
-            Ok(_)    => Ok(*self.index.lock().unwrap() = reader.get_index().clone()),
+            Ok(_)    => Ok(self.index = reader.get_index().clone()),
             Err(err) => Err(DatabaseError::from_io_error(err))
         }
     }
 
-    fn restore_index(&mut self) -> Result<(), DatabaseError> {
+    fn restore_index(&mut self) -> DatabaseResult<()> {
         match self.open_index_reader() {
             Ok(reader) => {
                 let mut index = LinesIndex::new(self.index_granularity);
@@ -150,9 +149,9 @@ impl Log {
         }
     }
 
-    fn persist_index(&self) -> Result<(), DatabaseError> {
+    fn persist_index(&self) -> DatabaseResult<()> {
         let mut writer = self.open_index_writer()?;
-        for (line_count, byte_count) in self.index.lock().unwrap().get_ref() {
+        for (line_count, byte_count) in self.index.get_ref() {
             match writer.write_line(&format!("{} {}", line_count, byte_count)) {
                 Ok(_)    => (),
                 Err(err) => return Err(DatabaseError::from_io_error(err))
@@ -162,8 +161,8 @@ impl Log {
     }
 
     /// Adds a line to the lines index or returns a `DatabaseError` if a failure occurs.
-    pub fn index_line(&mut self, offset: u64, bytes: u64) -> Result<(), DatabaseError> {
-        self.index.lock().unwrap().insert(offset, bytes);
+    pub fn index_line(&mut self, offset: u64, bytes: u64) -> DatabaseResult<()> {
+        self.index.insert(offset, bytes);
         self.persist_index()
     }
 
@@ -196,16 +195,16 @@ impl Log {
     }
 
     pub fn line_count(&self) -> u64 {
-        self.index.lock().unwrap().line_count()
+        self.index.line_count()
     }
 
     pub fn byte_count(&self) -> u64 {
-        self.index.lock().unwrap().byte_count()
+        self.index.byte_count()
     }
 
     /// Returns a cloned lines index for the log file.
     pub fn clone_index(&self) -> LinesIndex {
-        self.index.lock().unwrap().clone()
+        self.index.clone()
     }
 }
 
@@ -245,7 +244,7 @@ mod tests {
 
         let expected_index = LinesIndex::new(10);
 
-        assert_eq!(*log.index.lock().unwrap(), expected_index);
+        assert_eq!(log.index, expected_index);
 
         let mut writer = log.open_writer().expect("Unable to open writer");
         for _ in 0..100 {
@@ -267,7 +266,7 @@ mod tests {
         expected_index.insert( 90, 450);
         expected_index.insert(100, 500);
 
-        assert_eq!(*log.index.lock().unwrap(), expected_index);
+        assert_eq!(log.index, expected_index);
 
         let reader = log.open_line_reader().expect("Unable to open reader");
         assert_eq!(*reader.get_index(), LinesIndex::new(10));
@@ -285,17 +284,17 @@ mod tests {
         drop(writer);
 
         log.restore_index().expect("Unable to compute, persist and restore index");
-        assert_eq!(*log.index.lock().unwrap(), expected_index);
+        assert_eq!(log.index, expected_index);
 
         assert!(log.open_index_reader().is_ok());
 
         log.restore_index().expect("Unable to restore persisted index");
-        assert_eq!(*log.index.lock().unwrap(), expected_index);
+        assert_eq!(log.index, expected_index);
 
         assert!(log.persist_index().is_ok());
 
         log.restore_index().expect("Unable to restore persisted index");
-        assert_eq!(*log.index.lock().unwrap(), expected_index);
+        assert_eq!(log.index, expected_index);
 
         let mut log = Log::new("", collection_name, 100).expect("Unable to create log");
 
@@ -304,7 +303,7 @@ mod tests {
         let mut expected_index = LinesIndex::new(100);
         expected_index.insert(100, 500);
 
-        assert_eq!(*log.index.lock().unwrap(), expected_index);
+        assert_eq!(log.index, expected_index);
 
         assert!(log.remove().is_ok());
 

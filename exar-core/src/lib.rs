@@ -82,6 +82,7 @@ mod query;
 mod scanner;
 mod routing_strategy;
 mod subscription;
+mod thread;
 mod util;
 mod validation;
 
@@ -99,5 +100,8 @@ pub use self::query::*;
 pub use self::routing_strategy::*;
 pub use self::scanner::*;
 pub use self::subscription::*;
+pub use self::thread::*;
 pub use self::util::*;
 pub use self::validation::*;
+
+pub type DatabaseResult<T> = Result<T, DatabaseError>;

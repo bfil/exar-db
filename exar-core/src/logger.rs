@@ -25,20 +25,20 @@ use std::io::{BufWriter, Write};
 pub struct Logger {
     writer: BufWriter<File>,
     log: Log,
-    publisher: Publisher,
-    scanner: Scanner,
+    publisher_sender: PublisherSender,
+    scanner_sender: ScannerSender,
     offset: u64,
     bytes_written: u64
 }
 
 impl Logger {
     /// Creates a new logger for the given `Log` or returns a `DatabaseError` if a failure occurs.
-    pub fn new(log: &Log, publisher: &Publisher, scanner: &Scanner) -> Result<Logger, DatabaseError> {
+    pub fn new(log: &Log, publisher: &Publisher, scanner: &Scanner) -> DatabaseResult<Logger> {
         Ok(Logger {
             writer: log.open_writer()?,
             log: log.clone(),
-            publisher: publisher.clone(),
-            scanner: scanner.clone(),
+            publisher_sender: publisher.sender().clone(),
+            scanner_sender: scanner.sender().clone(),
             offset: log.line_count() + 1,
             bytes_written: log.byte_count()
         })
@@ -46,7 +46,7 @@ impl Logger {
 
     /// Appends the given event to the log and returns the `id` for the event logged
     /// or a `DatabaseError` if a failure occurs.
-    pub fn log(&mut self, event: Event) -> Result<u64, DatabaseError> {
+    pub fn log(&mut self, event: Event) -> DatabaseResult<u64> {
         match event.validated() {
             Ok(event) => {
                 let event_id = self.offset;
@@ -57,12 +57,12 @@ impl Logger {
                 let event_string = event.to_tab_separated_string();
                 match self.writer.write_line(&event_string) {
                     Ok(bytes_written) => {
-                        self.publisher.publish(event)?;
+                        self.publisher_sender.publish(event)?;
                         self.offset += 1;
                         self.bytes_written += bytes_written as u64;
                         if self.offset % self.log.get_index_granularity() == 0 {
                             self.log.index_line(self.offset, self.bytes_written)?;
-                            self.scanner.update_index(self.log.clone_index())?;
+                            self.scanner_sender.update_index(self.log.clone_index())?;
                         }
                         Ok(event_id)
                     },
@@ -74,7 +74,7 @@ impl Logger {
     }
 
     /// Flushes the buffered data to the log file.
-    pub fn flush(&mut self) -> Result<(), DatabaseError> {
+    pub fn flush(&mut self) -> DatabaseResult<()> {
         self.writer.flush().map_err(DatabaseError::from_io_error)
     }
 

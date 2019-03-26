@@ -1,9 +1,7 @@
 use super::*;
 
 use std::collections::VecDeque;
-use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{channel, Receiver, Sender};
-use std::thread;
 
 /// Exar DB's events' publisher.
 ///
@@ -18,67 +16,54 @@ use std::thread;
 /// use exar::*;
 /// # }
 /// ```
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct Publisher {
-    config: PublisherConfig,
-    action_sender: Arc<Mutex<Option<Sender<PublisherAction>>>>
+    thread: ControllableThread<PublisherSender, PublisherThread>
 }
 
 impl Publisher {
-    pub fn new(config: &PublisherConfig) -> Result<Publisher, DatabaseError> {
-        let mut publisher = Publisher {
-            config: config.clone(),
-            action_sender: Arc::new(Mutex::new(None))
-        };
-        publisher.start()?;
-        Ok(publisher)
-    }
-
-    pub fn publish(&mut self, event: Event) -> Result<(), DatabaseError> {
-        self.send_action(PublisherAction::PublishEvent(event))
-    }
-
-    pub fn handle_subscription(&mut self, subscription: Subscription) -> Result<(), DatabaseError> {
-        self.send_action(PublisherAction::HandleSubscription(subscription))
-    }
-
-    fn send_action(&self, action: PublisherAction) -> Result<(), DatabaseError> {
-        match *self.action_sender.lock().unwrap() {
-            Some(ref action_sender) => match action_sender.send(action) {
-                Ok(()) => Ok(()),
-                Err(_) => Err(DatabaseError::EventStreamError(EventStreamError::Closed))
-            },
-            None => Err(DatabaseError::EventStreamError(EventStreamError::Closed))
+    pub fn new(config: &PublisherConfig) -> Self {
+        let (sender, receiver) = channel();
+        Publisher {
+            thread: ControllableThread::new(PublisherSender::new(sender), PublisherThread::new(receiver, config))
         }
     }
 
-    pub fn start(&mut self) -> Result<(), DatabaseError> {
-        let mut action_sender = self.action_sender.lock().unwrap();
-        match *action_sender {
-            Some(_) => Err(DatabaseError::EventStreamError(EventStreamError::Closed)),
-            None => {
-                let (sender, receiver) = channel();
-                *action_sender = Some(sender);
-                let config = self.config.clone();
-                thread::spawn(|| {
-                    PublisherThread::new(receiver, config).run();
-                });
-                Ok(())
-            }
-        }
+    pub fn sender(&self) -> &PublisherSender {
+        self.thread.sender()
     }
 
-    pub fn stop(&mut self) -> Result<(), DatabaseError> {
-        self.send_action(PublisherAction::Stop).and_then(|result| {
-            *self.action_sender.lock().unwrap() = None;
-            Ok(result)
-        })
+    pub fn start(&mut self) -> DatabaseResult<()> {
+        self.thread.start()
+    }
+
+    pub fn stop(&mut self) -> DatabaseResult<()> {
+        self.thread.stop()
     }
 }
 
-impl Drop for Publisher {
-    fn drop(&mut self) {
-        let _ =  self.stop();
+#[derive(Clone, Debug)]
+pub struct PublisherSender {
+    sender: Sender<PublisherAction>
+}
+
+impl PublisherSender {
+    pub fn new(sender: Sender<PublisherAction>) -> Self {
+        PublisherSender { sender }
+    }
+
+    pub fn publish(&mut self, event: Event) -> DatabaseResult<()> {
+        self.sender.send_action(PublisherAction::PublishEvent(event))
+    }
+
+    pub fn handle_subscription(&mut self, subscription: Subscription) -> DatabaseResult<()> {
+        self.sender.send_action(PublisherAction::HandleSubscription(subscription))
+    }
+}
+
+impl Stop for PublisherSender {
+    fn stop(&mut self) -> DatabaseResult<()> {
+        self.sender.send_action(PublisherAction::Stop)
     }
 }
 
@@ -91,7 +76,7 @@ struct PublisherThread {
 }
 
 impl PublisherThread {
-    fn new(receiver: Receiver<PublisherAction>, config: PublisherConfig) -> PublisherThread {
+    fn new(receiver: Receiver<PublisherAction>, config: &PublisherConfig) -> PublisherThread {
         PublisherThread {
             action_receiver: receiver,
             buffer_size: config.buffer_size,
@@ -100,7 +85,16 @@ impl PublisherThread {
         }
     }
 
-    fn run(mut self) {
+    fn buffer_event(&mut self, event: &Event) {
+        if self.events_buffer.len() == self.buffer_size {
+            self.events_buffer.pop_front();
+        }
+        self.events_buffer.push_back(event.clone());
+    }
+}
+
+impl Run<Self> for PublisherThread {
+    fn run(mut self) -> Self {
         'main: loop {
             while let Ok(action) = self.action_receiver.recv() {
                 match action {
@@ -134,13 +128,7 @@ impl PublisherThread {
                 }
             }
         };
-    }
-
-    fn buffer_event(&mut self, event: &Event) {
-        if self.events_buffer.len() == self.buffer_size {
-            self.events_buffer.pop_front();
-        }
-        self.events_buffer.push_back(event.clone());
+        self
     }
 }
 

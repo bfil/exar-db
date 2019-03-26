@@ -19,7 +19,7 @@ pub struct Handler {
 impl Handler {
     /// Creates a connection handler using the given TCP stream, database and credentials,
     /// or a `DatabaseError` if a failure occurs.
-    pub fn new(stream: TcpStream, db: Arc<Mutex<Database>>, credentials: Credentials) -> Result<Handler, DatabaseError> {
+    pub fn new(stream: TcpStream, db: Arc<Mutex<Database>>, credentials: Credentials) -> DatabaseResult<Handler> {
         TcpMessageStream::new(stream).and_then(|stream| {
             Ok(Handler {
                 credentials: credentials,
@@ -67,7 +67,7 @@ impl Handler {
         } else { true }
     }
 
-    fn recv(&mut self, message: TcpMessage) -> Result<ActionResult, DatabaseError> {
+    fn recv(&mut self, message: TcpMessage) -> DatabaseResult<ActionResult> {
         match (message, self.state.clone()) {
             (TcpMessage::Connect(collection_name, given_username, given_password), State::Idle(db)) => {
                 if self.verify_authentication(given_username, given_password) {
@@ -96,7 +96,7 @@ impl Handler {
         }
     }
 
-    fn send(&mut self, result: ActionResult) -> Result<(), DatabaseError> {
+    fn send(&mut self, result: ActionResult) -> DatabaseResult<()> {
         match result {
             ActionResult::Connected => self.stream.send_message(TcpMessage::Connected),
             ActionResult::Published(event_id) => self.stream.send_message(TcpMessage::Published(event_id)),
@@ -112,7 +112,7 @@ impl Handler {
         }
     }
 
-    fn fail(&mut self, error: DatabaseError) -> Result<(), DatabaseError> {
+    fn fail(&mut self, error: DatabaseError) -> DatabaseResult<()> {
         self.stream.send_message(TcpMessage::Error(error))
     }
 }

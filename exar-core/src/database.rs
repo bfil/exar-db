@@ -36,7 +36,7 @@ impl Database {
     }
 
     /// Returns a connection instance with the given name or a `DatabaseError` if a failure occurs.
-    pub fn connect(&mut self, collection_name: &str) -> Result<Connection, DatabaseError> {
+    pub fn connect(&mut self, collection_name: &str) -> DatabaseResult<Connection> {
         match self.get_collection(collection_name) {
             Ok(collection) => Ok(Connection::new(collection)),
             Err(err)       => Err(err)
@@ -45,7 +45,7 @@ impl Database {
 
     /// Returns an existing collection instance with the given name wrapped into an `Arc`/`Mutex`
     /// or a `DatabaseError` if a failure occurs, it creates a new collection if it does not exist.
-    pub fn get_collection(&mut self, collection_name: &str) -> Result<Arc<Mutex<Collection>>, DatabaseError> {
+    pub fn get_collection(&mut self, collection_name: &str) -> DatabaseResult<Arc<Mutex<Collection>>> {
         if !self.contains_collection(collection_name) {
             self.create_collection(collection_name)
         } else {
@@ -58,7 +58,7 @@ impl Database {
 
     /// Creates and returns a new collection instance with the given name wrapped into an `Arc`/`Mutex`
     /// or a `DatabaseError` if a failure occurs.
-    pub fn create_collection(&mut self, collection_name: &str) -> Result<Arc<Mutex<Collection>>, DatabaseError> {
+    pub fn create_collection(&mut self, collection_name: &str) -> DatabaseResult<Arc<Mutex<Collection>>> {
         let collection_config = self.config.collection_config(collection_name);
         let collection        = Arc::new(Mutex::new(Collection::new(collection_name, &collection_config)?));
         self.collections.insert(collection_name.to_owned(), collection.clone());
@@ -66,7 +66,7 @@ impl Database {
     }
 
     /// Drops the collection with the given name or returns an error if a failure occurs.
-    pub fn drop_collection(&mut self, collection_name: &str) -> Result<(), DatabaseError> {
+    pub fn drop_collection(&mut self, collection_name: &str) -> DatabaseResult<()> {
         let collection = self.get_collection(collection_name)?;
         (*collection.lock().unwrap()).drop()?;
         self.collections.remove(collection_name);

@@ -95,6 +95,7 @@ export class ConnectionHandler {
     unsubscribe() {
         if(this.subscription) {
             this.subscription.dispose();
+            this.subscription = undefined;
             this.subscribed = false;
             this.logMessage('EndOfEventStream', false);
             this.reconnect();

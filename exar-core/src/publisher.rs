@@ -114,7 +114,10 @@ impl Run<Self> for PublisherThread {
                                     self.subscriptions.push(subscription)
                                 }
                             },
-                            None => self.subscriptions.push(subscription)
+                            None =>
+                                if subscription.is_active() && subscription.is_live() {
+                                    self.subscriptions.push(subscription)
+                                }
                         }
                     },
                     PublisherAction::PublishEvent(ref event) => {

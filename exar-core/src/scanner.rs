@@ -121,7 +121,7 @@ impl ScannerThread {
 
     fn forward_subscriptions_to_publisher(&mut self) {
         for subscription in self.subscriptions.drain(..) {
-            let _ = self.publisher_sender.handle_subscription(subscription.clone());
+            let _ = self.publisher_sender.handle_subscription(subscription);
         }
     }
 

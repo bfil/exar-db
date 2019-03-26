@@ -50,11 +50,7 @@ impl Subscription {
                 self.offset = event_id;
                 self.count += 1;
                 if !self.is_active() {
-                    self.active = false;
-                    match self.event_stream_sender.send(EventStreamMessage::End) {
-                        Ok(_)  => Ok(()),
-                        Err(_) => Err(DatabaseError::EventStreamError(EventStreamError::Closed))
-                    }
+                    Ok(self.active = false)
                 } else {
                     Ok(())
                 }
@@ -88,6 +84,12 @@ impl Subscription {
     /// Returns the current offsets interval of the subscription.
     pub fn interval(&self) -> Interval<u64> {
         Interval::new(self.offset, self.query.interval().end)
+    }
+}
+
+impl Drop for Subscription {
+    fn drop(&mut self) {
+        let _ = self.event_stream_sender.send(EventStreamMessage::End);
     }
 }
 

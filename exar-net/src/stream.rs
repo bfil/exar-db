@@ -35,7 +35,7 @@ impl<T: Read + Write + TryClone> TcpMessageStream<T> {
                 let trimmed_line = line.trim();
                 match TcpMessage::from_tab_separated_str(trimmed_line) {
                     Ok(message) => Ok(message),
-                    Err(err) => Err(DatabaseError::ParseError(err))
+                    Err(err)    => Err(DatabaseError::ParseError(err))
                 }
             },
             Err(err) => Err(DatabaseError::from_io_error(err))
@@ -46,7 +46,7 @@ impl<T: Read + Write + TryClone> TcpMessageStream<T> {
     /// or returns a `DatabaseError` if a failure occurs.
     pub fn send_message(&mut self, message: TcpMessage) -> DatabaseResult<()> {
         match self.writer.write_line(&message.to_tab_separated_string()) {
-            Ok(_) => Ok(()),
+            Ok(_)    => Ok(()),
             Err(err) => Err(DatabaseError::from_io_error(err))
         }
     }
@@ -65,7 +65,7 @@ impl TryClone for TcpStream {
     fn try_clone(&self) -> DatabaseResult<Self> {
         match self.try_clone() {
             Ok(cloned_stream) => Ok(cloned_stream),
-            Err(err) => Err(DatabaseError::from_io_error(err))
+            Err(err)          => Err(DatabaseError::from_io_error(err))
         }
     }
 }
@@ -96,11 +96,11 @@ impl<T: Read + Write> Iterator for TcpMessages<T> {
     fn next(&mut self) -> Option<Self::Item> {
         match self.lines.next() {
             Some(Ok(ref message)) => match TcpMessage::from_tab_separated_str(message) {
-                Ok(message) => Some(Ok(message)),
-                Err(err) => Some(Err(DatabaseError::ParseError(err)))
-            },
-            Some(Err(err)) => Some(Err(DatabaseError::from_io_error(err))),
-            None => None
+                                         Ok(message) => Some(Ok(message)),
+                                         Err(err)    => Some(Err(DatabaseError::ParseError(err)))
+                                     },
+            Some(Err(err))        => Some(Err(DatabaseError::from_io_error(err))),
+            None                  => None
         }
     }
 }

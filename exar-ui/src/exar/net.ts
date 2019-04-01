@@ -139,6 +139,32 @@ export class Subscribed implements TcpMessage {
     }
 }
 
+export class Unsubscribe implements TcpMessage {
+
+    toTabSeparatedString() {
+        return TcpMessageEncoder.toTabSeparatedString('Unsubscribe');
+    }
+
+    static fromTabSeparatedString(data: string) {
+        let messageParts = TcpMessageDecoder.parseTabSeparatedString(data, 1);
+        return new Unsubscribe();
+    }
+
+}
+
+export class EndOfEventStream implements TcpMessage {
+
+    toTabSeparatedString() {
+        return TcpMessageEncoder.toTabSeparatedString('EndOfEventStream');
+    }
+
+    static fromTabSeparatedString(data: string) {
+        let messageParts = TcpMessageDecoder.parseTabSeparatedString(data, 1);
+        return new EndOfEventStream();
+    }
+
+}
+
 export class DatabaseError implements TcpMessage {
 
     private type: string;

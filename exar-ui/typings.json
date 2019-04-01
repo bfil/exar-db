@@ -8,9 +8,7 @@
   },
   "globalDependencies": {
     "bootstrap": "registry:dt/bootstrap",
-    "jquery": "registry:dt/jquery",
-    "url": "github:aurelia/fetch-client/doc/url.d.ts",
-    "whatwg-fetch": "registry:dt/whatwg-fetch"
+    "jquery": "registry:dt/jquery"
   },
   "dependencies": {
     "aurelia-animator-css": "github:aurelia/animator-css",

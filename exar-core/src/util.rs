@@ -10,17 +10,13 @@ pub trait WriteLine {
 
 impl<T: Write> WriteLine for BufWriter<T> {
     fn write_line(&mut self, line: &str) -> Result<usize> {
-        self.write(format!("{}\n", line).as_bytes()).and_then(|bytes_written| {
-            Ok(bytes_written)
-        })
+        self.write(format!("{}\n", line).as_bytes())
     }
 }
 
 impl<T: Write> WriteLine for LineWriter<T> {
     fn write_line(&mut self, line: &str) -> Result<usize> {
-        self.write(format!("{}\n", line).as_bytes()).and_then(|bytes_written| {
-            Ok(bytes_written)
-        })
+        self.write(format!("{}\n", line).as_bytes())
     }
 }
 
@@ -44,10 +40,7 @@ pub trait Merge: Sized {
 
 impl<T> Interval<T> {
     pub fn new(start: T, end: T) -> Interval<T> {
-        Interval {
-            start: start,
-            end: end
-        }
+        Interval { start, end }
     }
 }
 

@@ -77,12 +77,13 @@ impl ScannerSender {
         ScannerSender { senders, routing_strategy }
     }
 
-    pub fn handle_query(&mut self, query: Query) -> DatabaseResult<EventStream> {
-        let (sender, receiver) = channel();
-        let subscription = Subscription::new(sender, query);
-        let updated_strategy = self.senders.route_action(ScannerAction::HandleSubscription(subscription), &self.routing_strategy)?;
-        self.routing_strategy = updated_strategy;
-        Ok(EventStream::new(receiver))
+    pub fn handle_query(&mut self, query: Query) -> DatabaseResult<(SubscriptionHandle, EventStream)> {
+        let (sender, receiver)  = channel();
+        let subscription_handle = SubscriptionHandle::new(sender.clone());
+        let subscription        = Subscription::new(sender, query);
+        let updated_strategy    = self.senders.route_action(ScannerAction::HandleSubscription(subscription), &self.routing_strategy)?;
+        self.routing_strategy   = updated_strategy;
+        Ok((subscription_handle, EventStream::new(receiver)))
     }
 
     pub fn update_index(&mut self, index: LinesIndex) -> DatabaseResult<()> {

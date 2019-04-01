@@ -77,23 +77,18 @@ pub struct Client {
 impl Client {
     /// Connects to the given address and collection, optionally using the credentials provided,
     /// it returns a `Client` or a `DatabaseError` if a failure occurs.
-    pub fn connect<A: ToSocketAddrs>(address: A, collection_name: &str,
-        username: Option<&str>, password: Option<&str>) -> DatabaseResult<Client> {
-        match TcpStream::connect(address) {
-            Ok(stream) => {
-                let mut stream = TcpMessageStream::new(stream)?;
-                let username = username.map(|u| u.to_owned());
-                let password = password.map(|p| p.to_owned());
-                let connection_message = TcpMessage::Connect(collection_name.to_owned(), username, password);
-                stream.send_message(connection_message)?;
-                match stream.recv_message() {
-                    Ok(TcpMessage::Connected)    => Ok(Client { stream }),
-                    Ok(TcpMessage::Error(error)) => Err(error),
-                    Ok(_)                        => Err(DatabaseError::ConnectionError),
-                    Err(err)                     => Err(err)
-                }
-            },
-            Err(err) => Err(DatabaseError::from_io_error(err))
+    pub fn connect<A: ToSocketAddrs>(address: A, collection_name: &str, username: Option<&str>, password: Option<&str>) -> DatabaseResult<Client> {
+        let stream = TcpStream::connect(address).map_err(DatabaseError::from_io_error)?;
+        let mut stream = TcpMessageStream::new(stream)?;
+        let username = username.map(|u| u.to_owned());
+        let password = password.map(|p| p.to_owned());
+        let connection_message = TcpMessage::Connect(collection_name.to_owned(), username, password);
+        stream.send_message(connection_message)?;
+        match stream.recv_message() {
+            Ok(TcpMessage::Connected)    => Ok(Client { stream }),
+            Ok(TcpMessage::Error(error)) => Err(error),
+            Ok(_)                        => Err(DatabaseError::ConnectionError),
+            Err(err)                     => Err(err)
         }
     }
 
@@ -113,37 +108,39 @@ impl Client {
     /// or a `DatabaseError` if a failure occurs.
     pub fn subscribe(&mut self, query: Query) -> DatabaseResult<EventStream> {
         let subscribe_message = TcpMessage::Subscribe(query.live_stream, query.offset, query.limit, query.tag);
-        self.stream.send_message(subscribe_message).and_then(|_| {
-            self.stream.recv_message().and_then(|message| {
-                match message {
-                    TcpMessage::Subscribed => {
-                        let (sender, receiver) = channel();
-                        self.stream.try_clone().and_then(|cloned_stream| {
-                            thread::spawn(move || {
-                                for message in cloned_stream.messages() {
-                                    match message {
-                                        Ok(TcpMessage::Event(event)) => match sender.send(EventStreamMessage::Event(event)) {
-                                            Ok(_) => continue,
-                                            Err(err) => error!("Unable to send event to the event stream: {}", err)
-                                        },
-                                        Ok(TcpMessage::EndOfEventStream) => {
-                                            let _ = sender.send(EventStreamMessage::End);
-                                        },
-                                        Ok(TcpMessage::Error(error)) => error!("Received error from TCP stream: {}", error),
-                                        Ok(message) => error!("Unexpected TCP message: {}", message),
-                                        Err(err) => error!("Unable to read TCP message from stream: {}", err)
-                                    };
-                                    break
-                                }
-                            });
-                            Ok(EventStream::new(receiver))
-                        })
-                    },
-                    TcpMessage::Error(err) => Err(err),
-                    _                      => Err(DatabaseError::SubscriptionError)
-                }
-            })
-        })
+        self.stream.send_message(subscribe_message)?;
+        match self.stream.recv_message()? {
+            TcpMessage::Subscribed => {
+                let (sender, receiver) = channel();
+                let cloned_stream = self.stream.try_clone()?;
+                thread::spawn(move || {
+                    for message in cloned_stream.messages() {
+                        match message {
+                            Ok(TcpMessage::Event(event))     => match sender.send(EventStreamMessage::Event(event)) {
+                                                                    Ok(_)    => continue,
+                                                                    Err(err) => error!("Unable to send event to the event stream: {}", err)
+                                                                },
+                            Ok(TcpMessage::EndOfEventStream) => {
+                                                                    let _ = sender.send(EventStreamMessage::End);
+                                                                },
+                            Ok(TcpMessage::Error(error))     => error!("Received error from TCP stream: {}", error),
+                            Ok(message)                      => error!("Unexpected TCP message: {}", message),
+                            Err(err)                         => error!("Unable to read TCP message from stream: {}", err)
+                        };
+                        break
+                    }
+                });
+                Ok(EventStream::new(receiver))
+            },
+            TcpMessage::Error(err) => Err(err),
+            _                      => Err(DatabaseError::SubscriptionError)
+        }
+    }
+
+    /// Unsubscribed from the event stream
+    /// or a `DatabaseError` if a failure occurs.
+    pub fn unsubscribe(&mut self) -> DatabaseResult<()> {
+        self.stream.send_message(TcpMessage::Unsubscribe)
     }
 
     /// Closes the connection.
@@ -303,6 +300,33 @@ mod tests {
 
             let mut client = Client::connect(addr, "collection", None, None).expect("Unable to connect");
             assert_eq!(client.subscribe(Query::live()).err(), Some(DatabaseError::SubscriptionError));
+        });
+    }
+
+    #[test]
+    fn test_unsubscribe() {
+        with_addr(&mut |addr| {
+
+            let event = Event::new("data", vec!["tag1", "tag2"]).with_timestamp(1234567890);
+
+            stub_server(addr.clone(), vec![
+                StreamAction::Read(TcpMessage::Connect("collection".to_owned(), None, None)),
+                StreamAction::Write(TcpMessage::Connected),
+                StreamAction::Read(TcpMessage::Subscribe(true, 0, None, None)),
+                StreamAction::Write(TcpMessage::Subscribed),
+                StreamAction::Write(TcpMessage::Event(event.clone().with_id(1))),
+                StreamAction::Write(TcpMessage::Event(event.clone().with_id(2))),
+                StreamAction::Write(TcpMessage::EndOfEventStream)
+            ]);
+
+            let mut client = Client::connect(addr, "collection", None, None).expect("Unable to connect");
+            let mut event_stream = client.subscribe(Query::live()).expect("Unable to subscribe");
+            assert_eq!(event_stream.next(), Some(event.clone().with_id(1)));
+            assert_eq!(event_stream.next(), Some(event.clone().with_id(2)));
+
+            client.unsubscribe().is_ok();
+
+            assert_eq!(event_stream.next(), None);
         });
     }
 }

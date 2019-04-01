@@ -33,7 +33,7 @@
             <div>
                 Connected to <b>${collection}</b>&nbsp;
                 <button class="btn btn-default" click.delegate="disconnect()"
-                        disabled.bind="subscription">Disconnect</button>
+                        disabled.bind="disconnecting">Disconnect</button>
             </div>
             <hr>
             <form class="form-inline">
@@ -57,7 +57,7 @@
                     Subscribe
                 </button>
                 <button if.bind="subscribed" type="submit" class="btn btn-default" click.delegate="unsubscribe()"
-                        disabled.bind="!liveStream">
+                        disabled.bind="!liveStream || unsubscribing || disconnecting">
                     Unsubscribe
                 </button>
             </form>

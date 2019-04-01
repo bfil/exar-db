@@ -78,16 +78,18 @@ impl Server {
         for stream in self.listener.incoming() {
             match stream {
                 Ok(stream) => {
-                    let db     = self.db.clone();
-                    let config = self.credentials.clone();
-                    thread::spawn(|| {
+                    let db          = self.db.clone();
+                    let credentials = self.credentials.clone();
+                    thread::spawn(move || {
                         let peer_addr = stream.peer_addr().ok().map(|addr| format!("{}", addr))
                                                                .unwrap_or("unknown peer address".to_owned());
-                        match Handler::new(stream, db, config) {
+                        match Handler::new(stream, db, credentials) {
                             Ok(handler) => {
                                 info!("Client connected: {}", peer_addr);
-                                handler.run();
-                                info!("Client disconnected: {}", peer_addr);
+                                match handler.run() {
+                                    Ok(())   => info!("Client disconnected: {}", peer_addr),
+                                    Err(err) => warn!("Client disconnected: {} ({})", peer_addr, err),
+                                }
                             },
                             Err(err) => warn!("Unable to accept client connection: {}", err)
                         }

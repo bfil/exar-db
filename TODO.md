@@ -1,7 +1,6 @@
 # Improvements
 
 - Connection responsible to tell the collection to increase/decrease count to start/stop threads
-- Disconnecting after subscribing doesn't close the connection which is closed only after a few send attempts on a closed channel
 
 # New Features
 

@@ -79,12 +79,7 @@ impl FromTabSeparatedStr for Event {
         let tags: String = parser.parse_next()?;
         let data: String = parser.parse_next()?;
         let tags: Vec<_> = tags.split(' ').map(|x| x.to_owned()).collect();
-        Ok(Event {
-            id: id,
-            tags: tags,
-            data: data,
-            timestamp: timestamp
-        })
+        Ok(Event { id, tags, data, timestamp })
     }
 }
 
@@ -119,15 +114,13 @@ impl Validation for Event {
 /// # }
 /// ```
 pub struct EventStream {
-    event_stream_receiver: Receiver<EventStreamMessage>
+    receiver: Receiver<EventStreamMessage>
 }
 
 impl EventStream {
     /// Returns a new `EventStream` from the given `Receiver<EventStreamMessage>`.
     pub fn new(receiver: Receiver<EventStreamMessage>) -> EventStream {
-        EventStream {
-            event_stream_receiver: receiver
-        }
+        EventStream { receiver }
     }
     /// Attempts to wait for an event on this event stream,
     /// returning an `EventStreamError` if the corresponding channel has hung up.
@@ -135,17 +128,18 @@ impl EventStream {
     /// This function will always block the current thread if there is no data available
     /// and it's possible for more data to be sent.
     pub fn recv(&self) -> Result<Event, EventStreamError> {
-        match self.event_stream_receiver.recv() {
+        match self.receiver.recv() {
             Ok(EventStreamMessage::Event(event)) => Ok(event),
             Ok(EventStreamMessage::End) | Err(_) => Err(EventStreamError::Closed)
         }
     }
+
     /// Attempts to return a pending event on this event stream without blocking.
     ///
     /// This method will never block the caller in order to wait for the next event to become available.
     /// Instead, this will always return immediately with a possible option of pending data on the channel.
     pub fn try_recv(&self) -> Result<Event, EventStreamError> {
-        match self.event_stream_receiver.try_recv() {
+        match self.receiver.try_recv() {
             Ok(EventStreamMessage::Event(event)) => Ok(event),
             Ok(EventStreamMessage::End)          => Err(EventStreamError::Closed),
             Err(err)                             => match err {

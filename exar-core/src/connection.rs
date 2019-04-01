@@ -39,7 +39,7 @@ impl Connection {
 
     /// Subscribes to the underlying collection of events using the given query and returns an event stream
     /// or a `DatabaseError` if a failure occurs.
-    pub fn subscribe(&self, query: Query) -> DatabaseResult<EventStream> {
+    pub fn subscribe(&self, query: Query) -> DatabaseResult<(SubscriptionHandle, EventStream)> {
         self.collection.lock().unwrap().subscribe(query)
     }
 

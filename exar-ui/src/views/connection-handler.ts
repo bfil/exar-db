@@ -2,7 +2,7 @@ import {autoinject, bindable} from 'aurelia-framework';
 
 import {ExarClient} from 'exar/client';
 import {Connection, Event, Query} from 'exar/model';
-import {TcpMessage} from 'exar/net';
+import {EndOfEventStream, TcpMessage} from 'exar/net';
 
 import {SavedConnection} from 'models/saved-connection';
 
@@ -25,11 +25,14 @@ export class ConnectionHandler {
     tag: string;
 
     connected: boolean;
+    disconnecting: boolean = false;
+    unsubscribing: boolean = false;
     subscription: Rx.IDisposable;
     subscribed: boolean = false;
     messages: { payload: string, className: string }[];
 
     bind() {
+        this.exarClient = new ExarClient();
         this.savedConnections = localStorage.getItem('connections.saved') ? JSON.parse(localStorage.getItem('connections.saved')) : [];
         if(this.savedConnections.length) {
             this.connection = this.savedConnections[0];
@@ -43,25 +46,21 @@ export class ConnectionHandler {
     }
 
     connect(isReconnection: boolean = false) {
-        this.exarClient = new ExarClient();
         this.exarClient.connect(this.initializeConnection(this.collection, this.connection))
             .then(connected => {
                 this.connected = true;
                 if(!isReconnection) this.logTcpMessage(connected);
             }, this.onError.bind(this));
         this.exarClient.onDisconnect(() => {
+            this.disconnecting = false;
             this.connected = false;
-            if(!isReconnection) this.logMessage(`Disconnected`, false);
+            this.logMessage(`Disconnected`, false);
         });
     }
 
     disconnect() {
+        this.disconnecting = true;
         this.exarClient.disconnect();
-    }
-
-    reconnect() {
-        this.disconnect();
-        this.connect(true);
     }
 
     publish() {
@@ -82,8 +81,9 @@ export class ConnectionHandler {
                     this.logTcpMessage.bind(this),
                     this.onError.bind(this),
                     () => {
-                        this.logMessage('EndOfEventStream', false);
+                        this.logTcpMessage(new EndOfEventStream());
                         this.subscription = undefined;
+                        this.unsubscribing = false;
                         this.subscribed = false;
                     }
                 );
@@ -94,11 +94,8 @@ export class ConnectionHandler {
 
     unsubscribe() {
         if(this.subscription) {
-            this.subscription.dispose();
-            this.subscription = undefined;
-            this.subscribed = false;
-            this.logMessage('EndOfEventStream', false);
-            this.reconnect();
+            this.unsubscribing = true;
+            this.exarClient.unsubscribe();
         }
     }
 

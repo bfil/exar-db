@@ -47,7 +47,7 @@ impl Collection {
 
     /// Subscribes to the collection of events using the given query and returns an event stream
     /// or a `DatabaseError` if a failure occurs.
-    pub fn subscribe(&mut self, query: Query) -> DatabaseResult<EventStream> {
+    pub fn subscribe(&mut self, query: Query) -> DatabaseResult<(SubscriptionHandle, EventStream)> {
         self.scanner_sender.handle_query(query)
     }
 

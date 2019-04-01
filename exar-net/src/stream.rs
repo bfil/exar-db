@@ -18,11 +18,10 @@ impl<T: Read + Write + TryClone> TcpMessageStream<T> {
     /// Creates a `TcpMessageStream` from a given `TcpStream`,
     /// or returns a `DatabaseError` if a failure occurs.
     pub fn new(stream: T) -> DatabaseResult<TcpMessageStream<T>> {
-        stream.try_clone().and_then(|cloned_stream| {
-            Ok(TcpMessageStream {
-                reader: BufReader::new(cloned_stream),
-                writer: LineWriter::new(stream)
-            })
+        let cloned_stream = stream.try_clone()?;
+        Ok(TcpMessageStream {
+            reader: BufReader::new(cloned_stream),
+            writer: LineWriter::new(stream)
         })
     }
 
@@ -31,6 +30,7 @@ impl<T: Read + Write + TryClone> TcpMessageStream<T> {
     pub fn recv_message(&mut self) -> DatabaseResult<TcpMessage> {
         let mut line = String::new();
         match self.reader.read_line(&mut line) {
+            Ok(0) => Err(DatabaseError::ConnectionError),
             Ok(_) => {
                 let trimmed_line = line.trim();
                 match TcpMessage::from_tab_separated_str(trimmed_line) {
@@ -45,15 +45,14 @@ impl<T: Read + Write + TryClone> TcpMessageStream<T> {
     /// Sends a `TcpMessage` to the TCP stream,
     /// or returns a `DatabaseError` if a failure occurs.
     pub fn send_message(&mut self, message: TcpMessage) -> DatabaseResult<()> {
-        match self.writer.write_line(&message.to_tab_separated_string()) {
-            Ok(_)    => Ok(()),
-            Err(err) => Err(DatabaseError::from_io_error(err))
-        }
+        self.writer.write_line(&message.to_tab_separated_string())
+                   .map_err(DatabaseError::from_io_error)
+                   .map(|_| ())
     }
 
     /// Returns an iterator over the messages received on the TCP stream.
     pub fn messages(self) -> TcpMessages<T> {
-        TcpMessages::new(self)
+        TcpMessages::new(self.reader)
     }
 }
 
@@ -63,35 +62,31 @@ pub trait TryClone where Self: Sized {
 
 impl TryClone for TcpStream {
     fn try_clone(&self) -> DatabaseResult<Self> {
-        match self.try_clone() {
-            Ok(cloned_stream) => Ok(cloned_stream),
-            Err(err)          => Err(DatabaseError::from_io_error(err))
-        }
+        self.try_clone().map_err(DatabaseError::from_io_error)
     }
 }
 
 impl<T: Read + Write + TryClone> TryClone for TcpMessageStream<T> {
     fn try_clone(&self) -> DatabaseResult<Self> {
-        self.writer.get_ref().try_clone().and_then(|cloned_stream| {
-            TcpMessageStream::new(cloned_stream)
-        })
+        let cloned_stream = self.writer.get_ref().try_clone()?;
+        TcpMessageStream::new(cloned_stream)
     }
 }
 
 /// An iterator over the messages received on a stream.
-pub struct TcpMessages<T: Read + Write> {
+pub struct TcpMessages<T: Read> {
     lines: Lines<BufReader<T>>
 }
 
-impl<T: Read + Write> TcpMessages<T> {
-    pub fn new(stream: TcpMessageStream<T>) -> TcpMessages<T> {
+impl<T: Read> TcpMessages<T> {
+    pub fn new(reader: BufReader<T>) -> TcpMessages<T> {
         TcpMessages {
-            lines: stream.reader.lines()
+            lines: reader.lines()
         }
     }
 }
 
-impl<T: Read + Write> Iterator for TcpMessages<T> {
+impl<T: Read> Iterator for TcpMessages<T> {
     type Item = DatabaseResult<TcpMessage>;
     fn next(&mut self) -> Option<Self::Item> {
         match self.lines.next() {
@@ -121,15 +116,9 @@ mod tests {
 
     impl LogStream {
         pub fn new(path: &str) -> Result<Self, Error> {
-            OpenOptions::new().create(true).write(true).append(true).open(path).and_then(|writer| {
-                OpenOptions::new().read(true).open(path).and_then(|reader| {
-                    Ok(LogStream {
-                        path: path.to_owned(),
-                        reader: reader,
-                        writer: writer
-                    })
-                })
-            })
+            let writer = OpenOptions::new().create(true).write(true).append(true).open(path)?;
+            let reader = OpenOptions::new().read(true).open(path)?;
+            Ok(LogStream { path: path.to_owned(), reader, writer })
         }
     }
 
@@ -152,7 +141,7 @@ mod tests {
         fn try_clone(&self) -> DatabaseResult<Self> {
             match LogStream::new(&self.path) {
                 Ok(cloned_stream) => Ok(cloned_stream),
-                Err(err) => Err(DatabaseError::from_io_error(err))
+                Err(err)          => Err(DatabaseError::from_io_error(err))
             }
         }
     }

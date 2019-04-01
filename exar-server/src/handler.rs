@@ -6,6 +6,7 @@ use exar_net::*;
 use std::io::ErrorKind;
 use std::net::TcpStream;
 use std::sync::{Arc, Mutex};
+use std::thread;
 
 /// Exar DB's server connection handler.
 ///
@@ -21,33 +22,29 @@ impl Handler {
     /// or a `DatabaseError` if a failure occurs.
     pub fn new(stream: TcpStream, db: Arc<Mutex<Database>>, credentials: Credentials) -> DatabaseResult<Handler> {
         TcpMessageStream::new(stream).and_then(|stream| {
-            Ok(Handler {
-                credentials: credentials,
-                stream: stream,
-                state: State::Idle(db)
-            })
+            Ok(Handler { credentials, stream, state: State::Idle(db) })
         })
     }
 
     /// Runs the connection handler which processes one incoming TCP message at a time.
-    pub fn run(mut self) {
-        match self.stream.try_clone() {
-            Ok(stream) => {
-                for message in stream.messages() {
-                    let _ = match message {
-                        Ok(message) => match self.recv(message) {
-                            Ok(result) => self.send(result),
-                            Err(err)   => self.fail(err)
-                        },
-                        Err(err) => self.fail(err)
-                    };
-                }
-                match self.state {
-                    State::Connected(connection) => connection.close(),
-                    _                            => ()
-                }
-            },
-            Err(err) => warn!("Unable to accept client connection: {}", err)
+    pub fn run(mut self) -> DatabaseResult<()> {
+        let stream = self.stream.try_clone()?;
+        for message in stream.messages() {
+            let _ = match message {
+                Ok(message) => match self.handle_message(message) {
+                    Ok(())   => Ok(()),
+                    Err(err) => self.send_error_message(err)
+                },
+                Err(err) => self.send_error_message(err)
+            };
+        }
+        match self.state {
+            State::Connected(connection)                       => Ok(connection.close()),
+            State::Subscribed(connection, subscription_handle) => {
+                                                                      subscription_handle.unsubscribe()?;
+                                                                      Ok(connection.close())
+                                                                  },
+            _                                                  => Ok(())
         }
     }
 
@@ -67,14 +64,14 @@ impl Handler {
         } else { true }
     }
 
-    fn recv(&mut self, message: TcpMessage) -> DatabaseResult<ActionResult> {
+    fn handle_message(&mut self, message: TcpMessage) -> DatabaseResult<()> {
         match (message, self.state.clone()) {
             (TcpMessage::Connect(collection_name, given_username, given_password), State::Idle(db)) => {
                 if self.verify_authentication(given_username, given_password) {
                     match db.lock().unwrap().connect(&collection_name) {
                         Ok(connection) => {
                             self.update_state(State::Connected(connection));
-                            Ok(ActionResult::Connected)
+                            self.stream.send_message(TcpMessage::Connected)
                         },
                         Err(err) => Err(err)
                     }
@@ -83,36 +80,41 @@ impl Handler {
                 }
             },
             (TcpMessage::Publish(event), State::Connected(connection)) => {
-                connection.publish(event).and_then(|event_id| {
-                    Ok(ActionResult::Published(event_id))
-                })
+                let event_id = connection.publish(event)?;
+                self.stream.send_message(TcpMessage::Published(event_id))
             },
             (TcpMessage::Subscribe(live, offset, limit, tag), State::Connected(connection)) => {
-                connection.subscribe(Query::new(live, offset, limit, tag)).and_then(|event_stream| {
-                    Ok(ActionResult::EventStream(event_stream))
-                })
-            },
-            _ => Err(DatabaseError::IoError(ErrorKind::InvalidData, "unexpected TCP message".to_owned()))
-        }
-    }
-
-    fn send(&mut self, result: ActionResult) -> DatabaseResult<()> {
-        match result {
-            ActionResult::Connected => self.stream.send_message(TcpMessage::Connected),
-            ActionResult::Published(event_id) => self.stream.send_message(TcpMessage::Published(event_id)),
-            ActionResult::EventStream(event_stream) => {
-                self.stream.send_message(TcpMessage::Subscribed).and_then(|_| {
+                let (subscription_handle, event_stream) = connection.subscribe(Query::new(live, offset, limit, tag))?;
+                self.stream.send_message(TcpMessage::Subscribed)?;
+                if live {
+                    self.update_state(State::Subscribed(connection, subscription_handle));
+                    let mut stream = self.stream.try_clone()?;
+                    thread::spawn(move || {
+                        for event in event_stream {
+                            let send_result = stream.send_message(TcpMessage::Event(event));
+                            if send_result.is_err() { return send_result }
+                        }
+                        stream.send_message(TcpMessage::EndOfEventStream)
+                    });
+                    Ok(())
+                } else {
                     for event in event_stream {
                         let send_result = self.stream.send_message(TcpMessage::Event(event));
                         if send_result.is_err() { return send_result }
                     }
                     self.stream.send_message(TcpMessage::EndOfEventStream)
-                })
-            }
+                }
+            },
+            (TcpMessage::Unsubscribe, State::Subscribed(connection, subscription_handle)) => {
+                subscription_handle.unsubscribe()?;
+                self.update_state(State::Connected(connection));
+                Ok(())
+            },
+            _ => Err(DatabaseError::IoError(ErrorKind::InvalidData, "unexpected TCP message".to_owned()))
         }
     }
 
-    fn fail(&mut self, error: DatabaseError) -> DatabaseResult<()> {
+    fn send_error_message(&mut self, error: DatabaseError) -> DatabaseResult<()> {
         self.stream.send_message(TcpMessage::Error(error))
     }
 }
@@ -123,26 +125,19 @@ pub enum State {
     /// The connection is idle and awaiting a `Connect` message.
     Idle(Arc<Mutex<Database>>),
     /// The connection has been established.
-    Connected(Connection)
+    Connected(Connection),
+    /// The connection is subscribed to an event stream.
+    Subscribed(Connection, SubscriptionHandle)
 }
 
 impl ToString for State {
     fn to_string(&self) -> String {
         match *self {
-            State::Idle(_)      => "Idle".to_owned(),
-            State::Connected(_) => "Connected".to_owned()
+            State::Idle(_)          => "Idle".to_owned(),
+            State::Connected(_)     => "Connected".to_owned(),
+            State::Subscribed(_, _) => "Subscribed".to_owned()
         }
     }
-}
-
-/// A list specifying categories of connection handler action results.
-pub enum ActionResult {
-    /// The connection has been established.
-    Connected,
-    /// The event has been published with the given `id`.
-    Published(u64),
-    /// The subscription has been accepted and the event stream is available.
-    EventStream(EventStream)
 }
 
 #[cfg(test)]

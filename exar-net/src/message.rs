@@ -17,6 +17,8 @@ pub enum TcpMessage {
     Subscribe(bool, u64, Option<u64>, Option<String>),
     /// Message used to acknowledge a successful subscription.
     Subscribed,
+    /// Message used to unsubscribe from an event stream.
+    Unsubscribe,
     /// Message containing an event.
     Event(Event),
     /// Message signaling the end of an event stream.
@@ -50,6 +52,7 @@ impl ToTabSeparatedString for TcpMessage {
                 }
             },
             TcpMessage::Subscribed => tab_separated!("Subscribed"),
+            TcpMessage::Unsubscribe => tab_separated!("Unsubscribe"),
             TcpMessage::Event(ref event) => tab_separated!("Event", event.to_tab_separated_string()),
             TcpMessage::EndOfEventStream => tab_separated!("EndOfEventStream"),
             TcpMessage::Error(ref error) => tab_separated!("Error", error.to_tab_separated_string())
@@ -95,6 +98,7 @@ impl FromTabSeparatedStr for TcpMessage {
                 Ok(TcpMessage::Subscribe(live, offset, limit, tag))
             },
             "Subscribed" => Ok(TcpMessage::Subscribed),
+            "Unsubscribe" => Ok(TcpMessage::Unsubscribe),
             "Event" => {
                 let message_data: String = try!(parser.parse_next());
                 Event::from_tab_separated_str(&message_data).and_then(|event| Ok(TcpMessage::Event(event)))
@@ -132,6 +136,7 @@ impl Display for TcpMessage {
                 }
             },
             TcpMessage::Subscribed => write!(f, "Subscribed"),
+            TcpMessage::Unsubscribe => write!(f, "Unsubscribe"),
             TcpMessage::Event(ref event) => write!(f, "Event({})", event),
             TcpMessage::EndOfEventStream => write!(f, "EndOfEventStream"),
             TcpMessage::Error(ref error) => write!(f, "Error({})", error)
@@ -221,6 +226,15 @@ mod tests {
         assert_encoded_eq!(message, string);
         assert_decoded_eq!(string, message.clone());
         assert_eq!(format!("{}", message), "Subscribed");
+    }
+
+    #[test]
+    fn test_unsubscribe() {
+        let message = TcpMessage::Unsubscribe;
+        let string = "Unsubscribe";
+        assert_encoded_eq!(message, string);
+        assert_decoded_eq!(string, message.clone());
+        assert_eq!(format!("{}", message), "Unsubscribe");
     }
 
     #[test]

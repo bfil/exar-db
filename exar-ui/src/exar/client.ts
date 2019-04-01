@@ -1,5 +1,5 @@
 import {Connection, Event, Query} from 'exar/model';
-import {Connect, Connected, Publish, Published, Subscribe, Subscribed, DatabaseError, TcpMessage} from 'exar/net';
+import {Connect, Connected, Publish, Published, Subscribe, DatabaseError, TcpMessage, Unsubscribe} from 'exar/net';
 
 import * as Rx from 'rx';
 
@@ -12,7 +12,7 @@ export class ExarClient {
     private decoder: TextEncoding.TextDecoder;
 
     constructor() {
-        this.encoder = new TextEncoder("utf8");
+        this.encoder = new TextEncoder();
         this.decoder = new TextDecoder("utf8");
     }
 
@@ -92,6 +92,10 @@ export class ExarClient {
                 this.socketObservable.request(1);
             });
         });
+    }
+
+    unsubscribe() {
+        return this.send(new Unsubscribe());
     }
 
 }

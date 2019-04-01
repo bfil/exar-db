@@ -31,7 +31,7 @@ pub struct Subscription {
 
 impl Subscription {
     /// Creates a new `Subscription` with the given channel sender and query.
-    pub fn new(sender: Sender<EventStreamMessage>, query: Query) -> Subscription {
+    pub fn new(sender: Sender<EventStreamMessage>, query: Query) -> Self {
         let offset = query.offset;
         Subscription {
             active: true,
@@ -90,6 +90,23 @@ impl Subscription {
 impl Drop for Subscription {
     fn drop(&mut self) {
         let _ = self.event_stream_sender.send(EventStreamMessage::End);
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct SubscriptionHandle {
+    event_stream_sender: Sender<EventStreamMessage>
+}
+
+impl SubscriptionHandle {
+    /// Creates a new `SubscriptionHandle` with the given channel sender.
+    pub fn new(sender: Sender<EventStreamMessage>) -> Self {
+        SubscriptionHandle { event_stream_sender: sender }
+    }
+
+    pub fn unsubscribe(&self) -> DatabaseResult<()> {
+        self.event_stream_sender.send(EventStreamMessage::End)
+                                .map_err(|_| DatabaseError::EventStreamError(EventStreamError::Closed))
     }
 }
 

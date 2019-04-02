@@ -24,7 +24,7 @@
 //! let mut db = Database::new(config);
 //!
 //! let collection_name = "test";
-//! let connection      = db.connect(collection_name).unwrap();
+//! let connection      = db.connect(collection_name).expect("Unable to connect");
 //!
 //! match connection.publish(Event::new("payload", vec!["tag1", "tag2"])) {
 //!     Ok(event_id) => println!("Published event with ID: {}", event_id),
@@ -43,10 +43,10 @@
 //! let mut db = Database::new(config);
 //!
 //! let collection_name = "test";
-//! let connection      = db.connect(collection_name).unwrap();
+//! let connection      = db.connect(collection_name).expect("Unable to connect");
 //!
-//! let query        = Query::live().offset(0).limit(10).by_tag("tag1");
-//! let event_stream = connection.subscribe(query).unwrap();
+//! let query             = Query::live().offset(0).limit(10).by_tag("tag1");
+//! let (_, event_stream) = connection.subscribe(query).expect("Unable to subscribe");
 //! for event in event_stream {
 //!     println!("Received event: {}", event);
 //! }

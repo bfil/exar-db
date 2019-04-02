@@ -17,11 +17,11 @@ fn integration_test() {
     let test_event = Event::new("data", vec!["tag1", "tag2"]);
     assert!(connection.publish(test_event.clone()).is_ok());
 
-    let query = Query::current();
-    let retrieved_events: Vec<_> = connection.subscribe(query).unwrap().take(1).collect();
-    let expected_event = test_event.clone().with_id(1).with_timestamp(retrieved_events[0].timestamp);
+    let query                    = Query::current();
+    let (_, event_stream)        = connection.subscribe(query).expect("Unable to subscribe");
+    let retrieved_events: Vec<_> = event_stream.take(1).collect();
+    let expected_event           = test_event.clone().with_id(1).with_timestamp(retrieved_events[0].timestamp);
     assert_eq!(retrieved_events, vec![expected_event]);
 
     assert!(db.drop_collection(collection_name).is_ok());
-    assert!(!db.contains_collection(collection_name));
 }

@@ -66,10 +66,26 @@ impl Collection {
         self.logger.flush()
     }
 
+    pub fn start_threads(&mut self) -> DatabaseResult<Vec<()>> {
+        vec![
+            self.publisher.start_thread(),
+            self.scanner.start_threads()
+        ].into_iter().collect()
+    }
+
+    pub fn stop_threads(&mut self) -> DatabaseResult<()> {
+        vec![
+            self.publisher.stop_thread(),
+            self.scanner.stop_threads()
+        ].into_iter().collect()
+    }
+
     pub fn increase_connections_count(&mut self) {
         if self.connections_count == 0 {
-            let _ = self.publisher.start();
-            let _ = self.scanner.start();
+            match self.start_threads() {
+                Ok(_)    => (),
+                Err(err) => warn!("Unable to start '{}' collection threads: {}", self.get_name(), err)
+            }
         }
         self.connections_count += 1;
     }
@@ -77,8 +93,10 @@ impl Collection {
     pub fn decrease_connections_count(&mut self) {
         self.connections_count -= 1;
         if self.connections_count == 0 {
-            let _ =  self.publisher.stop();
-            let _ =  self.scanner.stop();
+            match self.stop_threads() {
+                Ok(_)    => (),
+                Err(err) => warn!("Unable to stop '{}' collection threads: {}", self.get_name(), err)
+            }
         }
     }
 }
@@ -114,10 +132,13 @@ mod tests {
         let mut collection      = Collection::new(collection_name, &config).expect("Unable to create collection");
         let test_event          = Event::new("data", vec!["tag1", "tag2"]);
 
+        collection.start_threads().expect("Unable to start collection threads");
+
         assert_eq!(collection.publish(test_event.clone()), Ok(1));
 
         let query                    = Query::current();
-        let retrieved_events: Vec<_> = collection.subscribe(query).unwrap().take(1).collect();
+        let (_, event_stream)        = collection.subscribe(query).expect("Unable to subscribe");
+        let retrieved_events: Vec<_> = event_stream.take(1).collect();
         let expected_event           = test_event.clone().with_id(1).with_timestamp(retrieved_events[0].timestamp);
 
         assert_eq!(retrieved_events, vec![expected_event]);

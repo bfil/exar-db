@@ -22,6 +22,10 @@ impl<S: Stop, T: Run<T> + Send + 'static> ControllableThread<S, T> {
         &self.sender
     }
 
+    pub fn sender_mut(&mut self) -> &mut S {
+        &mut self.sender
+    }
+
     pub fn start(&mut self) -> DatabaseResult<()> {
         match self.thread.take() {
             None         => Err(DatabaseError::UnexpectedError),
@@ -65,6 +69,10 @@ impl<S: Stop, T: Run<T> + Send + 'static> ControllableThreads<S, T> {
         &self.sender
     }
 
+    pub fn sender_mut(&mut self) -> &mut S {
+        &mut self.sender
+    }
+
     pub fn start(&mut self) -> DatabaseResult<()> {
         if self.threads.is_empty() {
             Err(DatabaseError::UnexpectedError)
@@ -105,7 +113,7 @@ pub trait Run<T> {
 }
 
 pub trait Stop {
-    fn stop(&mut self) -> DatabaseResult<()>;
+    fn stop(&self) -> DatabaseResult<()>;
 }
 
 pub trait SendMessage<T> {
@@ -156,5 +164,24 @@ impl<T: Clone> RouteMessage<T> for Vec<Sender<T>> {
                 }
             }
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    #[test]
+    fn test_controllable_thread_message_passing() {
+
+    }
+
+    #[test]
+    fn test_controllable_thread_stop() {
+
+    }
+
+    #[test]
+    fn test_route_message() {
+
     }
 }

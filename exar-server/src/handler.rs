@@ -162,7 +162,7 @@ mod tests {
             match listener.accept() {
                 Ok((stream, _)) => {
                     let mut handler = Handler::new(stream, db, credentials).expect("Unable to create TCP connection handler");
-                    handler.run();
+                    handler.run().expect("Unable to run handler");
                 },
                 Err(err) => panic!("Error: {}", err)
             }

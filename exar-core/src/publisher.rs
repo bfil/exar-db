@@ -33,11 +33,15 @@ impl Publisher {
         self.thread.sender()
     }
 
-    pub fn start(&mut self) -> DatabaseResult<()> {
+    pub fn sender_mut(&mut self) -> &mut PublisherSender {
+        self.thread.sender_mut()
+    }
+
+    pub fn start_thread(&mut self) -> DatabaseResult<()> {
         self.thread.start()
     }
 
-    pub fn stop(&mut self) -> DatabaseResult<()> {
+    pub fn stop_thread(&mut self) -> DatabaseResult<()> {
         self.thread.stop()
     }
 }
@@ -62,7 +66,7 @@ impl PublisherSender {
 }
 
 impl Stop for PublisherSender {
-    fn stop(&mut self) -> DatabaseResult<()> {
+    fn stop(&self) -> DatabaseResult<()> {
         self.sender.send_message(PublisherMessage::Stop)
     }
 }

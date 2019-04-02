@@ -22,13 +22,13 @@
 //! use exar_client::*;
 //!
 //! let addr = "127.0.0.1:38580";
-//! let mut client = Client::connect(addr, "test", Some("username"), Some("password")).unwrap();
+//! let mut client = Client::connect(addr, "test", Some("username"), Some("password")).expect("Unable to connect");
 //!
 //! let event = Event::new("payload", vec!["tag1", "tag2"]);
 //!
 //! match client.publish(event) {
 //!     Ok(event_id) => println!("Published event with ID: {}", event_id),
-//!     Err(err) => panic!("Unable to publish event: {}", err)
+//!     Err(err)     => panic!("Unable to publish event: {}", err)
 //! };
 //! # }
 //! ```
@@ -42,10 +42,10 @@
 //! use exar_client::*;
 //!
 //! let addr = "127.0.0.1:38580";
-//! let mut client = Client::connect(addr, "test", Some("username"), Some("password")).unwrap();
+//! let mut client = Client::connect(addr, "test", Some("username"), Some("password")).expect("Unable to connect");
 //!
-//! let query = Query::live().offset(0).limit(10).by_tag("tag1");
-//! let event_stream = client.subscribe(query).unwrap();
+//! let query        = Query::live().offset(0).limit(10).by_tag("tag1");
+//! let event_stream = client.subscribe(query).expect("Unable to subscribe");
 //! for event in event_stream {
 //!     println!("Received event: {}", event);
 //! }
@@ -173,8 +173,8 @@ mod tests {
                     let mut stream = TcpMessageStream::new(stream).expect("Unable to create message stream");
                     for action in actions {
                         match action {
-                            StreamAction::Read(message)  => assert_eq!(stream.recv_message(), Ok(message)),
-                            StreamAction::Write(message) => assert!(stream.send_message(message).is_ok())
+                            StreamAction::Read(message)  => assert_eq!(stream.read_message(), Ok(message)),
+                            StreamAction::Write(message) => assert!(stream.write_message(message).is_ok())
                         }
                         thread::sleep(Duration::from_millis(10));
                     }
@@ -279,7 +279,7 @@ mod tests {
                 StreamAction::Write(TcpMessage::EndOfEventStream)
             ]);
 
-            let mut client = Client::connect(addr, "collection", None, None).expect("Unable to connect");
+            let mut client       = Client::connect(addr, "collection", None, None).expect("Unable to connect");
             let mut event_stream = client.subscribe(Query::live()).expect("Unable to subscribe");
             assert_eq!(event_stream.next(), Some(event.clone().with_id(1)));
             assert_eq!(event_stream.next(), Some(event.clone().with_id(2)));
@@ -319,7 +319,7 @@ mod tests {
                 StreamAction::Write(TcpMessage::EndOfEventStream)
             ]);
 
-            let mut client = Client::connect(addr, "collection", None, None).expect("Unable to connect");
+            let mut client       = Client::connect(addr, "collection", None, None).expect("Unable to connect");
             let mut event_stream = client.subscribe(Query::live()).expect("Unable to subscribe");
             assert_eq!(event_stream.next(), Some(event.clone().with_id(1)));
             assert_eq!(event_stream.next(), Some(event.clone().with_id(2)));

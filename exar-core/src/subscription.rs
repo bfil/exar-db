@@ -138,7 +138,22 @@ mod tests {
 
         assert!(subscription.send(event.clone()).is_ok());
         assert_eq!(receiver.recv(), Ok(EventStreamMessage::Event(event.clone())));
+        assert_eq!(subscription.interval().start, 1);
+        assert!(!subscription.is_active());
+
+        drop(subscription);
         assert_eq!(receiver.recv(), Ok(EventStreamMessage::End));
+    }
+
+    #[test]
+    fn test_subscription_event_stream_receiver_drop() {
+        let (sender, receiver) = channel();
+        let event = Event::new("data", vec!["tag1", "tag2"]).with_id(1);
+
+        let mut subscription = Subscription::new(sender, Query::current().limit(1));
+
+        assert!(subscription.send(event.clone()).is_ok());
+        assert_eq!(receiver.recv(), Ok(EventStreamMessage::Event(event.clone())));
         assert_eq!(subscription.interval().start, 1);
         assert!(!subscription.is_active());
 

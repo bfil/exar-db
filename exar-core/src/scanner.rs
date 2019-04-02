@@ -19,13 +19,13 @@ use std::sync::mpsc::{channel, Receiver, Sender};
 /// use std::sync::mpsc::channel;
 ///
 /// let log       = Log::new("/path/to/logs", "test", 100).expect("Unable to create log");
-/// let publisher = Publisher::new(&PublisherConfig::default()).expect("Unable to create publisher");
+/// let publisher = Publisher::new(&PublisherConfig::default());
 /// let event     = Event::new("data", vec!["tag1", "tag2"]);
 ///
-/// let line_reader = log.open_line_reader().unwrap();
+/// let line_reader = log.open_line_reader().expect("Unable to open line reader");
 /// let mut scanner = Scanner::new(&log, &publisher, &ScannerConfig::default()).expect("Unable to create scanner");
 ///
-/// scanner.handle_query(Query::live()).unwrap();
+/// scanner.sender_mut().handle_query(Query::live()).unwrap();
 ///
 /// drop(scanner);
 /// # }
@@ -57,11 +57,15 @@ impl Scanner {
         self.threads.sender()
     }
 
-    pub fn start(&mut self) -> DatabaseResult<()> {
+    pub fn sender_mut(&mut self) -> &mut ScannerSender {
+        self.threads.sender_mut()
+    }
+
+    pub fn start_threads(&mut self) -> DatabaseResult<()> {
         self.threads.start()
     }
 
-    pub fn stop(&mut self) -> DatabaseResult<()> {
+    pub fn stop_threads(&mut self) -> DatabaseResult<()> {
         self.threads.stop()
     }
 }
@@ -92,7 +96,7 @@ impl ScannerSender {
 }
 
 impl Stop for ScannerSender {
-    fn stop(&mut self) -> DatabaseResult<()> {
+    fn stop(&self) -> DatabaseResult<()> {
         self.senders.broadcast_message(ScannerMessage::Stop)
     }
 }
@@ -207,7 +211,7 @@ mod tests {
     fn setup() -> (Log, IndexedLineReader<BufReader<File>>, Publisher, ScannerConfig) {
         let log         = Log::new("", &random_collection_name(), 10).expect("Unable to create log");
         let line_reader = log.open_line_reader().expect("Unable to open line reader");
-        let publisher   = Publisher::new(&PublisherConfig::default()).expect("Unable to create publisher");
+        let publisher   = Publisher::new(&PublisherConfig::default());
         let config      = ScannerConfig::default();
         (log, line_reader, publisher, config)
     }
@@ -221,74 +225,12 @@ mod tests {
     }
 
     #[test]
-    fn test_scanner_message_passing() {
-        let (log, _, publisher, config) = setup();
-
-        let mut scanner = Scanner::new(&log, &publisher, &config).expect("Unable to create scanner");
-
-        assert!(scanner.stop().is_ok());
-
-        let query              = Query::live();
-        let (sender, receiver) = channel();
-        scanner.senders = vec![sender];
-
-        assert!(scanner.sender().handle_query(query.clone()).is_ok());
-
-        match receiver.recv() {
-            Ok(ScannerMessage::HandleSubscription(s)) => {
-                assert_eq!(s.is_live(), true);
-            },
-            _ => panic!("Expected to receive an HandleSubscription message")
-        }
-
-        let index = LinesIndex::new(100);
-
-        assert!(scanner.sender().update_index(index.clone()).is_ok());
-
-        match receiver.recv() {
-            Ok(ScannerMessage::UpdateIndex(received_index)) => {
-                assert_eq!(received_index, index);
-            },
-            _ => panic!("Expected to receive an UpdateIndex message")
-        }
-
-        assert!(scanner.stop().is_ok());
-
-        match receiver.recv() {
-            Ok(ScannerMessage::Stop) => (),
-            _                        => panic!("Expected to receive a Stop message")
-        }
-
-        drop(receiver);
-
-        assert!(scanner.stop().is_ok());
-
-        assert!(log.remove().is_ok());
-    }
-
-    #[test]
-    fn test_scanner_thread_stop() {
-        let (log, line_reader, publisher, _) = setup();
-
-        let (sender, receiver) = channel();
-        let scanner_thread     = ScannerThread::new(line_reader, receiver, publisher.clone());
-        let handle             = thread::spawn(|| { scanner_thread.run() });
-
-        assert!(sender.send(ScannerMessage::Stop).is_ok());
-
-        let scanner_thread = handle.join().expect("Unable to join scanner thread");
-        assert_eq!(scanner_thread.subscriptions.len(), 0);
-
-        assert!(log.remove().is_ok());
-    }
-
-    #[test]
     fn test_scanner_thread_new_indexed_line() {
         let (log, line_reader, publisher, _) = setup();
 
         let (sender, receiver) = channel();
-        let scanner_thread     = ScannerThread::new(line_reader, receiver, publisher.clone());
-        let handle             = thread::spawn(|| { scanner_thread.run() });
+        let scanner_thread     = ScannerThread::new(line_reader, receiver, publisher.sender().clone());
+        let handle             = thread::spawn(|| scanner_thread.run());
 
         let mut index = LinesIndex::new(100);
         index.insert(100, 1234);
@@ -304,7 +246,7 @@ mod tests {
 
     #[test]
     fn test_scanner_thread_subscriptions_management() {
-        let (log, _, publisher, config) = setup();
+        let (log, _, mut publisher, config) = setup();
 
         let scanner        = Scanner::new(&log, &publisher, &config).expect("Unable to create scanner");
         let mut logger     = Logger::new(&log, &publisher, &scanner).expect("Unable to create logger");
@@ -312,11 +254,12 @@ mod tests {
         let event          = Event::new("data", vec!["tag1", "tag2"]);
         let sleep_duration = Duration::from_millis(10);
 
+        assert!(publisher.start_thread().is_ok());
         assert!(logger.log(event).is_ok());
 
         let (thread_sender, thread_receiver) = channel();
-        let scanner_thread = ScannerThread::new(line_reader, thread_receiver, publisher.clone());
-        thread::spawn(|| { scanner_thread.run() });
+        let scanner_thread = ScannerThread::new(line_reader, thread_receiver, publisher.sender().clone());
+        thread::spawn(|| scanner_thread.run());
 
         let (sender, receiver) = channel();
         let live_subscription = Subscription::new(sender, Query::live());
@@ -326,9 +269,9 @@ mod tests {
 
         assert_eq!(receiver.try_recv().map(|e| match e {
             EventStreamMessage::Event(e) => e.id,
-            message => panic!("Unexpected event stream message: {:?}", message),
+            message                      => panic!("Unexpected event stream message: {:?}", message),
         }), Ok(1));
-        assert_eq!(receiver.try_recv().err(), Some(TryRecvError::Empty));
+        assert_eq!(receiver.try_recv(), Err(TryRecvError::Empty));
 
         let (sender, receiver) = channel();
         let current_subscription = Subscription::new(sender, Query::current());
@@ -338,33 +281,9 @@ mod tests {
 
         assert_eq!(receiver.try_recv().map(|e| match e {
             EventStreamMessage::Event(e) => e.id,
-            message => panic!("Unexpected event stream message: {:?}", message),
+            message                      => panic!("Unexpected event stream message: {:?}", message),
         }), Ok(1));
-        assert_eq!(receiver.try_recv().err(), Some(TryRecvError::Disconnected));
-
-        assert!(log.remove().is_ok());
-    }
-
-    #[test]
-    fn test_apply_round_robin_routing_strategy() {
-        let (log, _, publisher, config) = setup();
-
-        let mut scanner = Scanner::new(&log, &publisher, &config).expect("Unable to create scanner");
-
-        let (sender, _)  = channel();
-        let subscription = Subscription::new(sender, Query::current());
-
-        scanner.routing_strategy = RoutingStrategy::RoundRobin(0);
-
-        scanner.send_subscription(subscription.clone()).expect("Unable to apply routing strategy");
-
-        assert_eq!(scanner.routing_strategy, RoutingStrategy::RoundRobin(1));
-
-        scanner.send_subscription(subscription).expect("Unable to apply routing strategy");
-
-        assert_eq!(scanner.routing_strategy, RoutingStrategy::RoundRobin(0));
-
-        assert!(scanner.stop().is_ok());
+        assert_eq!(receiver.try_recv(), Ok(EventStreamMessage::End));
 
         assert!(log.remove().is_ok());
     }

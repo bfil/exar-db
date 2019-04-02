@@ -25,9 +25,7 @@ impl<S: Stop, T: Run<T> + Send + 'static> ControllableThread<S, T> {
     pub fn start(&mut self) -> DatabaseResult<()> {
         match self.thread.take() {
             None         => Err(DatabaseError::UnexpectedError),
-            Some(thread) => Ok(self.join_handle = Some(thread::spawn(|| {
-                                thread.run()
-                            })))
+            Some(thread) => Ok(self.join_handle = Some(thread::spawn(|| thread.run())))
         }
     }
 
@@ -72,9 +70,7 @@ impl<S: Stop, T: Run<T> + Send + 'static> ControllableThreads<S, T> {
             Err(DatabaseError::UnexpectedError)
         } else {
             for thread in self.threads.drain(..) {
-                let join_handle = thread::spawn(|| {
-                    thread.run()
-                });
+                let join_handle = thread::spawn(|| thread.run());
                 self.join_handles.push(join_handle)
             }
             Ok(())
@@ -112,42 +108,39 @@ pub trait Stop {
     fn stop(&mut self) -> DatabaseResult<()>;
 }
 
-pub trait SendAction<T> {
-    fn send_action(&self, action: T) -> DatabaseResult<()>;
+pub trait SendMessage<T> {
+    fn send_message(&self, message: T) -> DatabaseResult<()>;
 }
 
-impl<T> SendAction<T> for Sender<T> {
-    fn send_action(&self, action: T) -> DatabaseResult<()> {
-        match self.send(action) {
-            Ok(()) => Ok(()),
-            Err(_) => Err(DatabaseError::UnexpectedError)
-        }
+impl<T> SendMessage<T> for Sender<T> {
+    fn send_message(&self, message: T) -> DatabaseResult<()> {
+        self.send(message).map_err(|_| DatabaseError::UnexpectedError)
     }
 }
 
-pub trait BroadcastAction<T> {
-    fn broadcast_action(&self, action: T) -> DatabaseResult<()>;
+pub trait BroadcastMessage<T> {
+    fn broadcast_message(&self, message: T) -> DatabaseResult<()>;
 }
 
-impl<T: Clone> BroadcastAction<T> for Vec<Sender<T>> {
-    fn broadcast_action(&self, action: T) -> DatabaseResult<()> {
+impl<T: Clone> BroadcastMessage<T> for Vec<Sender<T>> {
+    fn broadcast_message(&self, message: T) -> DatabaseResult<()> {
         for sender in self {
-            sender.send_action(action.clone())?;
+            sender.send_message(message.clone())?;
         }
         Ok(())
     }
 }
 
-pub trait RouteAction<T> {
-    fn route_action(&self, action: T, routing_strategy: &RoutingStrategy) -> DatabaseResult<RoutingStrategy>;
+pub trait RouteMessage<T> {
+    fn route_message(&self, message: T, routing_strategy: &RoutingStrategy) -> DatabaseResult<RoutingStrategy>;
 }
 
-impl<T: Clone> RouteAction<T> for Vec<Sender<T>> {
-    fn route_action(&self, action: T, routing_strategy: &RoutingStrategy) -> DatabaseResult<RoutingStrategy> {
+impl<T: Clone> RouteMessage<T> for Vec<Sender<T>> {
+    fn route_message(&self, message: T, routing_strategy: &RoutingStrategy) -> DatabaseResult<RoutingStrategy> {
         (match routing_strategy {
             RoutingStrategy::Random => match rand::thread_rng().choose(self) {
                 Some(sender) => {
-                    sender.send_action(action)?;
+                    sender.send_message(message)?;
                     Ok(RoutingStrategy::Random)
                 },
                 None => Err(DatabaseError::SubscriptionError)
@@ -156,7 +149,7 @@ impl<T: Clone> RouteAction<T> for Vec<Sender<T>> {
                 let new_index = if last_index + 1 < self.len() { last_index + 1 } else { 0 };
                 match self.get(new_index) {
                     Some(sender) => {
-                        sender.send_action(action)?;
+                        sender.send_message(message)?;
                         Ok(RoutingStrategy::RoundRobin(new_index))
                     },
                     None => Err(DatabaseError::SubscriptionError)

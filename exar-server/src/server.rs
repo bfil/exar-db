@@ -38,32 +38,20 @@ impl Server {
     /// Creates a server with the given config and database and binds it to the configured host and port,
     /// or returns a `DatabaseError` if a failure occurs.
     pub fn new(config: ServerConfig, db: Arc<Mutex<Database>>) -> DatabaseResult<Server> {
-        match TcpListener::bind(&*config.address()) {
-            Ok(listener) => Ok(Server {
-                credentials: Credentials {
-                    username: config.username,
-                    password: config.password
-                },
-                db: db,
-                listener: listener
-            }),
-            Err(err) => Err(DatabaseError::from_io_error(err))
-        }
+        let listener = TcpListener::bind(&*config.address()).map_err(DatabaseError::from_io_error)?;
+        let credentials = Credentials {
+            username: config.username,
+            password: config.password
+        };
+        Ok(Server { credentials, db, listener })
     }
 
     /// Creates a server database and binds it to the given address,
     /// or returns a `DatabaseError` if a failure occurs.
     pub fn bind<A: ToSocketAddrs>(address: A, db: Arc<Mutex<Database>>) -> DatabaseResult<Server> {
-        match TcpListener::bind(address) {
-            Ok(listener) => {
-                Ok(Server {
-                    credentials: Credentials::empty(),
-                    db: db,
-                    listener: listener
-                })
-            },
-            Err(err) => Err(DatabaseError::from_io_error(err))
-        }
+        let listener = TcpListener::bind(address).map_err(DatabaseError::from_io_error)?;
+        let credentials = Credentials::empty();
+        Ok(Server { credentials, db, listener })
     }
 
     /// Returns a modified version of the server by setting its credentials to the given value.
@@ -80,7 +68,7 @@ impl Server {
                 Ok(stream) => {
                     let db          = self.db.clone();
                     let credentials = self.credentials.clone();
-                    thread::spawn(move || {
+                    thread::spawn(|| {
                         let peer_addr = stream.peer_addr().ok().map(|addr| format!("{}", addr))
                                                                .unwrap_or("unknown peer address".to_owned());
                         match Handler::new(stream, db, credentials) {
@@ -173,8 +161,8 @@ mod tests {
             let mut client = create_client(addr);
 
             let connect_without_credentials = TcpMessage::Connect(collection_name.to_owned(), None, None);
-            assert!(client.send_message(connect_without_credentials).is_ok());
-            assert_eq!(client.recv_message(), Ok(TcpMessage::Connected));
+            assert!(client.write_message(connect_without_credentials).is_ok());
+            assert_eq!(client.read_message(), Ok(TcpMessage::Connected));
 
             assert!(remove_file(format!("{}.log", collection_name)).is_ok());
             assert!(remove_file(format!("{}.index.log", collection_name)).is_ok());
@@ -196,12 +184,12 @@ mod tests {
             let mut client = create_client(addr);
 
             let connect_without_credentials = TcpMessage::Connect(collection_name.to_owned(), None, None);
-            assert!(client.send_message(connect_without_credentials).is_ok());
-            assert_eq!(client.recv_message(), Ok(TcpMessage::Error(DatabaseError::AuthenticationError)));
+            assert!(client.write_message(connect_without_credentials).is_ok());
+            assert_eq!(client.read_message(), Ok(TcpMessage::Error(DatabaseError::AuthenticationError)));
 
             let connect_with_credentials = TcpMessage::Connect(collection_name.to_owned(), Some("username".to_owned()), Some("password".to_owned()));
-            assert!(client.send_message(connect_with_credentials).is_ok());
-            assert_eq!(client.recv_message(), Ok(TcpMessage::Connected));
+            assert!(client.write_message(connect_with_credentials).is_ok());
+            assert_eq!(client.read_message(), Ok(TcpMessage::Connected));
 
             assert!(remove_file(format!("{}.log", collection_name)).is_ok());
             assert!(remove_file(format!("{}.index.log", collection_name)).is_ok());

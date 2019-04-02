@@ -98,7 +98,7 @@ use std::sync::{Arc, Mutex};
 fn main() {
     let matches = App::new("exar-db")
                       .version("0.1.0")
-                      .author("Bruno Filippone <bruno.filippone@b-fil.com>")
+                      .author("Bruno Filippone <bruno@bfil.io>")
                       .about("An event store with streaming support which uses a flat-file for each collection of events")
                       .args_from_usage("-c, --config=[FILE] 'Sets a custom config file'")
                       .get_matches();

@@ -83,8 +83,8 @@ impl Client {
         let username = username.map(|u| u.to_owned());
         let password = password.map(|p| p.to_owned());
         let connection_message = TcpMessage::Connect(collection_name.to_owned(), username, password);
-        stream.send_message(connection_message)?;
-        match stream.recv_message() {
+        stream.write_message(connection_message)?;
+        match stream.read_message() {
             Ok(TcpMessage::Connected)    => Ok(Client { stream }),
             Ok(TcpMessage::Error(error)) => Err(error),
             Ok(_)                        => Err(DatabaseError::ConnectionError),
@@ -95,8 +95,8 @@ impl Client {
     /// Publishes an event and returns the `id` for the event created
     /// or a `DatabaseError` if a failure occurs.
     pub fn publish(&mut self, event: Event) -> DatabaseResult<u64> {
-        self.stream.send_message(TcpMessage::Publish(event))?;
-        match self.stream.recv_message() {
+        self.stream.write_message(TcpMessage::Publish(event))?;
+        match self.stream.read_message() {
             Ok(TcpMessage::Published(event_id)) => Ok(event_id),
             Ok(TcpMessage::Error(error))        => Err(error),
             Ok(_)                               => Err(DatabaseError::IoError(ErrorKind::InvalidData, "unexpected TCP message".to_owned())),
@@ -108,8 +108,8 @@ impl Client {
     /// or a `DatabaseError` if a failure occurs.
     pub fn subscribe(&mut self, query: Query) -> DatabaseResult<EventStream> {
         let subscribe_message = TcpMessage::Subscribe(query.live_stream, query.offset, query.limit, query.tag);
-        self.stream.send_message(subscribe_message)?;
-        match self.stream.recv_message()? {
+        self.stream.write_message(subscribe_message)?;
+        match self.stream.read_message()? {
             TcpMessage::Subscribed => {
                 let (sender, receiver) = channel();
                 let cloned_stream = self.stream.try_clone()?;
@@ -140,7 +140,7 @@ impl Client {
     /// Unsubscribed from the event stream
     /// or a `DatabaseError` if a failure occurs.
     pub fn unsubscribe(&mut self) -> DatabaseResult<()> {
-        self.stream.send_message(TcpMessage::Unsubscribe)
+        self.stream.write_message(TcpMessage::Unsubscribe)
     }
 
     /// Closes the connection.
@@ -173,7 +173,7 @@ mod tests {
                     let mut stream = TcpMessageStream::new(stream).expect("Unable to create message stream");
                     for action in actions {
                         match action {
-                            StreamAction::Read(message) => assert_eq!(stream.recv_message(), Ok(message)),
+                            StreamAction::Read(message)  => assert_eq!(stream.recv_message(), Ok(message)),
                             StreamAction::Write(message) => assert!(stream.send_message(message).is_ok())
                         }
                         thread::sleep(Duration::from_millis(10));

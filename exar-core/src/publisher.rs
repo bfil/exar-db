@@ -44,41 +44,41 @@ impl Publisher {
 
 #[derive(Clone, Debug)]
 pub struct PublisherSender {
-    sender: Sender<PublisherAction>
+    sender: Sender<PublisherMessage>
 }
 
 impl PublisherSender {
-    pub fn new(sender: Sender<PublisherAction>) -> Self {
+    pub fn new(sender: Sender<PublisherMessage>) -> Self {
         PublisherSender { sender }
     }
 
     pub fn publish(&mut self, event: Event) -> DatabaseResult<()> {
-        self.sender.send_action(PublisherAction::PublishEvent(event))
+        self.sender.send_message(PublisherMessage::PublishEvent(event))
     }
 
     pub fn handle_subscription(&mut self, subscription: Subscription) -> DatabaseResult<()> {
-        self.sender.send_action(PublisherAction::HandleSubscription(subscription))
+        self.sender.send_message(PublisherMessage::HandleSubscription(subscription))
     }
 }
 
 impl Stop for PublisherSender {
     fn stop(&mut self) -> DatabaseResult<()> {
-        self.sender.send_action(PublisherAction::Stop)
+        self.sender.send_message(PublisherMessage::Stop)
     }
 }
 
 #[derive(Debug)]
 struct PublisherThread {
-    action_receiver: Receiver<PublisherAction>,
+    receiver: Receiver<PublisherMessage>,
     buffer_size: usize,
     events_buffer: VecDeque<Event>,
     subscriptions: Vec<Subscription>
 }
 
 impl PublisherThread {
-    fn new(receiver: Receiver<PublisherAction>, config: &PublisherConfig) -> PublisherThread {
+    fn new(receiver: Receiver<PublisherMessage>, config: &PublisherConfig) -> PublisherThread {
         PublisherThread {
-            action_receiver: receiver,
+            receiver,
             buffer_size: config.buffer_size,
             events_buffer: VecDeque::with_capacity(config.buffer_size),
             subscriptions: vec![]
@@ -96,9 +96,9 @@ impl PublisherThread {
 impl Run<Self> for PublisherThread {
     fn run(mut self) -> Self {
         'main: loop {
-            while let Ok(action) = self.action_receiver.recv() {
-                match action {
-                    PublisherAction::HandleSubscription(mut subscription) => {
+            while let Ok(message) = self.receiver.recv() {
+                match message {
+                    PublisherMessage::HandleSubscription(mut subscription) => {
                         let min_subscription_event_id = subscription.interval().start + 1;
                         match self.events_buffer.get(0) {
                             Some(first_buffered_event) if min_subscription_event_id < first_buffered_event.id => {
@@ -120,14 +120,14 @@ impl Run<Self> for PublisherThread {
                                 }
                         }
                     },
-                    PublisherAction::PublishEvent(ref event) => {
+                    PublisherMessage::PublishEvent(ref event) => {
                         self.buffer_event(event);
                         for subscription in self.subscriptions.iter_mut().filter(|s| s.matches_event(event)) {
                             let _ = subscription.send(event.clone());
                         }
                         self.subscriptions.retain(|s| s.is_active())
                     },
-                    PublisherAction::Stop => break 'main
+                    PublisherMessage::Stop => break 'main
                 }
             }
         };
@@ -136,7 +136,7 @@ impl Run<Self> for PublisherThread {
 }
 
 #[derive(Clone, Debug)]
-pub enum PublisherAction {
+pub enum PublisherMessage {
     HandleSubscription(Subscription),
     PublishEvent(Event),
     Stop

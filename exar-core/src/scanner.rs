@@ -68,12 +68,12 @@ impl Scanner {
 
 #[derive(Clone, Debug)]
 pub struct ScannerSender {
-    senders: Vec<Sender<ScannerAction>>,
+    senders: Vec<Sender<ScannerMessage>>,
     routing_strategy: RoutingStrategy
 }
 
 impl ScannerSender {
-    pub fn new(senders: Vec<Sender<ScannerAction>>, routing_strategy: RoutingStrategy) -> Self {
+    pub fn new(senders: Vec<Sender<ScannerMessage>>, routing_strategy: RoutingStrategy) -> Self {
         ScannerSender { senders, routing_strategy }
     }
 
@@ -81,19 +81,19 @@ impl ScannerSender {
         let (sender, receiver)  = channel();
         let subscription_handle = SubscriptionHandle::new(sender.clone());
         let subscription        = Subscription::new(sender, query);
-        let updated_strategy    = self.senders.route_action(ScannerAction::HandleSubscription(subscription), &self.routing_strategy)?;
+        let updated_strategy    = self.senders.route_message(ScannerMessage::HandleSubscription(subscription), &self.routing_strategy)?;
         self.routing_strategy   = updated_strategy;
         Ok((subscription_handle, EventStream::new(receiver)))
     }
 
     pub fn update_index(&mut self, index: LinesIndex) -> DatabaseResult<()> {
-        self.senders.broadcast_action(ScannerAction::UpdateIndex(index))
+        self.senders.broadcast_message(ScannerMessage::UpdateIndex(index))
     }
 }
 
 impl Stop for ScannerSender {
     fn stop(&mut self) -> DatabaseResult<()> {
-        self.senders.broadcast_action(ScannerAction::Stop)
+        self.senders.broadcast_message(ScannerMessage::Stop)
     }
 }
 
@@ -105,19 +105,14 @@ impl Stop for ScannerSender {
 #[derive(Debug)]
 pub struct ScannerThread {
     reader: IndexedLineReader<BufReader<File>>,
-    action_receiver: Receiver<ScannerAction>,
+    receiver: Receiver<ScannerMessage>,
     publisher_sender: PublisherSender,
     subscriptions: Vec<Subscription>
 }
 
 impl ScannerThread {
-    fn new(reader: IndexedLineReader<BufReader<File>>, receiver: Receiver<ScannerAction>, publisher_sender: PublisherSender) -> ScannerThread {
-        ScannerThread {
-            reader: reader,
-            action_receiver: receiver,
-            publisher_sender: publisher_sender,
-            subscriptions: vec![]
-        }
+    fn new(reader: IndexedLineReader<BufReader<File>>, receiver: Receiver<ScannerMessage>, publisher_sender: PublisherSender) -> ScannerThread {
+        ScannerThread { reader, receiver, publisher_sender, subscriptions: vec![] }
     }
 
     fn forward_subscriptions_to_publisher(&mut self) {
@@ -161,20 +156,20 @@ impl ScannerThread {
 impl Run<Self> for ScannerThread {
     fn run(mut self) -> Self {
         'main: loop {
-            while let Ok(action) = self.action_receiver.recv() {
-                let mut actions = vec![ action ];
-                while let Ok(action) = self.action_receiver.try_recv() {
-                    actions.push(action);
+            while let Ok(message) = self.receiver.recv() {
+                let mut messages = vec![ message ];
+                while let Ok(message) = self.receiver.try_recv() {
+                    messages.push(message);
                 }
-                for action in actions {
-                    match action {
-                        ScannerAction::HandleSubscription(subscription) => {
+                for message in messages {
+                    match message {
+                        ScannerMessage::HandleSubscription(subscription) => {
                             self.subscriptions.push(subscription);
                         },
-                        ScannerAction::UpdateIndex(index) => {
+                        ScannerMessage::UpdateIndex(index) => {
                             self.reader.restore_index(index);
                         },
-                        ScannerAction::Stop => break 'main
+                        ScannerMessage::Stop => break 'main
                     }
                 }
                 if !self.subscriptions.is_empty() {
@@ -190,7 +185,7 @@ impl Run<Self> for ScannerThread {
 }
 
 #[derive(Clone, Debug)]
-pub enum ScannerAction {
+pub enum ScannerMessage {
     HandleSubscription(Subscription),
     UpdateIndex(LinesIndex),
     Stop
@@ -235,12 +230,12 @@ mod tests {
 
         let query              = Query::live();
         let (sender, receiver) = channel();
-        scanner.action_senders = vec![sender];
+        scanner.senders = vec![sender];
 
-        assert!(scanner.handle_query(query.clone()).is_ok());
+        assert!(scanner.sender().handle_query(query.clone()).is_ok());
 
         match receiver.recv() {
-            Ok(ScannerAction::HandleSubscription(s)) => {
+            Ok(ScannerMessage::HandleSubscription(s)) => {
                 assert_eq!(s.is_live(), true);
             },
             _ => panic!("Expected to receive an HandleSubscription message")
@@ -248,10 +243,10 @@ mod tests {
 
         let index = LinesIndex::new(100);
 
-        assert!(scanner.update_index(index.clone()).is_ok());
+        assert!(scanner.sender().update_index(index.clone()).is_ok());
 
         match receiver.recv() {
-            Ok(ScannerAction::UpdateIndex(received_index)) => {
+            Ok(ScannerMessage::UpdateIndex(received_index)) => {
                 assert_eq!(received_index, index);
             },
             _ => panic!("Expected to receive an UpdateIndex message")
@@ -260,8 +255,8 @@ mod tests {
         assert!(scanner.stop().is_ok());
 
         match receiver.recv() {
-            Ok(ScannerAction::Stop) => (),
-            _                       => panic!("Expected to receive a Stop message")
+            Ok(ScannerMessage::Stop) => (),
+            _                        => panic!("Expected to receive a Stop message")
         }
 
         drop(receiver);
@@ -279,7 +274,7 @@ mod tests {
         let scanner_thread     = ScannerThread::new(line_reader, receiver, publisher.clone());
         let handle             = thread::spawn(|| { scanner_thread.run() });
 
-        assert!(sender.send(ScannerAction::Stop).is_ok());
+        assert!(sender.send(ScannerMessage::Stop).is_ok());
 
         let scanner_thread = handle.join().expect("Unable to join scanner thread");
         assert_eq!(scanner_thread.subscriptions.len(), 0);
@@ -298,8 +293,8 @@ mod tests {
         let mut index = LinesIndex::new(100);
         index.insert(100, 1234);
 
-        assert!(sender.send(ScannerAction::UpdateIndex(index.clone())).is_ok());
-        assert!(sender.send(ScannerAction::Stop).is_ok());
+        assert!(sender.send(ScannerMessage::UpdateIndex(index.clone())).is_ok());
+        assert!(sender.send(ScannerMessage::Stop).is_ok());
 
         let scanner_thread = handle.join().expect("Unable to join scanner thread");
         assert_eq!(scanner_thread.reader.get_index().byte_count_at_pos(&100), Some(1234));
@@ -326,7 +321,7 @@ mod tests {
         let (sender, receiver) = channel();
         let live_subscription = Subscription::new(sender, Query::live());
 
-        assert!(thread_sender.send(ScannerAction::HandleSubscription(live_subscription.clone())).is_ok());
+        assert!(thread_sender.send(ScannerMessage::HandleSubscription(live_subscription.clone())).is_ok());
         thread::sleep(sleep_duration * 2);
 
         assert_eq!(receiver.try_recv().map(|e| match e {
@@ -338,7 +333,7 @@ mod tests {
         let (sender, receiver) = channel();
         let current_subscription = Subscription::new(sender, Query::current());
 
-        assert!(thread_sender.send(ScannerAction::HandleSubscription(current_subscription)).is_ok());
+        assert!(thread_sender.send(ScannerMessage::HandleSubscription(current_subscription)).is_ok());
         thread::sleep(sleep_duration * 2);
 
         assert_eq!(receiver.try_recv().map(|e| match e {

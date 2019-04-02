@@ -89,11 +89,11 @@ impl<'a> TabSeparatedParser<'a> {
     pub fn parse_next<T>(&mut self) -> Result<T, ParseError> where T: FromStr, <T as FromStr>::Err: Display + Debug {
         match self.parts.next().map(|x| x.parse())  {
             Some(Ok(value)) => {
-                self.index += 1;
-                Ok(value)
-            },
-            Some(Err(err)) => Err(ParseError::ParseError(format!("{}", err))),
-            None           => Err(ParseError::MissingField(self.index))
+                                   self.index += 1;
+                                   Ok(value)
+                               },
+            Some(Err(err))  => Err(ParseError::ParseError(format!("{}", err))),
+            None            => Err(ParseError::MissingField(self.index))
         }
     }
 }

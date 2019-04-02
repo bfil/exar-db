@@ -5,7 +5,7 @@ use std::io::prelude::*;
 use std::io::{BufReader, Lines, LineWriter};
 use std::net::TcpStream;
 
-/// A bidiectional TCP message stream.
+/// A bidirectional TCP message stream.
 ///
 /// It allows to send and receives `TcpMessage`s to and from the `TcpStream`.
 #[derive(Debug)]
@@ -27,7 +27,7 @@ impl<T: Read + Write + TryClone> TcpMessageStream<T> {
 
     /// Receives and returns a `TcpMessage` from the TCP stream,
     /// or a `DatabaseError` if a failure occurs.
-    pub fn recv_message(&mut self) -> DatabaseResult<TcpMessage> {
+    pub fn read_message(&mut self) -> DatabaseResult<TcpMessage> {
         let mut line = String::new();
         match self.reader.read_line(&mut line) {
             Ok(0) => Err(DatabaseError::ConnectionError),
@@ -44,7 +44,7 @@ impl<T: Read + Write + TryClone> TcpMessageStream<T> {
 
     /// Sends a `TcpMessage` to the TCP stream,
     /// or returns a `DatabaseError` if a failure occurs.
-    pub fn send_message(&mut self, message: TcpMessage) -> DatabaseResult<()> {
+    pub fn write_message(&mut self, message: TcpMessage) -> DatabaseResult<()> {
         self.writer.write_line(&message.to_tab_separated_string())
                    .map_err(DatabaseError::from_io_error)
                    .map(|_| ())
@@ -154,12 +154,12 @@ mod tests {
 
         let message = TcpMessage::Connect("collection".to_string(), None, None);
 
-        assert!(stream.send_message(message.clone()).is_ok());
-        assert_eq!(stream.recv_message(), Ok(message.clone()));
+        assert!(stream.write_message(message.clone()).is_ok());
+        assert_eq!(stream.read_message(), Ok(message.clone()));
 
         let mut messages = stream.try_clone().expect("Unable to clone message stream").messages();
 
-        assert!(stream.send_message(message.clone()).is_ok());
+        assert!(stream.write_message(message.clone()).is_ok());
 
         assert_eq!(messages.next(), Some(Ok(message.clone())));
         assert_eq!(messages.next(), Some(Ok(message)));

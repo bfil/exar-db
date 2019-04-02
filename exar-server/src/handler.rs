@@ -52,12 +52,12 @@ impl Handler {
         self.state = state;
     }
 
-    fn needs_authentication(&self) -> bool {
+    fn requires_authentication(&self) -> bool {
         self.credentials.username.is_some() && self.credentials.password.is_some()
     }
 
     fn verify_authentication(&self, username: Option<String>, password: Option<String>) -> bool {
-        if self.needs_authentication() {
+        if self.requires_authentication() {
             if username.is_some() && password.is_some() {
                 self.credentials.username == username && self.credentials.password == password
             } else { false }
@@ -71,7 +71,7 @@ impl Handler {
                     match db.lock().unwrap().connect(&collection_name) {
                         Ok(connection) => {
                             self.update_state(State::Connected(connection));
-                            self.stream.send_message(TcpMessage::Connected)
+                            self.stream.write_message(TcpMessage::Connected)
                         },
                         Err(err) => Err(err)
                     }
@@ -81,28 +81,28 @@ impl Handler {
             },
             (TcpMessage::Publish(event), State::Connected(connection)) => {
                 let event_id = connection.publish(event)?;
-                self.stream.send_message(TcpMessage::Published(event_id))
+                self.stream.write_message(TcpMessage::Published(event_id))
             },
             (TcpMessage::Subscribe(live, offset, limit, tag), State::Connected(connection)) => {
                 let (subscription_handle, event_stream) = connection.subscribe(Query::new(live, offset, limit, tag))?;
-                self.stream.send_message(TcpMessage::Subscribed)?;
+                self.stream.write_message(TcpMessage::Subscribed)?;
                 if live {
                     self.update_state(State::Subscribed(connection, subscription_handle));
                     let mut stream = self.stream.try_clone()?;
                     thread::spawn(move || {
                         for event in event_stream {
-                            let send_result = stream.send_message(TcpMessage::Event(event));
+                            let send_result = stream.write_message(TcpMessage::Event(event));
                             if send_result.is_err() { return send_result }
                         }
-                        stream.send_message(TcpMessage::EndOfEventStream)
+                        stream.write_message(TcpMessage::EndOfEventStream)
                     });
                     Ok(())
                 } else {
                     for event in event_stream {
-                        let send_result = self.stream.send_message(TcpMessage::Event(event));
+                        let send_result = self.stream.write_message(TcpMessage::Event(event));
                         if send_result.is_err() { return send_result }
                     }
-                    self.stream.send_message(TcpMessage::EndOfEventStream)
+                    self.stream.write_message(TcpMessage::EndOfEventStream)
                 }
             },
             (TcpMessage::Unsubscribe, State::Subscribed(connection, subscription_handle)) => {
@@ -115,7 +115,7 @@ impl Handler {
     }
 
     fn send_error_message(&mut self, error: DatabaseError) -> DatabaseResult<()> {
-        self.stream.send_message(TcpMessage::Error(error))
+        self.stream.write_message(TcpMessage::Error(error))
     }
 }
 
@@ -184,9 +184,9 @@ mod tests {
             let handle = create_handler(addr, Credentials::empty());
             let mut client = create_client(addr);
 
-            assert!(client.send_message(TcpMessage::Connect(collection_name.to_owned(),
-                                        None, None)).is_ok());
-            assert_eq!(client.recv_message(), Ok(TcpMessage::Connected));
+            assert!(client.write_message(TcpMessage::Connect(collection_name.to_owned(),
+                                                             None, None)).is_ok());
+            assert_eq!(client.read_message(), Ok(TcpMessage::Connected));
 
             drop(client);
 
@@ -205,13 +205,13 @@ mod tests {
             let handle = create_handler(addr, Credentials::new("username", "password"));
             let mut client = create_client(addr);
 
-            assert!(client.send_message(TcpMessage::Connect(collection_name.to_owned(),
-                                        None, None)).is_ok());
-            assert_eq!(client.recv_message(), Ok(TcpMessage::Error(DatabaseError::AuthenticationError)));
+            assert!(client.write_message(TcpMessage::Connect(collection_name.to_owned(),
+                                                             None, None)).is_ok());
+            assert_eq!(client.read_message(), Ok(TcpMessage::Error(DatabaseError::AuthenticationError)));
 
-            assert!(client.send_message(TcpMessage::Connect(collection_name.to_owned(),
-                                        Some("username".to_owned()), Some("password".to_owned()))).is_ok());
-            assert_eq!(client.recv_message(), Ok(TcpMessage::Connected));
+            assert!(client.write_message(TcpMessage::Connect(collection_name.to_owned(),
+                                                             Some("username".to_owned()), Some("password".to_owned()))).is_ok());
+            assert_eq!(client.read_message(), Ok(TcpMessage::Connected));
 
             drop(client);
 
@@ -230,20 +230,20 @@ mod tests {
             let handle = create_handler(addr, Credentials::empty());
             let mut client = create_client(addr);
 
-            assert!(client.send_message(TcpMessage::Connect(collection_name.to_owned(),
-                                        None, None)).is_ok());
-            assert_eq!(client.recv_message(), Ok(TcpMessage::Connected));
+            assert!(client.write_message(TcpMessage::Connect(collection_name.to_owned(),
+                                                             None, None)).is_ok());
+            assert_eq!(client.read_message(), Ok(TcpMessage::Connected));
 
             let event = Event::new("data", vec!["tag1", "tag2"]).with_timestamp(1234567890);
 
-            assert!(client.send_message(TcpMessage::Publish(event.clone())).is_ok());
-            assert_eq!(client.recv_message(), Ok(TcpMessage::Published(1)));
+            assert!(client.write_message(TcpMessage::Publish(event.clone())).is_ok());
+            assert_eq!(client.read_message(), Ok(TcpMessage::Published(1)));
 
-            assert!(client.send_message(TcpMessage::Subscribe(false, 0, None, None)).is_ok());
-            assert_eq!(client.recv_message(), Ok(TcpMessage::Subscribed));
-            if let Ok(TcpMessage::Event(received_event)) = client.recv_message() {
+            assert!(client.write_message(TcpMessage::Subscribe(false, 0, None, None)).is_ok());
+            assert_eq!(client.read_message(), Ok(TcpMessage::Subscribed));
+            if let Ok(TcpMessage::Event(received_event)) = client.read_message() {
                 assert_eq!(received_event, event.with_id(1));
-                assert_eq!(client.recv_message(), Ok(TcpMessage::EndOfEventStream));
+                assert_eq!(client.read_message(), Ok(TcpMessage::EndOfEventStream));
             } else {
                 panic!("Unable to receive event");
             }
@@ -263,8 +263,8 @@ mod tests {
             let handle = create_handler(addr, Credentials::empty());
             let mut client = create_client(addr);
 
-            assert!(client.send_message(TcpMessage::Subscribe(false, 0, None, None)).is_ok());
-            assert_eq!(client.recv_message(), Ok(TcpMessage::Error(DatabaseError::IoError(ErrorKind::InvalidData, "unexpected TCP message".to_owned()))));
+            assert!(client.write_message(TcpMessage::Subscribe(false, 0, None, None)).is_ok());
+            assert_eq!(client.read_message(), Ok(TcpMessage::Error(DatabaseError::IoError(ErrorKind::InvalidData, "unexpected TCP message".to_owned()))));
 
             drop(client);
 

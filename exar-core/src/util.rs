@@ -29,18 +29,18 @@ pub struct Interval<T> {
     pub end: T
 }
 
+impl<T> Interval<T> {
+    pub fn new(start: T, end: T) -> Interval<T> {
+        Interval { start, end }
+    }
+}
+
 /// A trait for merging a type.
 pub trait Merge: Sized {
     fn merge(&mut self);
     fn merged(mut self) -> Self {
         self.merge();
         self
-    }
-}
-
-impl<T> Interval<T> {
-    pub fn new(start: T, end: T) -> Interval<T> {
-        Interval { start, end }
     }
 }
 

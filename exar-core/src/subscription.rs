@@ -23,7 +23,7 @@ use std::sync::mpsc::Sender;
 #[derive(Clone, Debug)]
 pub struct Subscription {
     active: bool,
-    event_stream_sender: Sender<EventStreamMessage>,
+    sender: Sender<EventStreamMessage>,
     query: Query,
     offset: u64,
     count: u64
@@ -33,19 +33,13 @@ impl Subscription {
     /// Creates a new `Subscription` with the given channel sender and query.
     pub fn new(sender: Sender<EventStreamMessage>, query: Query) -> Self {
         let offset = query.offset;
-        Subscription {
-            active: true,
-            event_stream_sender: sender,
-            query: query,
-            offset: offset,
-            count: 0
-        }
+        Subscription { active: true, sender, query, offset, count: 0 }
     }
 
     /// Sends an `Event` to the subscriber or returns a `DatabaseError` if a failure occurs.
     pub fn send(&mut self, event: Event) -> DatabaseResult<()> {
         let event_id = event.id;
-        match self.event_stream_sender.send(EventStreamMessage::Event(event)) {
+        match self.sender.send(EventStreamMessage::Event(event)) {
             Ok(_) => {
                 self.offset = event_id;
                 self.count += 1;
@@ -89,24 +83,24 @@ impl Subscription {
 
 impl Drop for Subscription {
     fn drop(&mut self) {
-        let _ = self.event_stream_sender.send(EventStreamMessage::End);
+        let _ = self.sender.send(EventStreamMessage::End);
     }
 }
 
 #[derive(Clone, Debug)]
 pub struct SubscriptionHandle {
-    event_stream_sender: Sender<EventStreamMessage>
+    sender: Sender<EventStreamMessage>
 }
 
 impl SubscriptionHandle {
     /// Creates a new `SubscriptionHandle` with the given channel sender.
     pub fn new(sender: Sender<EventStreamMessage>) -> Self {
-        SubscriptionHandle { event_stream_sender: sender }
+        SubscriptionHandle { sender }
     }
 
     pub fn unsubscribe(&self) -> DatabaseResult<()> {
-        self.event_stream_sender.send(EventStreamMessage::End)
-                                .map_err(|_| DatabaseError::EventStreamError(EventStreamError::Closed))
+        self.sender.send(EventStreamMessage::End)
+                   .map_err(|_| DatabaseError::EventStreamError(EventStreamError::Closed))
     }
 }
 

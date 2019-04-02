@@ -10,6 +10,8 @@ pub enum DatabaseError {
     AuthenticationError,
     /// The connection to the database failed.
     ConnectionError,
+    /// The collection could not be found.
+    CollectionNotFound,
     /// The event stream has been closed unexpectedly.
     EventStreamError(EventStreamError),
     /// An I/O error occurred.
@@ -36,6 +38,7 @@ impl ToTabSeparatedString for DatabaseError {
         match *self {
             DatabaseError::AuthenticationError => tab_separated!("AuthenticationError"),
             DatabaseError::ConnectionError => tab_separated!("ConnectionError"),
+            DatabaseError::CollectionNotFound => tab_separated!("CollectionNotFound"),
             DatabaseError::EventStreamError(ref error) => {
                 tab_separated!("EventStreamError", match *error {
                     EventStreamError::Empty  => "Empty",
@@ -63,6 +66,7 @@ impl FromTabSeparatedStr for DatabaseError {
         match &message_type[..] {
             "AuthenticationError" => Ok(DatabaseError::AuthenticationError),
             "ConnectionError" => Ok(DatabaseError::ConnectionError),
+            "CollectionNotFound" => Ok(DatabaseError::CollectionNotFound),
             "EventStreamError" => {
                 let error: String = parser.parse_next()?;
                 match &error[..] {
@@ -163,6 +167,7 @@ impl Display for DatabaseError {
         match *self {
             DatabaseError::AuthenticationError                        => write!(f, "authentication failure"),
             DatabaseError::ConnectionError                            => write!(f, "connection failure"),
+            DatabaseError::CollectionNotFound                         => write!(f, "collection not found"),
             DatabaseError::EventStreamError(EventStreamError::Closed) => write!(f, "event stream is closed"),
             DatabaseError::EventStreamError(EventStreamError::Empty)  => write!(f, "event stream is empty"),
             DatabaseError::IoError(_, ref error)                      => write!(f, "{}", error),

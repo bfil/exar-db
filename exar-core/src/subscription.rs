@@ -104,6 +104,12 @@ impl SubscriptionHandle {
     }
 }
 
+impl Drop for SubscriptionHandle {
+    fn drop(&mut self) {
+        let _ = self.unsubscribe();
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::super::*;

@@ -14,7 +14,7 @@ use std::thread;
 pub struct Handler {
     credentials: Credentials,
     stream: TcpMessageStream<TcpStream>,
-    state: State
+    state: Arc<Mutex<State>>
 }
 
 impl Handler {
@@ -22,7 +22,8 @@ impl Handler {
     /// or a `DatabaseError` if a failure occurs.
     pub fn new(stream: TcpStream, db: Arc<Mutex<Database>>, credentials: Credentials) -> DatabaseResult<Handler> {
         TcpMessageStream::new(stream).and_then(|stream| {
-            Ok(Handler { credentials, stream, state: State::Idle(db) })
+            let state = Arc::new(Mutex::new(State::Idle(db)));
+            Ok(Handler { credentials, stream, state })
         })
     }
 
@@ -38,18 +39,11 @@ impl Handler {
                 Err(err) => self.send_error_message(err)
             };
         }
-        match self.state {
-            State::Connected(connection)                       => Ok(connection.close()),
-            State::Subscribed(connection, subscription_handle) => {
-                                                                      subscription_handle.unsubscribe()?;
-                                                                      Ok(connection.close())
-                                                                  },
-            _                                                  => Ok(())
-        }
+        Ok(())
     }
 
     fn update_state(&mut self, state: State) {
-        self.state = state;
+        *self.state.lock().unwrap() = state;
     }
 
     fn requires_authentication(&self) -> bool {
@@ -65,7 +59,8 @@ impl Handler {
     }
 
     fn handle_message(&mut self, message: TcpMessage) -> DatabaseResult<()> {
-        match (message, self.state.clone()) {
+        let state = self.state.lock().unwrap().clone();
+        match (message, state) {
             (TcpMessage::Connect(collection_name, given_username, given_password), State::Idle(db)) => {
                 if self.verify_authentication(given_username, given_password) {
                     match db.lock().unwrap().collection(&collection_name) {
@@ -88,13 +83,16 @@ impl Handler {
                 let (subscription_handle, event_stream) = connection.subscribe(Query::new(live, offset, limit, tag))?;
                 self.stream.write_message(TcpMessage::Subscribed)?;
                 if live {
+                    let cloned_state      = self.state.clone();
+                    let cloned_connection = connection.clone();
                     self.update_state(State::Subscribed(connection, subscription_handle));
-                    let mut stream = self.stream.try_clone()?;
+                    let mut stream        = self.stream.try_clone()?;
                     thread::spawn(move || {
                         for event in event_stream {
                             let send_result = stream.write_message(TcpMessage::Event(event));
                             if send_result.is_err() { return send_result }
                         }
+                        *cloned_state.lock().unwrap() = State::Connected(cloned_connection);
                         stream.write_message(TcpMessage::EndOfEventStream)
                     });
                     Ok(())
@@ -106,10 +104,8 @@ impl Handler {
                     self.stream.write_message(TcpMessage::EndOfEventStream)
                 }
             },
-            (TcpMessage::Unsubscribe, State::Subscribed(connection, subscription_handle)) => {
-                subscription_handle.unsubscribe()?;
-                self.update_state(State::Connected(connection));
-                Ok(())
+            (TcpMessage::Unsubscribe, State::Subscribed(_, subscription_handle)) => {
+                subscription_handle.unsubscribe()
             },
             _ => Err(DatabaseError::IoError(ErrorKind::InvalidData, "unexpected TCP message".to_owned()))
         }

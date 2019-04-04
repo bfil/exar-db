@@ -22,11 +22,11 @@ pub struct Publisher {
 }
 
 impl Publisher {
-    pub fn new(config: &PublisherConfig) -> Self {
+    pub fn new(config: &PublisherConfig) -> DatabaseResult<Self> {
         let (sender, receiver) = channel();
-        Publisher {
-            thread: ControllableThread::new(PublisherSender::new(sender), PublisherThread::new(receiver, config))
-        }
+        let mut thread = ControllableThread::new(PublisherSender::new(sender), PublisherThread::new(receiver, config));
+        thread.start()?;
+        Ok(Publisher { thread })
     }
 
     pub fn sender(&self) -> &PublisherSender {
@@ -35,14 +35,6 @@ impl Publisher {
 
     pub fn sender_mut(&mut self) -> &mut PublisherSender {
         self.thread.sender_mut()
-    }
-
-    pub fn start_thread(&mut self) -> DatabaseResult<()> {
-        self.thread.start()
-    }
-
-    pub fn stop_thread(&mut self) -> DatabaseResult<()> {
-        self.thread.stop()
     }
 }
 

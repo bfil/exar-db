@@ -36,12 +36,14 @@ extern crate exar_testkit;
 #[macro_use]
 extern crate log;
 
-mod credentials;
 mod config;
+mod connection;
+mod credentials;
 mod handler;
 mod server;
 
-pub use self::credentials::*;
 pub use self::config::*;
+pub use self::connection::*;
+pub use self::credentials::*;
 pub use self::handler::*;
 pub use self::server::*;

@@ -4,6 +4,7 @@ use indexed_line_reader::*;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Seek, SeekFrom};
 use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::{Arc, Mutex};
 
 /// Exar DB's log file scanner.
 ///
@@ -19,7 +20,7 @@ use std::sync::mpsc::{channel, Receiver, Sender};
 /// use std::sync::mpsc::channel;
 ///
 /// let log       = Log::new("/path/to/logs", "test", 100).expect("Unable to create log");
-/// let publisher = Publisher::new(&PublisherConfig::default());
+/// let publisher = Publisher::new(&PublisherConfig::default()).expect("Unable to create publisher");
 /// let event     = Event::new("data", vec!["tag1", "tag2"]);
 ///
 /// let line_reader = log.open_line_reader().expect("Unable to open line reader");
@@ -48,9 +49,9 @@ impl Scanner {
             threads.push(ScannerThread::new(line_reader, receiver, publisher_sender))
         }
         let scanner_sender = ScannerSender::new(senders, config.routing_strategy.clone());
-        Ok(Scanner {
-            threads: ControllableThreads::new(scanner_sender, threads)
-        })
+        let mut threads = ControllableThreads::new(scanner_sender, threads);
+        threads.start()?;
+        Ok(Scanner { threads })
     }
 
     pub fn sender(&self) -> &ScannerSender {
@@ -60,33 +61,26 @@ impl Scanner {
     pub fn sender_mut(&mut self) -> &mut ScannerSender {
         self.threads.sender_mut()
     }
-
-    pub fn start_threads(&mut self) -> DatabaseResult<()> {
-        self.threads.start()
-    }
-
-    pub fn stop_threads(&mut self) -> DatabaseResult<()> {
-        self.threads.stop()
-    }
 }
 
 #[derive(Clone, Debug)]
 pub struct ScannerSender {
     senders: Vec<Sender<ScannerMessage>>,
-    routing_strategy: RoutingStrategy
+    routing_strategy: Arc<Mutex<RoutingStrategy>>
 }
 
 impl ScannerSender {
     pub fn new(senders: Vec<Sender<ScannerMessage>>, routing_strategy: RoutingStrategy) -> Self {
-        ScannerSender { senders, routing_strategy }
+        ScannerSender { senders, routing_strategy: Arc::new(Mutex::new(routing_strategy)) }
     }
 
-    pub fn handle_query(&mut self, query: Query) -> DatabaseResult<(SubscriptionHandle, EventStream)> {
-        let (sender, receiver)  = channel();
-        let subscription_handle = SubscriptionHandle::new(sender.clone());
-        let subscription        = Subscription::new(sender, query);
-        let updated_strategy    = self.senders.route_message(ScannerMessage::HandleSubscription(subscription), &self.routing_strategy)?;
-        self.routing_strategy   = updated_strategy;
+    pub fn handle_query(&self, query: Query) -> DatabaseResult<(SubscriptionHandle, EventStream)> {
+        let mut routing_strategy = self.routing_strategy.lock().unwrap();
+        let (sender, receiver)   = channel();
+        let subscription_handle  = SubscriptionHandle::new(sender.clone());
+        let subscription         = Subscription::new(sender, query);
+        let updated_strategy     = self.senders.route_message(ScannerMessage::HandleSubscription(subscription), &routing_strategy)?;
+        *routing_strategy        = updated_strategy;
         Ok((subscription_handle, EventStream::new(receiver)))
     }
 
@@ -211,7 +205,7 @@ mod tests {
     fn setup() -> (Log, IndexedLineReader<BufReader<File>>, Publisher, ScannerConfig) {
         let log         = Log::new("", &random_collection_name(), 10).expect("Unable to create log");
         let line_reader = log.open_line_reader().expect("Unable to open line reader");
-        let publisher   = Publisher::new(&PublisherConfig::default());
+        let publisher   = Publisher::new(&PublisherConfig::default()).expect("Unable to create publisher");
         let config      = ScannerConfig::default();
         (log, line_reader, publisher, config)
     }
@@ -246,7 +240,7 @@ mod tests {
 
     #[test]
     fn test_scanner_thread_subscriptions_management() {
-        let (log, _, mut publisher, config) = setup();
+        let (log, _, publisher, config) = setup();
 
         let scanner        = Scanner::new(&log, &publisher, &config).expect("Unable to create scanner");
         let mut logger     = Logger::new(&log, &publisher, &scanner).expect("Unable to create logger");
@@ -254,7 +248,6 @@ mod tests {
         let event          = Event::new("data", vec!["tag1", "tag2"]);
         let sleep_duration = Duration::from_millis(10);
 
-        assert!(publisher.start_thread().is_ok());
         assert!(logger.log(event).is_ok());
 
         let (thread_sender, thread_receiver) = channel();

@@ -2,10 +2,10 @@ use super::*;
 
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, Weak};
 
 /// Exar DB's main component, containing the database configuration and the references to the
-/// collections of events created. It is used to create new connections.
+/// collections of events created.
 ///
 /// # Examples
 /// ```no_run
@@ -17,57 +17,67 @@ use std::sync::{Arc, Mutex};
 /// let config = DatabaseConfig::default();
 /// let mut db = Database::new(config);
 ///
-/// let collection_name = "test";
-/// let connection      = db.connect(collection_name).unwrap();
+/// let collection_name   = "test";
+/// let shared_collection = db.collection(collection_name).expect("Unable to retrieve collection");
+/// let mut collection    = shared_collection.lock().unwrap();
 /// # }
 /// ```
 #[derive(Clone, Debug)]
 pub struct Database {
     config: DatabaseConfig,
-    collections: HashMap<String, Arc<Mutex<Collection>>>
+    collections: HashMap<String, Weak<Mutex<Collection>>>
 }
 
 impl Database {
     /// Creates a new instance of the database with the given configuration.
-    pub fn new(config: DatabaseConfig) -> Database {
+    pub fn new(config: DatabaseConfig) -> Self {
         Database { config, collections: HashMap::new() }
-    }
-
-    /// Returns a connection instance with the given name or a `DatabaseError` if a failure occurs.
-    pub fn connect(&mut self, collection_name: &str) -> DatabaseResult<Connection> {
-        self.collection(collection_name).map(|collection| Connection::new(collection))
     }
 
     /// Returns an existing collection instance with the given name wrapped into an `Arc`/`Mutex`
     /// or a `DatabaseError` if a failure occurs, it initializes a new collection if it does not exist yet.
     pub fn collection(&mut self, collection_name: &str) -> DatabaseResult<Arc<Mutex<Collection>>> {
-        let collection_config = self.config.collection_config(collection_name);
         match self.collections.entry(collection_name.to_owned()) {
-            Entry::Occupied(entry) => Ok(entry.get().clone()),
-            Entry::Vacant(entry)   => {
-                                          let collection = Collection::new(collection_name, &collection_config)?;
-                                          let shared_collection = Arc::new(Mutex::new(collection));
-                                          entry.insert(shared_collection.clone());
-                                          Ok(shared_collection)
-                                      }
+            Entry::Occupied(mut entry) =>
+                match entry.get_mut().upgrade() {
+                    Some(collection) => Ok(collection.clone()),
+                    None             => Database::create_collection(&self.config, collection_name).and_then(|collection| {
+                                            entry.insert(Arc::downgrade(&collection));
+                                            Ok(collection)
+                                        })
+                },
+            Entry::Vacant(entry)     => Database::create_collection(&self.config, collection_name).and_then(|collection| {
+                                            entry.insert(Arc::downgrade(&collection));
+                                            Ok(collection)
+                                        })
         }
+    }
+
+    fn create_collection(config: &DatabaseConfig, collection_name: &str) -> DatabaseResult<Arc<Mutex<Collection>>> {
+        let collection_config = config.collection_config(collection_name);
+        let collection        = Collection::new(collection_name, &collection_config)?;
+        Ok(Arc::new(Mutex::new(collection)))
     }
 
     /// Drops the collection with the given name or returns an error if a failure occurs.
-    pub fn drop_collection(&mut self, collection_name: &str) -> DatabaseResult<()> {
-        match self.collections.entry(collection_name.to_owned()) {
-            Entry::Occupied(entry) => {
-                                          let shared_collection = entry.remove();
-                                          let mut collection = shared_collection.lock().unwrap();
-                                          (*collection).drop()
-                                      },
-            Entry::Vacant(_)       => Err(DatabaseError::CollectionNotFound)
-        }
+    pub fn delete_collection(&mut self, collection_name: &str) -> DatabaseResult<()> {
+        let collection = self.collection(collection_name)?;
+        collection.lock().unwrap().delete()?;
+        self.collections.remove(collection_name);
+        Ok(())
     }
 
-    /// Returns all active collections.
-    pub fn collections(&self) -> &HashMap<String, Arc<Mutex<Collection>>> {
-        &self.collections
+    /// Attempts to flush buffer data to disk for all active collections.
+    pub fn flush_collections(&self) {
+        for collection in self.collections.values() {
+            if let Some(collection) = collection.upgrade() {
+                let mut collection = collection.lock().unwrap();
+                match collection.flush() {
+                    Ok(_)    => (),
+                    Err(err) => warn!("Unable to flush data to log file for collection '{}': {}", collection.get_name(), err)
+                }
+            }
+        }
     }
 }
 
@@ -89,9 +99,9 @@ mod tests {
         let mut db = Database::new(DatabaseConfig::default());
 
         let ref collection_name = random_collection_name();
-        assert!(db.connect(collection_name).is_ok());
+        assert!(db.collection(collection_name).is_ok());
         assert!(db.collections.contains_key(collection_name));
-        assert!(db.drop_collection(collection_name).is_ok());
+        assert!(db.delete_collection(collection_name).is_ok());
     }
 
     #[test]
@@ -99,9 +109,9 @@ mod tests {
         let mut db = Database::new(DatabaseConfig::default());
 
         let ref collection_name = invalid_collection_name();
-        assert!(db.connect(collection_name).is_err());
+        assert!(db.collection(collection_name).is_err());
         assert!(!db.collections.contains_key(collection_name));
-        assert!(db.drop_collection(collection_name).is_err());
+        assert!(db.delete_collection(collection_name).is_err());
     }
 
     #[test]
@@ -118,7 +128,7 @@ mod tests {
         assert!(db.collections.contains_key(collection_name));
         assert_eq!(db.collections.len(), 1);
 
-        assert!(db.drop_collection(collection_name).is_ok());
+        assert!(db.delete_collection(collection_name).is_ok());
         assert!(!db.collections.contains_key(collection_name));
         assert_eq!(db.collections.len(), 0);
     }

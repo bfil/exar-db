@@ -142,13 +142,7 @@ fn main() {
         match signal {
             SIGTERM | SIGINT | SIGQUIT => {
                 info!("ExarDB shutting down");
-                for collection in db.lock().unwrap().collections().values().into_iter() {
-                    let mut collection = collection.lock().unwrap();
-                    match collection.flush() {
-                        Ok(_)    => (),
-                        Err(err) => warn!("Unable to flush data to log file for collection '{}': {}", collection.get_name(), err)
-                    }
-                }
+                db.lock().unwrap().flush_collections();
                 break;
             },
             _ => unreachable!()

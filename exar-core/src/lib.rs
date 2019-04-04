@@ -24,9 +24,10 @@
 //! let mut db = Database::new(config);
 //!
 //! let collection_name = "test";
-//! let connection      = db.connect(collection_name).expect("Unable to connect");
+//! let shared_collection = db.collection(collection_name).expect("Unable to retrieve collection");
+//! let mut collection    = shared_collection.lock().unwrap();
 //!
-//! match connection.publish(Event::new("payload", vec!["tag1", "tag2"])) {
+//! match collection.publish(Event::new("payload", vec!["tag1", "tag2"])) {
 //!     Ok(event_id) => println!("Published event with ID: {}", event_id),
 //!     Err(err)     => panic!("Unable to publish event: {}", err)
 //! };
@@ -43,10 +44,11 @@
 //! let mut db = Database::new(config);
 //!
 //! let collection_name = "test";
-//! let connection      = db.connect(collection_name).expect("Unable to connect");
+//! let shared_collection = db.collection(collection_name).expect("Unable to retrieve collection");
+//! let mut collection    = shared_collection.lock().unwrap();
 //!
 //! let query             = Query::live().offset(0).limit(10).by_tag("tag1");
-//! let (_, event_stream) = connection.subscribe(query).expect("Unable to subscribe");
+//! let (_, event_stream) = collection.subscribe(query).expect("Unable to subscribe");
 //! for event in event_stream {
 //!     println!("Received event: {}", event);
 //! }
@@ -71,7 +73,6 @@ extern crate time;
 mod logger;
 mod config;
 mod collection;
-mod connection;
 mod database;
 mod encoding;
 mod error;
@@ -89,7 +90,6 @@ mod validation;
 pub use self::logger::*;
 pub use self::config::*;
 pub use self::collection::*;
-pub use self::connection::*;
 pub use self::database::*;
 pub use self::encoding::*;
 pub use self::error::*;

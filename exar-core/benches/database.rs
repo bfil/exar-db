@@ -20,6 +20,6 @@ fn bench_publish(b: &mut Bencher) {
     b.iter(|| {
         let _ = connection.publish(Event::new("data", vec!["tag1"]));
     });
-    assert!(db.drop_collection(collection_name).is_ok());
+    assert!(db.delete_collection(collection_name).is_ok());
     connection.close();
 }

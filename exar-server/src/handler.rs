@@ -68,8 +68,9 @@ impl Handler {
         match (message, self.state.clone()) {
             (TcpMessage::Connect(collection_name, given_username, given_password), State::Idle(db)) => {
                 if self.verify_authentication(given_username, given_password) {
-                    match db.lock().unwrap().connect(&collection_name) {
-                        Ok(connection) => {
+                    match db.lock().unwrap().collection(&collection_name) {
+                        Ok(collection) => {
+                            let connection = Connection::new(collection);
                             self.update_state(State::Connected(connection));
                             self.stream.write_message(TcpMessage::Connected)
                         },

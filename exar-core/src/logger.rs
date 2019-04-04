@@ -13,7 +13,7 @@ use std::io::{BufWriter, Write};
 /// use exar::*;
 ///
 /// let log       = Log::new("/path/to/logs", "test", 100).expect("Unable to create log");
-/// let publisher = Publisher::new(&PublisherConfig::default());
+/// let publisher = Publisher::new(&PublisherConfig::default()).expect("Unable to create publisher");
 /// let scanner   = Scanner::new(&log, &publisher, &ScannerConfig::default()).expect("Unable to create scanner");
 /// let event     = Event::new("data", vec!["tag1", "tag2"]);
 ///
@@ -95,7 +95,7 @@ mod tests {
 
     fn setup() -> (Log, Publisher, Scanner, Event) {
         let log       = Log::new("", &random_collection_name(), 10).expect("Unable to create log");
-        let publisher = Publisher::new(&PublisherConfig::default());
+        let publisher = Publisher::new(&PublisherConfig::default()).expect("Unable to create publisher");
         let scanner   = Scanner::new(&log, &publisher, &ScannerConfig::default()).expect("Unable to create scanner");
         let event     = Event::new("data", vec!["tag1", "tag2"]);
         (log, publisher, scanner, event)

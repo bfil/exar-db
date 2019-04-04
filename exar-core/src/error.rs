@@ -10,8 +10,6 @@ pub enum DatabaseError {
     AuthenticationError,
     /// The connection to the database failed.
     ConnectionError,
-    /// The collection could not be found.
-    CollectionNotFound,
     /// The event stream has been closed unexpectedly.
     EventStreamError(EventStreamError),
     /// An I/O error occurred.
@@ -38,7 +36,6 @@ impl ToTabSeparatedString for DatabaseError {
         match *self {
             DatabaseError::AuthenticationError => tab_separated!("AuthenticationError"),
             DatabaseError::ConnectionError => tab_separated!("ConnectionError"),
-            DatabaseError::CollectionNotFound => tab_separated!("CollectionNotFound"),
             DatabaseError::EventStreamError(ref error) => {
                 tab_separated!("EventStreamError", match *error {
                     EventStreamError::Empty  => "Empty",
@@ -66,7 +63,6 @@ impl FromTabSeparatedStr for DatabaseError {
         match &message_type[..] {
             "AuthenticationError" => Ok(DatabaseError::AuthenticationError),
             "ConnectionError" => Ok(DatabaseError::ConnectionError),
-            "CollectionNotFound" => Ok(DatabaseError::CollectionNotFound),
             "EventStreamError" => {
                 let error: String = parser.parse_next()?;
                 match &error[..] {
@@ -167,7 +163,6 @@ impl Display for DatabaseError {
         match *self {
             DatabaseError::AuthenticationError                        => write!(f, "authentication failure"),
             DatabaseError::ConnectionError                            => write!(f, "connection failure"),
-            DatabaseError::CollectionNotFound                         => write!(f, "collection not found"),
             DatabaseError::EventStreamError(EventStreamError::Closed) => write!(f, "event stream is closed"),
             DatabaseError::EventStreamError(EventStreamError::Empty)  => write!(f, "event stream is empty"),
             DatabaseError::IoError(_, ref error)                      => write!(f, "{}", error),
@@ -193,7 +188,7 @@ mod tests {
         let event_stream_empty   = DatabaseError::EventStreamError(EventStreamError::Empty);
         let io_error             = DatabaseError::IoError(ErrorKind::Other, "error".to_owned());
         let parse_error          = DatabaseError::ParseError(ParseError::ParseError("error".to_owned()));
-        let missig_field         = DatabaseError::ParseError(ParseError::MissingField(1));
+        let missing_field        = DatabaseError::ParseError(ParseError::MissingField(1));
         let subscription_error   = DatabaseError::SubscriptionError;
         let validation_error     = DatabaseError::ValidationError(ValidationError { description: "error".to_owned() });
         let unexpected_error     = DatabaseError::UnexpectedError;
@@ -204,7 +199,7 @@ mod tests {
         assert_encoded_eq!(event_stream_empty, "EventStreamError\tEmpty");
         assert_encoded_eq!(io_error, "IoError\tOther\terror");
         assert_encoded_eq!(parse_error, "ParseError\tParseError\terror");
-        assert_encoded_eq!(missig_field, "ParseError\tMissingField\t1");
+        assert_encoded_eq!(missing_field, "ParseError\tMissingField\t1");
         assert_encoded_eq!(subscription_error, "SubscriptionError");
         assert_encoded_eq!(validation_error, "ValidationError\terror");
         assert_encoded_eq!(unexpected_error, "UnexpectedError");

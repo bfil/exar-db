@@ -1,4 +1,4 @@
-use super::*;
+use exar::*;
 
 use std::sync::{Arc, Mutex};
 
@@ -11,6 +11,7 @@ use std::sync::{Arc, Mutex};
 ///
 /// # fn main() {
 /// use exar::*;
+/// use exar_server::*;
 /// use std::sync::{Arc, Mutex};
 ///
 /// let collection_name   = "test";
@@ -26,8 +27,7 @@ pub struct Connection {
 
 impl Connection {
     /// Creates a new instance of a connection with the given collection.
-    pub fn new(collection: Arc<Mutex<Collection>>) -> Connection {
-        collection.lock().unwrap().increase_connections_count();
+    pub fn new(collection: Arc<Mutex<Collection>>) -> Self {
         Connection { collection }
     }
 
@@ -45,7 +45,6 @@ impl Connection {
 
     /// Closes the connection.
     pub fn close(self) {
-        self.collection.lock().unwrap().decrease_connections_count();
         drop(self)
     }
 }
@@ -53,6 +52,8 @@ impl Connection {
 #[cfg(test)]
 mod tests {
     use super::super::*;
+
+    use exar::*;
     use exar_testkit::*;
 
     #[test]
@@ -74,6 +75,6 @@ mod tests {
 
         connection.close();
 
-        assert!(db.drop_collection(collection_name).is_ok());
+        assert!(db.delete_collection(collection_name).is_ok());
     }
 }

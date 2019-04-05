@@ -12,7 +12,7 @@ use std::io::{BufWriter, Write};
 /// # fn main() {
 /// use exar::*;
 ///
-/// let log       = Log::new("/path/to/logs", "test", 100).expect("Unable to create log");
+/// let log       = Log::new("test", &DataConfig::default()).expect("Unable to create log");
 /// let publisher = Publisher::new(&PublisherConfig::default()).expect("Unable to create publisher");
 /// let scanner   = Scanner::new(&log, &publisher, &ScannerConfig::default()).expect("Unable to create scanner");
 /// let event     = Event::new("data", vec!["tag1", "tag2"]);
@@ -94,10 +94,11 @@ mod tests {
     use std::io::{BufRead, BufReader};
 
     fn setup() -> (Log, Publisher, Scanner, Event) {
-        let log       = Log::new("", &random_collection_name(), 10).expect("Unable to create log");
-        let publisher = Publisher::new(&PublisherConfig::default()).expect("Unable to create publisher");
-        let scanner   = Scanner::new(&log, &publisher, &ScannerConfig::default()).expect("Unable to create scanner");
-        let event     = Event::new("data", vec!["tag1", "tag2"]);
+        let data_config = DataConfig { path: "".to_owned(), index_granularity: 10 };
+        let log         = Log::new(&random_collection_name(), &data_config).expect("Unable to create log");
+        let publisher   = Publisher::new(&PublisherConfig::default()).expect("Unable to create publisher");
+        let scanner     = Scanner::new(&log, &publisher, &ScannerConfig::default()).expect("Unable to create scanner");
+        let event       = Event::new("data", vec!["tag1", "tag2"]);
         (log, publisher, scanner, event)
     }
 
@@ -108,7 +109,8 @@ mod tests {
         assert!(log.remove().is_ok());
 
         let collection_name = random_collection_name();
-        let log             = Log::new("", &collection_name, 10).expect("Unable to create log");
+        let data_config     = DataConfig { path: "".to_owned(), index_granularity: 10 };
+        let log             = Log::new(&collection_name, &data_config).expect("Unable to create log");
         let mut logger      = Logger::new(&log, &publisher, &scanner).expect("Unable to create logger");
 
         assert_eq!(logger.writer.get_ref().metadata().unwrap().is_file(), true);
@@ -119,7 +121,7 @@ mod tests {
 
         drop(logger);
 
-        let log    = Log::new("", &collection_name, 10).expect("Unable to create log");
+        let log    = Log::new(&collection_name, &data_config).expect("Unable to create log");
         let logger = Logger::new(&log, &publisher, &scanner).expect("Unable to create logger");
 
         assert_eq!(logger.writer.get_ref().metadata().unwrap().is_file(), true);

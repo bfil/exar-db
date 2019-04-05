@@ -87,29 +87,6 @@ impl Drop for Subscription {
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct SubscriptionHandle {
-    sender: Sender<EventStreamMessage>
-}
-
-impl SubscriptionHandle {
-    /// Creates a new `SubscriptionHandle` with the given channel sender.
-    pub fn new(sender: Sender<EventStreamMessage>) -> Self {
-        SubscriptionHandle { sender }
-    }
-
-    pub fn unsubscribe(&self) -> DatabaseResult<()> {
-        self.sender.send(EventStreamMessage::End)
-                   .map_err(|_| DatabaseError::EventStreamError(EventStreamError::Closed))
-    }
-}
-
-impl Drop for SubscriptionHandle {
-    fn drop(&mut self) {
-        let _ = self.unsubscribe();
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::super::*;

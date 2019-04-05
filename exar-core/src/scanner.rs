@@ -19,7 +19,7 @@ use std::sync::{Arc, Mutex};
 /// use exar::*;
 /// use std::sync::mpsc::channel;
 ///
-/// let log       = Log::new("/path/to/logs", "test", 100).expect("Unable to create log");
+/// let log       = Log::new("test", &DataConfig::default()).expect("Unable to create log");
 /// let publisher = Publisher::new(&PublisherConfig::default()).expect("Unable to create publisher");
 /// let event     = Event::new("data", vec!["tag1", "tag2"]);
 ///
@@ -74,14 +74,14 @@ impl ScannerSender {
         ScannerSender { senders, routing_strategy: Arc::new(Mutex::new(routing_strategy)) }
     }
 
-    pub fn handle_query(&self, query: Query) -> DatabaseResult<(SubscriptionHandle, EventStream)> {
+    pub fn handle_query(&self, query: Query) -> DatabaseResult<(EventStream, UnsubscribeHandle)> {
         let mut routing_strategy = self.routing_strategy.lock().unwrap();
         let (sender, receiver)   = channel();
-        let subscription_handle  = SubscriptionHandle::new(sender.clone());
+        let unsubscribe_handle   = UnsubscribeHandle::new(sender.clone());
         let subscription         = Subscription::new(sender, query);
         let updated_strategy     = self.senders.route_message(ScannerMessage::HandleSubscription(subscription), &routing_strategy)?;
         *routing_strategy        = updated_strategy;
-        Ok((subscription_handle, EventStream::new(receiver)))
+        Ok((EventStream::new(receiver), unsubscribe_handle))
     }
 
     pub fn update_index(&mut self, index: LinesIndex) -> DatabaseResult<()> {
@@ -203,7 +203,8 @@ mod tests {
     use std::time::Duration;
 
     fn setup() -> (Log, IndexedLineReader<BufReader<File>>, Publisher, ScannerConfig) {
-        let log         = Log::new("", &random_collection_name(), 10).expect("Unable to create log");
+        let data_config = DataConfig { path: "".to_owned(), index_granularity: 10 };
+        let log         = Log::new(&random_collection_name(), &data_config).expect("Unable to create log");
         let line_reader = log.open_line_reader().expect("Unable to open line reader");
         let publisher   = Publisher::new(&PublisherConfig::default()).expect("Unable to create publisher");
         let config      = ScannerConfig::default();

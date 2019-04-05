@@ -66,10 +66,11 @@ mod tests {
 
         let toml_file = tempfile!(r#"
             [database]
-            logs_path = "/path/to/logs"
+            data = { path = "/path/to/logs" }
             scanner = { threads = 1, routing_strategy = "Random" }
 
             [database.collections.test]
+            data = { path = "/other/path/to/logs", index_granularity = 10000 }
             scanner = { threads = 3, routing_strategy = "RoundRobin" }
             publisher = { buffer_size = 10000 }
 
@@ -85,8 +86,10 @@ mod tests {
         let mut expected_config = Config {
             log4rs_path: "log4rs.toml".to_owned(),
             database: DatabaseConfig {
-                logs_path: "/path/to/logs".to_owned(),
-                index_granularity: 100000,
+                data: DataConfig {
+                    path: "/path/to/logs".to_owned(),
+                    index_granularity: 100000,
+                },
                 scanner: ScannerConfig {
                     routing_strategy: RoutingStrategy::Random,
                     threads: 1
@@ -105,8 +108,10 @@ mod tests {
         };
 
         expected_config.database.collections.insert("test".to_owned(), PartialCollectionConfig {
-            logs_path: None,
-            index_granularity: None,
+            data: Some(PartialDataConfig {
+                path: Some("/other/path/to/logs".to_owned()),
+                index_granularity: Some(10000)
+            }),
             scanner: Some(PartialScannerConfig {
                 routing_strategy: Some(RoutingStrategy::RoundRobin(0)),
                 threads: Some(3)

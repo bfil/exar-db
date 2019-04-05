@@ -39,7 +39,10 @@ impl Handler {
                 Err(err) => self.send_error_message(err)
             };
         }
-        Ok(())
+        match *self.state.lock().unwrap() {
+            State::Subscribed(_, ref unsubscribe_handle) => unsubscribe_handle.unsubscribe(),
+            _                                            => Ok(())
+        }
     }
 
     fn update_state(&mut self, state: State) {
@@ -80,12 +83,12 @@ impl Handler {
                 self.stream.write_message(TcpMessage::Published(event_id))
             },
             (TcpMessage::Subscribe(live, offset, limit, tag), State::Connected(connection)) => {
-                let (subscription_handle, event_stream) = connection.subscribe(Query::new(live, offset, limit, tag))?;
+                let (event_stream, unsubscribe_handle) = connection.subscribe(Query::new(live, offset, limit, tag))?;
                 self.stream.write_message(TcpMessage::Subscribed)?;
                 if live {
                     let cloned_state      = self.state.clone();
                     let cloned_connection = connection.clone();
-                    self.update_state(State::Subscribed(connection, subscription_handle));
+                    self.update_state(State::Subscribed(connection, unsubscribe_handle));
                     let mut stream        = self.stream.try_clone()?;
                     thread::spawn(move || {
                         for event in event_stream {
@@ -104,8 +107,8 @@ impl Handler {
                     self.stream.write_message(TcpMessage::EndOfEventStream)
                 }
             },
-            (TcpMessage::Unsubscribe, State::Subscribed(_, subscription_handle)) => {
-                subscription_handle.unsubscribe()
+            (TcpMessage::Unsubscribe, State::Subscribed(_, unsubscribe_handle)) => {
+                unsubscribe_handle.unsubscribe()
             },
             _ => Err(DatabaseError::IoError(ErrorKind::InvalidData, "unexpected TCP message".to_owned()))
         }
@@ -124,7 +127,7 @@ pub enum State {
     /// The connection has been established.
     Connected(Connection),
     /// The connection is subscribed to an event stream.
-    Subscribed(Connection, SubscriptionHandle)
+    Subscribed(Connection, UnsubscribeHandle)
 }
 
 impl ToString for State {

@@ -19,7 +19,7 @@ fn integration_test() {
     assert!(collection.publish(test_event.clone()).is_ok());
 
     let query                    = Query::current();
-    let (_, event_stream)        = collection.subscribe(query).expect("Unable to subscribe");
+    let (event_stream, _)        = collection.subscribe(query).expect("Unable to subscribe");
     let retrieved_events: Vec<_> = event_stream.take(1).collect();
     let expected_event           = test_event.clone().with_id(1).with_timestamp(retrieved_events[0].timestamp);
     assert_eq!(retrieved_events, vec![expected_event]);

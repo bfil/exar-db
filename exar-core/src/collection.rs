@@ -30,7 +30,7 @@ impl Collection {
     /// Creates a new instance of a collection with the given name and configuration
     /// or a `DatabaseError` if a failure occurs.
     pub fn new(name: &str, config: &CollectionConfig) -> DatabaseResult<Collection> {
-        let log            = Log::new(&config.logs_path, name, config.index_granularity)?;
+        let log            = Log::new(name, &config.data)?;
         let publisher      = Publisher::new(&config.publisher)?;
         let scanner        = Scanner::new(&log, &publisher, &config.scanner)?;
         let scanner_sender = scanner.sender().clone();
@@ -46,7 +46,7 @@ impl Collection {
 
     /// Subscribes to the collection of events using the given query and returns an event stream
     /// or a `DatabaseError` if a failure occurs.
-    pub fn subscribe(&self, query: Query) -> DatabaseResult<(SubscriptionHandle, EventStream)> {
+    pub fn subscribe(&self, query: Query) -> DatabaseResult<(EventStream, UnsubscribeHandle)> {
         self.scanner_sender.handle_query(query)
     }
 
@@ -100,7 +100,7 @@ mod tests {
         assert_eq!(collection.publish(test_event.clone()), Ok(1));
 
         let query                    = Query::current();
-        let (_, event_stream)        = collection.subscribe(query).expect("Unable to subscribe");
+        let (event_stream, _)        = collection.subscribe(query).expect("Unable to subscribe");
         let retrieved_events: Vec<_> = event_stream.take(1).collect();
         let expected_event           = test_event.clone().with_id(1).with_timestamp(retrieved_events[0].timestamp);
 

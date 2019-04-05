@@ -17,7 +17,7 @@ use std::io::{BufReader, BufWriter, BufRead};
 /// # fn main() {
 /// use exar::*;
 ///
-/// let log = Log::new("/path/to/logs", "test", 100).expect("Unable to create log");
+/// let log = Log::new("test", &DataConfig::default()).expect("Unable to create log");
 ///
 /// log.ensure_exists().unwrap();
 ///
@@ -39,12 +39,12 @@ pub struct Log {
 
 impl Log {
     /// Returns a new `Log` pointing to the given path/name and using the given index granularity.
-    pub fn new(path: &str, name: &str, index_granularity: u64) ->  DatabaseResult<Log> {
+    pub fn new(name: &str, config: &DataConfig) ->  DatabaseResult<Log> {
         let mut log = Log {
-            path: path.to_owned(),
+            path: config.path.to_owned(),
             name: name.to_owned(),
-            index: LinesIndex::new(index_granularity),
-            index_granularity: index_granularity
+            index: LinesIndex::new(config.index_granularity),
+            index_granularity: config.index_granularity
         };
         log.restore_index()?;
         Ok(log)
@@ -218,7 +218,7 @@ mod tests {
     #[test]
     fn test_get_path() {
         let ref collection_name = random_collection_name();
-        let log = Log::new("", collection_name, 100).expect("Unable to create log");
+        let log = Log::new(collection_name, &DataConfig::default()).expect("Unable to create log");
 
         assert_eq!(log.get_path(), format!("{}.log", collection_name));
 
@@ -227,14 +227,15 @@ mod tests {
 
     #[test]
     fn test_constructor_failure() {
-        assert!(Log::new("", &invalid_collection_name(), 10).is_err());
+        assert!(Log::new(&invalid_collection_name(), &DataConfig::default()).is_err());
     }
 
     #[test]
     fn test_log_and_index_management() {
         let ref collection_name = random_collection_name();
+        let data_config = DataConfig { path: "".to_owned(), index_granularity: 10 };
 
-        let mut log = Log::new("", collection_name, 10).expect("Unable to create log");
+        let mut log = Log::new(collection_name, &data_config).expect("Unable to create log");
 
         assert!(log.ensure_exists().is_ok());
         assert!(log.open_writer().is_ok());
@@ -296,7 +297,8 @@ mod tests {
         log.restore_index().expect("Unable to restore persisted index");
         assert_eq!(log.index, expected_index);
 
-        let mut log = Log::new("", collection_name, 100).expect("Unable to create log");
+        let data_config = DataConfig { path: "".to_owned(), index_granularity: 100 };
+        let mut log = Log::new(collection_name, &data_config).expect("Unable to create log");
 
         log.restore_index().expect("Unable to restore persisted index");
 

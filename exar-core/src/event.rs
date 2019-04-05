@@ -1,7 +1,7 @@
 use super::*;
 
 use std::fmt::{Display, Formatter, Result as DisplayResult};
-use std::sync::mpsc::{Receiver, TryRecvError};
+use std::sync::mpsc::{Receiver, Sender, TryRecvError};
 
 use time;
 
@@ -122,6 +122,7 @@ impl EventStream {
     pub fn new(receiver: Receiver<EventStreamMessage>) -> EventStream {
         EventStream { receiver }
     }
+
     /// Attempts to wait for an event on this event stream,
     /// returning an `EventStreamError` if the corresponding channel has hung up.
     ///
@@ -154,6 +155,23 @@ impl Iterator for EventStream {
     type Item = Event;
     fn next(&mut self) -> Option<Self::Item> {
         self.recv().ok()
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct UnsubscribeHandle {
+    sender: Sender<EventStreamMessage>
+}
+
+impl UnsubscribeHandle {
+    /// Creates a new `UnsubscribeHandle` with the given channel sender.
+    pub fn new(sender: Sender<EventStreamMessage>) -> Self {
+        UnsubscribeHandle { sender }
+    }
+
+    pub fn unsubscribe(&self) -> DatabaseResult<()> {
+        self.sender.send(EventStreamMessage::End)
+                   .map_err(|_| DatabaseError::EventStreamError(EventStreamError::Closed))
     }
 }
 

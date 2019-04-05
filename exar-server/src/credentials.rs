@@ -27,7 +27,7 @@ impl Credentials {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use testkit::*;
 
     #[test]
     fn test_constructors() {

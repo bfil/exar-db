@@ -9,3 +9,4 @@ license = "AGPL-3.0"
 
 [dependencies]
 rand = "0.3"
+tempfile = "3.0"

@@ -210,32 +210,48 @@ impl Log {
 
 #[cfg(test)]
 mod tests {
-    use super::super::*;
-    use exar_testkit::*;
+    use testkit::*;
 
     use indexed_line_reader::*;
 
     #[test]
-    fn test_get_path() {
-        let ref collection_name = random_collection_name();
-        let log = Log::new(collection_name, &DataConfig::default()).expect("Unable to create log");
+    fn test_get_path_and_index_path() {
+        let collection_name = random_collection_name();
+        let path            = temp_dir();
 
-        assert_eq!(log.get_path(), format!("{}.log", collection_name));
+        let log = Log {
+            path: path.to_owned(),
+            name: collection_name.to_owned(),
+            index: LinesIndex::new(DEFAULT_INDEX_GRANULARITY),
+            index_granularity: DEFAULT_INDEX_GRANULARITY
+        };
 
-        assert!(log.remove().is_ok());
+        assert_eq!(log.get_path(), format!("{}/{}.log", path, collection_name));
+        assert_eq!(log.get_index_path(), format!("{}/{}.index.log", path, collection_name));
+
+        let log_with_empty_path = Log {
+            path: "".to_owned(),
+            name: collection_name.to_owned(),
+            index: LinesIndex::new(DEFAULT_INDEX_GRANULARITY),
+            index_granularity: DEFAULT_INDEX_GRANULARITY
+        };
+
+        assert_eq!(log_with_empty_path.get_path(), format!("{}.log", collection_name));
+        assert_eq!(log_with_empty_path.get_index_path(), format!("{}.index.log", collection_name));
     }
 
     #[test]
     fn test_constructor_failure() {
-        assert!(Log::new(&invalid_collection_name(), &DataConfig::default()).is_err());
+        assert!(Log::new(&invalid_collection_name(), &temp_data_config(DEFAULT_INDEX_GRANULARITY)).is_err());
     }
 
     #[test]
     fn test_log_and_index_management() {
-        let ref collection_name = random_collection_name();
-        let data_config = DataConfig { path: "".to_owned(), index_granularity: 10 };
+        let collection_name = random_collection_name();
+        let path            = temp_dir();
+        let data_config = DataConfig { path: path.to_owned(), index_granularity: 10 };
 
-        let mut log = Log::new(collection_name, &data_config).expect("Unable to create log");
+        let mut log = Log::new(&collection_name, &data_config).expect("Unable to create log");
 
         assert!(log.ensure_exists().is_ok());
         assert!(log.open_writer().is_ok());
@@ -297,8 +313,8 @@ mod tests {
         log.restore_index().expect("Unable to restore persisted index");
         assert_eq!(log.index, expected_index);
 
-        let data_config = DataConfig { path: "".to_owned(), index_granularity: 100 };
-        let mut log = Log::new(collection_name, &data_config).expect("Unable to create log");
+        let data_config = DataConfig { path: path.to_owned(), index_granularity: 100 };
+        let mut log = Log::new(&collection_name, &data_config).expect("Unable to create log");
 
         log.restore_index().expect("Unable to restore persisted index");
 

@@ -16,7 +16,7 @@
 //! let db = Database::new(DatabaseConfig::default());
 //!
 //! let server_config = ServerConfig::default();
-//! let server = Server::new(server_config.clone(), Arc::new(Mutex::new(db))).unwrap();
+//! let server = Server::new(Arc::new(Mutex::new(db)), server_config.clone()).unwrap();
 //!
 //! println!("ExarDB's server running at {}", server_config.address());
 //! server.listen();
@@ -29,18 +29,16 @@ extern crate exar_net;
 
 extern crate serde;
 #[macro_use] extern crate serde_derive;
-
-#[cfg(test)]
-extern crate exar_testkit;
-
-#[macro_use]
-extern crate log;
+#[cfg(test)] extern crate exar_testkit;
+#[macro_use] extern crate log;
 
 mod config;
 mod connection;
 mod credentials;
 mod handler;
 mod server;
+
+#[cfg(test)] mod testkit;
 
 pub use self::config::*;
 pub use self::connection::*;

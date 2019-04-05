@@ -83,7 +83,7 @@ impl Query {
 
 #[cfg(test)]
 mod tests {
-    use super::super::*;
+    use testkit::*;
 
     #[test]
     fn test_constructors_and_modifiers() {

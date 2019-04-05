@@ -18,5 +18,7 @@ log4rs = { version = "0.6", features = ["toml_format"] }
 serde = "1.0"
 serde_derive = "1.0"
 signal-hook = "0.1"
-tempfile = "3.0"
 toml = "0.4"
+
+[dev-dependencies]
+tempfile = "3.0"

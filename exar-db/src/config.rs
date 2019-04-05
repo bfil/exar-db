@@ -44,22 +44,10 @@ impl Default for Config {
 
 #[cfg(test)]
 mod tests {
-    use super::super::*;
+    use testkit::*;
 
-    extern crate tempfile;
     use std::io::Write;
     use std::collections::BTreeMap;
-
-    macro_rules! tempfile {
-        ($content:expr) => {
-            {
-                let mut f = tempfile::NamedTempFile::new().unwrap();
-                f.write_all($content.as_bytes()).unwrap();
-                f.flush().unwrap();
-                f
-            }
-        }
-    }
 
     #[test]
     fn test_config_load() {

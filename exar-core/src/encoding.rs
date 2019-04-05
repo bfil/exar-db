@@ -100,7 +100,7 @@ impl<'a> TabSeparatedParser<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::super::*;
+    use testkit::*;
 
     #[test]
     fn test_tab_separated_macro() {

@@ -89,7 +89,7 @@ impl Drop for Subscription {
 
 #[cfg(test)]
 mod tests {
-    use super::super::*;
+    use testkit::*;
 
     use std::sync::mpsc::channel;
 

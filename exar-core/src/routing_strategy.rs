@@ -50,7 +50,7 @@ impl Default for RoutingStrategy {
 
 #[cfg(test)]
 mod tests {
-    use super::super::*;
+    use testkit::*;
 
     extern crate serde_json;
 

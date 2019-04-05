@@ -55,11 +55,10 @@
 extern crate exar;
 extern crate exar_net;
 
-#[cfg(test)]
-extern crate exar_testkit;
+#[cfg(test)] extern crate exar_testkit;
+#[macro_use] extern crate log;
 
-#[macro_use]
-extern crate log;
+#[cfg(test)] mod testkit;
 
 use exar::*;
 use exar_net::*;
@@ -151,182 +150,142 @@ impl Client {
 
 #[cfg(test)]
 mod tests {
-    use exar::*;
-    use exar_net::*;
-    use exar_testkit::*;
-    use super::*;
-
-    use std::net::{TcpListener, ToSocketAddrs};
-    use std::thread;
-    use std::time::Duration;
-
-    enum StreamAction {
-        Read(TcpMessage),
-        Write(TcpMessage)
-    }
-
-    fn stub_server<A: Send + ToSocketAddrs + 'static>(addr: A, actions: Vec<StreamAction>) {
-        thread::spawn(|| {
-            let listener = TcpListener::bind(addr).expect("Unable to bind to address");
-            match listener.accept() {
-                Ok((stream, _)) => {
-                    let mut stream = TcpMessageStream::new(stream).expect("Unable to create message stream");
-                    for action in actions {
-                        match action {
-                            StreamAction::Read(message)  => assert_eq!(stream.read_message(), Ok(message)),
-                            StreamAction::Write(message) => assert!(stream.write_message(message).is_ok())
-                        }
-                        thread::sleep(Duration::from_millis(10));
-                    }
-                },
-                Err(err) => panic!("Error: {}", err)
-            }
-        });
-        thread::sleep(Duration::from_millis(100));
-    }
+    use testkit::*;
 
     #[test]
     fn test_connect() {
-        with_addr(&mut |addr| {
+        let addr = find_available_addr();
 
-            stub_server(addr.clone(), vec![
-                StreamAction::Read(TcpMessage::Connect("collection".to_owned(), None, None)),
-                StreamAction::Write(TcpMessage::Connected),
-            ]);
+        stub_server(addr.clone(), vec![
+            StreamAction::Read(TcpMessage::Connect("collection".to_owned(), None, None)),
+            StreamAction::Write(TcpMessage::Connected),
+        ]);
 
-            assert!(Client::connect(addr, "collection", None, None).is_ok());
-        });
+        assert!(Client::connect(addr, "collection", None, None).is_ok());
     }
 
     #[test]
     fn test_connect_with_authentication() {
-        with_addr(&mut |addr| {
+        let addr = find_available_addr();
 
-            stub_server(addr.clone(), vec![
-                StreamAction::Read(TcpMessage::Connect(
-                    "collection".to_owned(), Some("username".to_owned()), Some("password".to_owned()
-                ))),
-                StreamAction::Write(TcpMessage::Connected),
-            ]);
+        stub_server(addr.clone(), vec![
+            StreamAction::Read(TcpMessage::Connect(
+                "collection".to_owned(), Some("username".to_owned()), Some("password".to_owned()
+            ))),
+            StreamAction::Write(TcpMessage::Connected),
+        ]);
 
-            assert!(Client::connect(addr, "collection", Some("username"), Some("password")).is_ok());
-        });
+        assert!(Client::connect(addr, "collection", Some("username"), Some("password")).is_ok());
     }
 
     #[test]
     fn test_connect_failure() {
-        with_addr(&mut |addr| {
+        let addr = find_available_addr();
 
-            stub_server(addr.clone(), vec![
-                StreamAction::Read(TcpMessage::Connect("collection".to_owned(), None, None)),
-                StreamAction::Write(TcpMessage::Error(DatabaseError::ConnectionError))
-            ]);
+        stub_server(addr.clone(), vec![
+            StreamAction::Read(TcpMessage::Connect("collection".to_owned(), None, None)),
+            StreamAction::Write(TcpMessage::Error(DatabaseError::ConnectionError))
+        ]);
 
-            assert_eq!(Client::connect(addr, "collection", None, None).err(), Some(DatabaseError::ConnectionError));
-        });
+        assert_eq!(Client::connect(addr, "collection", None, None).err(), Some(DatabaseError::ConnectionError));
     }
 
     #[test]
     fn test_publish() {
-        with_addr(&mut |addr| {
+        let addr = find_available_addr();
 
-            let event = Event::new("data", vec!["tag1", "tag2"]).with_timestamp(1234567890);
+        let event = Event::new("data", vec!["tag1", "tag2"]).with_timestamp(1234567890);
 
-            stub_server(addr.clone(), vec![
-                StreamAction::Read(TcpMessage::Connect("collection".to_owned(), None, None)),
-                StreamAction::Write(TcpMessage::Connected),
-                StreamAction::Read(TcpMessage::Publish(event.clone())),
-                StreamAction::Write(TcpMessage::Published(1))
-            ]);
+        stub_server(addr.clone(), vec![
+            StreamAction::Read(TcpMessage::Connect("collection".to_owned(), None, None)),
+            StreamAction::Write(TcpMessage::Connected),
+            StreamAction::Read(TcpMessage::Publish(event.clone())),
+            StreamAction::Write(TcpMessage::Published(1))
+        ]);
 
-            let mut client = Client::connect(addr, "collection", None, None).expect("Unable to connect");
-            assert_eq!(client.publish(event.clone()), Ok(1));
-        });
+        let mut client = Client::connect(addr, "collection", None, None).expect("Unable to connect");
+        assert_eq!(client.publish(event.clone()), Ok(1));
     }
 
     #[test]
     fn test_publish_failure() {
-        with_addr(&mut |addr| {
+        let addr = find_available_addr();
 
-            let event = Event::new("data", vec!["tag1", "tag2"]).with_timestamp(1234567890);
-            let validation_error = ValidationError::new("validation error");
+        let event = Event::new("data", vec!["tag1", "tag2"]).with_timestamp(1234567890);
+        let validation_error = ValidationError::new("validation error");
 
-            stub_server(addr.clone(), vec![
-                StreamAction::Read(TcpMessage::Connect("collection".to_owned(), None, None)),
-                StreamAction::Write(TcpMessage::Connected),
-                StreamAction::Read(TcpMessage::Publish(event.clone())),
-                StreamAction::Write(TcpMessage::Error(DatabaseError::ValidationError(validation_error.clone())))
-            ]);
+        stub_server(addr.clone(), vec![
+            StreamAction::Read(TcpMessage::Connect("collection".to_owned(), None, None)),
+            StreamAction::Write(TcpMessage::Connected),
+            StreamAction::Read(TcpMessage::Publish(event.clone())),
+            StreamAction::Write(TcpMessage::Error(DatabaseError::ValidationError(validation_error.clone())))
+        ]);
 
-            let mut client = Client::connect(addr, "collection", None, None).expect("Unable to connect");
-            assert_eq!(client.publish(event.clone()), Err(DatabaseError::ValidationError(validation_error)));
-        });
+        let mut client = Client::connect(addr, "collection", None, None).expect("Unable to connect");
+        assert_eq!(client.publish(event.clone()), Err(DatabaseError::ValidationError(validation_error)));
     }
 
     #[test]
     fn test_subscribe() {
-        with_addr(&mut |addr| {
+        let addr = find_available_addr();
 
-            let event = Event::new("data", vec!["tag1", "tag2"]).with_timestamp(1234567890);
+        let event = Event::new("data", vec!["tag1", "tag2"]).with_timestamp(1234567890);
 
-            stub_server(addr.clone(), vec![
-                StreamAction::Read(TcpMessage::Connect("collection".to_owned(), None, None)),
-                StreamAction::Write(TcpMessage::Connected),
-                StreamAction::Read(TcpMessage::Subscribe(true, 0, None, None)),
-                StreamAction::Write(TcpMessage::Subscribed),
-                StreamAction::Write(TcpMessage::Event(event.clone().with_id(1))),
-                StreamAction::Write(TcpMessage::Event(event.clone().with_id(2))),
-                StreamAction::Write(TcpMessage::EndOfEventStream)
-            ]);
+        stub_server(addr.clone(), vec![
+            StreamAction::Read(TcpMessage::Connect("collection".to_owned(), None, None)),
+            StreamAction::Write(TcpMessage::Connected),
+            StreamAction::Read(TcpMessage::Subscribe(true, 0, None, None)),
+            StreamAction::Write(TcpMessage::Subscribed),
+            StreamAction::Write(TcpMessage::Event(event.clone().with_id(1))),
+            StreamAction::Write(TcpMessage::Event(event.clone().with_id(2))),
+            StreamAction::Write(TcpMessage::EndOfEventStream)
+        ]);
 
-            let mut client       = Client::connect(addr, "collection", None, None).expect("Unable to connect");
-            let mut event_stream = client.subscribe(Query::live()).expect("Unable to subscribe");
-            assert_eq!(event_stream.next(), Some(event.clone().with_id(1)));
-            assert_eq!(event_stream.next(), Some(event.clone().with_id(2)));
-            assert_eq!(event_stream.next(), None);
-        });
+        let mut client       = Client::connect(addr, "collection", None, None).expect("Unable to connect");
+        let mut event_stream = client.subscribe(Query::live()).expect("Unable to subscribe");
+        assert_eq!(event_stream.next(), Some(event.clone().with_id(1)));
+        assert_eq!(event_stream.next(), Some(event.clone().with_id(2)));
+        assert_eq!(event_stream.next(), None);
     }
 
     #[test]
     fn test_subscribe_failure() {
-        with_addr(&mut |addr| {
+        let addr = find_available_addr();
 
-            stub_server(addr.clone(), vec![
-                StreamAction::Read(TcpMessage::Connect("collection".to_owned(), None, None)),
-                StreamAction::Write(TcpMessage::Connected),
-                StreamAction::Read(TcpMessage::Subscribe(true, 0, None, None)),
-                StreamAction::Write(TcpMessage::Error(DatabaseError::SubscriptionError))
-            ]);
+        stub_server(addr.clone(), vec![
+            StreamAction::Read(TcpMessage::Connect("collection".to_owned(), None, None)),
+            StreamAction::Write(TcpMessage::Connected),
+            StreamAction::Read(TcpMessage::Subscribe(true, 0, None, None)),
+            StreamAction::Write(TcpMessage::Error(DatabaseError::SubscriptionError))
+        ]);
 
-            let mut client = Client::connect(addr, "collection", None, None).expect("Unable to connect");
-            assert_eq!(client.subscribe(Query::live()).err(), Some(DatabaseError::SubscriptionError));
-        });
+        let mut client = Client::connect(addr, "collection", None, None).expect("Unable to connect");
+        assert_eq!(client.subscribe(Query::live()).err(), Some(DatabaseError::SubscriptionError));
     }
 
     #[test]
     fn test_unsubscribe() {
-        with_addr(&mut |addr| {
+        let addr = find_available_addr();
 
-            let event = Event::new("data", vec!["tag1", "tag2"]).with_timestamp(1234567890);
+        let event = Event::new("data", vec!["tag1", "tag2"]).with_timestamp(1234567890);
 
-            stub_server(addr.clone(), vec![
-                StreamAction::Read(TcpMessage::Connect("collection".to_owned(), None, None)),
-                StreamAction::Write(TcpMessage::Connected),
-                StreamAction::Read(TcpMessage::Subscribe(true, 0, None, None)),
-                StreamAction::Write(TcpMessage::Subscribed),
-                StreamAction::Write(TcpMessage::Event(event.clone().with_id(1))),
-                StreamAction::Write(TcpMessage::Event(event.clone().with_id(2))),
-                StreamAction::Write(TcpMessage::EndOfEventStream)
-            ]);
+        stub_server(addr.clone(), vec![
+            StreamAction::Read(TcpMessage::Connect("collection".to_owned(), None, None)),
+            StreamAction::Write(TcpMessage::Connected),
+            StreamAction::Read(TcpMessage::Subscribe(true, 0, None, None)),
+            StreamAction::Write(TcpMessage::Subscribed),
+            StreamAction::Write(TcpMessage::Event(event.clone().with_id(1))),
+            StreamAction::Write(TcpMessage::Event(event.clone().with_id(2))),
+            StreamAction::Write(TcpMessage::EndOfEventStream)
+        ]);
 
-            let mut client       = Client::connect(addr, "collection", None, None).expect("Unable to connect");
-            let mut event_stream = client.subscribe(Query::live()).expect("Unable to subscribe");
-            assert_eq!(event_stream.next(), Some(event.clone().with_id(1)));
-            assert_eq!(event_stream.next(), Some(event.clone().with_id(2)));
+        let mut client       = Client::connect(addr, "collection", None, None).expect("Unable to connect");
+        let mut event_stream = client.subscribe(Query::live()).expect("Unable to subscribe");
+        assert_eq!(event_stream.next(), Some(event.clone().with_id(1)));
+        assert_eq!(event_stream.next(), Some(event.clone().with_id(2)));
 
-            client.unsubscribe().is_ok();
+        client.unsubscribe().is_ok();
 
-            assert_eq!(event_stream.next(), None);
-        });
+        assert_eq!(event_stream.next(), None);
     }
 }

@@ -63,25 +63,21 @@
 //! appenders = ["console", "file"]
 //! ```
 
-extern crate clap;
-
 extern crate exar;
 extern crate exar_server;
 
-#[macro_use]
-extern crate log;
+extern crate clap;
+#[macro_use] extern crate log;
 extern crate log4rs;
-
 extern crate serde;
-
-#[macro_use]
-extern crate serde_derive;
-
+#[macro_use] extern crate serde_derive;
 extern crate signal_hook;
-
+#[cfg(test)] extern crate tempfile;
 extern crate toml;
 
 mod config;
+#[cfg(test)] mod testkit;
+
 use config::*;
 
 use clap::App;
@@ -126,7 +122,7 @@ fn main() {
 
     let db = Arc::new(Mutex::new(Database::new(config.database.clone())));
 
-    match Server::new(config.server.clone(), db.clone()) {
+    match Server::new(db.clone(), config.server.clone()) {
         Ok(server) => {
             std::thread::spawn(move || {
                 info!("ExarDB running at {}", config.server.address());

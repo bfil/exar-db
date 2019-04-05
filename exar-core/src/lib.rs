@@ -57,14 +57,9 @@
 
 extern crate serde;
 
-#[macro_use]
-extern crate serde_derive;
-
-#[cfg(test)] #[macro_use]
-extern crate exar_testkit;
-
-#[macro_use]
-extern crate log as logging;
+#[macro_use] extern crate serde_derive;
+#[cfg(test)] extern crate exar_testkit;
+#[macro_use] extern crate log as logging;
 
 extern crate indexed_line_reader;
 extern crate rand;
@@ -86,6 +81,8 @@ mod subscription;
 mod thread;
 mod util;
 mod validation;
+
+#[cfg(test)] mod testkit;
 
 pub use self::logger::*;
 pub use self::config::*;

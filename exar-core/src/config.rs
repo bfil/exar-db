@@ -2,6 +2,8 @@ use super::*;
 
 use std::collections::BTreeMap;
 
+pub const DEFAULT_INDEX_GRANULARITY: u64 = 100000;
+
 /// Exar DB's configuration.
 ///
 /// # Examples
@@ -119,7 +121,7 @@ impl Default for DataConfig {
     fn default() -> Self {
         DataConfig {
             path: "".to_owned(),
-            index_granularity: 100000
+            index_granularity: DEFAULT_INDEX_GRANULARITY
         }
     }
 }
@@ -338,7 +340,7 @@ pub struct PartialCollectionConfig {
 
 #[cfg(test)]
 mod tests {
-    use super::super::*;
+    use testkit::*;
 
     #[test]
     fn test_collection_config() {

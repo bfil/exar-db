@@ -83,20 +83,18 @@ impl Database {
 
 #[cfg(test)]
 mod tests {
-    use super::super::*;
-    use exar_testkit::*;
+    use testkit::*;
 
     #[test]
     fn test_constructor() {
-        let db = Database::new(DatabaseConfig::default());
+        let db = temp_database();
 
-        assert_eq!(db.config, DatabaseConfig::default());
         assert_eq!(db.collections.len(), 0);
     }
 
     #[test]
-    fn test_connect() {
-        let mut db = Database::new(DatabaseConfig::default());
+    fn test_collection() {
+        let mut db = temp_database();
 
         let ref collection_name = random_collection_name();
         assert!(db.collection(collection_name).is_ok());
@@ -106,7 +104,7 @@ mod tests {
 
     #[test]
     fn test_connection_failure() {
-        let mut db = Database::new(DatabaseConfig::default());
+        let mut db = temp_database();
 
         let ref collection_name = invalid_collection_name();
         assert!(db.collection(collection_name).is_err());
@@ -116,7 +114,7 @@ mod tests {
 
     #[test]
     fn test_collection_management() {
-        let mut db = Database::new(DatabaseConfig::default());
+        let mut db = temp_database();
 
         let ref collection_name = random_collection_name();
         assert!(!db.collections.contains_key(collection_name));

@@ -68,34 +68,24 @@ impl Collection {
 
 #[cfg(test)]
 mod tests {
-    use super::super::*;
-    use exar_testkit::*;
+    use testkit::*;
 
     #[test]
     fn test_constructor() {
-        let ref collection_name = random_collection_name();
-        let config              = CollectionConfig::default();
-        let collection          = Collection::new(collection_name, &config).expect("Unable to create collection");
-
-        assert_eq!(collection.log.get_path(), format!("{}.log", collection_name));
-        assert_eq!(collection.log.get_name(), collection_name);
-        assert_eq!(collection.log.get_index_granularity(), 100000);
+        let collection = temp_collection();
 
         assert!(collection.delete().is_ok());
     }
 
     #[test]
     fn test_constructor_error() {
-        let ref collection_name = invalid_collection_name();
-        assert!(Collection::new(collection_name, &CollectionConfig::default()).is_err());
+        assert!(Collection::new(&invalid_collection_name(), &temp_collection_config()).is_err());
     }
 
     #[test]
     fn test_publish_and_subscribe() {
-        let ref collection_name = random_collection_name();
-        let config              = CollectionConfig::default();
-        let mut collection      = Collection::new(collection_name, &config).expect("Unable to create collection");
-        let test_event          = Event::new("data", vec!["tag1", "tag2"]);
+        let mut collection = temp_collection();
+        let test_event     = Event::new("data", vec!["tag1", "tag2"]);
 
         assert_eq!(collection.publish(test_event.clone()), Ok(1));
 
@@ -111,9 +101,7 @@ mod tests {
 
     #[test]
     fn test_drop() {
-        let ref collection_name = random_collection_name();
-        let config              = CollectionConfig::default();
-        let collection          = Collection::new(collection_name, &config).expect("Unable to create collection");
+        let collection = temp_collection();
 
         assert!(collection.delete().is_ok());
         assert!(collection.log.open_reader().is_err());

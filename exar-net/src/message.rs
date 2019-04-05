@@ -146,8 +146,7 @@ impl Display for TcpMessage {
 
 #[cfg(test)]
 mod tests {
-    use exar::*;
-    use super::super::*;
+    use testkit::*;
 
     #[test]
     fn test_connect() {

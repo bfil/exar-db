@@ -34,7 +34,7 @@ impl Display for ValidationError {
 
 #[cfg(test)]
 mod tests {
-    use super::super::*;
+    use testkit::*;
 
     #[derive(Clone, Debug, PartialEq, Eq)]
     struct Test {

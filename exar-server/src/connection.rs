@@ -51,10 +51,7 @@ impl Connection {
 
 #[cfg(test)]
 mod tests {
-    use super::super::*;
-
-    use exar::*;
-    use exar_testkit::*;
+    use testkit::*;
 
     #[test]
     fn test_connection() {

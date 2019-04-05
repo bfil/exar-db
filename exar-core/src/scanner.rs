@@ -191,8 +191,7 @@ pub enum ScannerMessage {
 
 #[cfg(test)]
 mod tests {
-    use super::super::*;
-    use exar_testkit::*;
+    use testkit::*;
 
     use indexed_line_reader::*;
 
@@ -203,8 +202,7 @@ mod tests {
     use std::time::Duration;
 
     fn setup() -> (Log, IndexedLineReader<BufReader<File>>, Publisher, ScannerConfig) {
-        let data_config = DataConfig { path: "".to_owned(), index_granularity: 10 };
-        let log         = Log::new(&random_collection_name(), &data_config).expect("Unable to create log");
+        let log         = temp_log(10);
         let line_reader = log.open_line_reader().expect("Unable to open line reader");
         let publisher   = Publisher::new(&PublisherConfig::default()).expect("Unable to create publisher");
         let config      = ScannerConfig::default();

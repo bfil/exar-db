@@ -23,7 +23,7 @@ use std::thread;
 /// let db = Database::new(DatabaseConfig::default());
 /// let config = ServerConfig::default();
 ///
-/// let mut server = Server::new(config, Arc::new(Mutex::new(db))).unwrap();
+/// let mut server = Server::new(Arc::new(Mutex::new(db)), config).unwrap();
 /// server.listen();
 /// # }
 /// ```
@@ -37,7 +37,7 @@ pub struct Server {
 impl Server {
     /// Creates a server with the given config and database and binds it to the configured host and port,
     /// or returns a `DatabaseError` if a failure occurs.
-    pub fn new(config: ServerConfig, db: Arc<Mutex<Database>>) -> DatabaseResult<Server> {
+    pub fn new(db: Arc<Mutex<Database>>, config: ServerConfig) -> DatabaseResult<Server> {
         let listener = TcpListener::bind(&*config.address()).map_err(DatabaseError::from_io_error)?;
         let credentials = Credentials {
             username: config.username,
@@ -48,7 +48,7 @@ impl Server {
 
     /// Creates a server database and binds it to the given address,
     /// or returns a `DatabaseError` if a failure occurs.
-    pub fn bind<A: ToSocketAddrs>(address: A, db: Arc<Mutex<Database>>) -> DatabaseResult<Server> {
+    pub fn bind<A: ToSocketAddrs>(db: Arc<Mutex<Database>>, address: A) -> DatabaseResult<Server> {
         let listener = TcpListener::bind(address).map_err(DatabaseError::from_io_error)?;
         let credentials = Credentials::empty();
         Ok(Server { credentials, db, listener })
@@ -91,108 +91,75 @@ impl Server {
 
 #[cfg(test)]
 mod tests {
-    use exar::*;
-    use exar_net::*;
-    use exar_testkit::*;
-    use super::super::*;
+    use testkit::*;
 
-    use std::fs::*;
-    use std::net::{TcpStream, ToSocketAddrs};
-    use std::sync::{Arc, Mutex};
     use std::thread;
-
-    fn create_db() -> Arc<Mutex<Database>> {
-        Arc::new(Mutex::new(Database::new(DatabaseConfig::default())))
-    }
-
-    fn create_client<A: ToSocketAddrs>(addr: A) -> TcpMessageStream<TcpStream> {
-        let stream  = TcpStream::connect(addr).expect("Unable to connect to the TCP stream");
-        TcpMessageStream::new(stream).expect("Unable to create TCP message stream client")
-    }
 
     #[test]
     fn test_constructor() {
-        with_addr(&mut |addr| {
-            let db         = create_db();
-            let mut config = ServerConfig::default();
-
-            let addr_string        = format!("{}", addr);
-            let addr_parts: Vec<_> = addr_string.split(":").collect();
-            config.host            = addr_parts[0].parse().expect("Unable to parse host");
-            config.port            = addr_parts[1].parse().expect("Unable to parse port");
-
-            assert!(Server::new(config, db).is_ok());
-        });
+        let db            = temp_shared_database();
+        let server_config = temp_server_config();
+        assert!(Server::new(db, server_config).is_ok());
     }
 
     #[test]
     fn test_constructor_failure() {
-        let db         = create_db();
-        let mut config = ServerConfig::default();
-        config.port    = 1000;
-        assert!(Server::new(config, db).is_err());
+        let db            = temp_shared_database();
+        let server_config = invalid_server_config();
+        assert!(Server::new(db, server_config).is_err());
     }
 
     #[test]
     fn test_bind() {
-        with_addr(&mut |addr| {
-            let db = create_db();
-            assert!(Server::bind(&addr, db).is_ok());
-        });
+        let db   = temp_shared_database();
+        let addr = find_available_addr();
+        assert!(Server::bind(db, &addr).is_ok());
     }
 
     #[test]
     fn test_bind_failure() {
-        let db = create_db();
-        assert!(Server::bind("127.0.0.1:1000", db).is_err());
+        let db = temp_shared_database();
+        assert!(Server::bind(db, "127.0.0.1:1000").is_err());
     }
 
     #[test]
     fn test_connection() {
-        with_addr(&mut |addr| {
-            let collection_name = random_collection_name();
-            let db              = create_db();
-            let server          = Server::bind(addr, db).expect("Unable to start the TCP server");
+        let addr            = find_available_addr();
+        let collection_name = random_collection_name();
+        let db              = temp_shared_database();
+        let server          = Server::bind(db, addr).expect("Unable to start the TCP server");
 
-            thread::spawn(move || {
-                server.listen();
-            });
-
-            let mut client = create_client(addr);
-
-            let connect_without_credentials = TcpMessage::Connect(collection_name.to_owned(), None, None);
-            assert!(client.write_message(connect_without_credentials).is_ok());
-            assert_eq!(client.read_message(), Ok(TcpMessage::Connected));
-
-            assert!(remove_file(format!("{}.log", collection_name)).is_ok());
-            assert!(remove_file(format!("{}.index.log", collection_name)).is_ok());
+        thread::spawn(move || {
+            server.listen();
         });
+
+        let mut client = create_client(addr);
+
+        let connect_without_credentials = TcpMessage::Connect(collection_name.to_owned(), None, None);
+        assert!(client.write_message(connect_without_credentials).is_ok());
+        assert_eq!(client.read_message(), Ok(TcpMessage::Connected));
     }
 
     #[test]
     fn test_connection_with_credentials() {
-        with_addr(&mut |addr| {
-            let collection_name = random_collection_name();
-            let db              = create_db();
-            let server          = Server::bind(addr, db).expect("Unable to start the TCP server");
-            let server          = server.with_credentials("username", "password");
+        let addr            = find_available_addr();
+        let collection_name = random_collection_name();
+        let db              = temp_shared_database();
+        let server          = Server::bind(db, addr).expect("Unable to start the TCP server");
+        let server          = server.with_credentials("username", "password");
 
-            thread::spawn(move || {
-                server.listen();
-            });
-
-            let mut client = create_client(addr);
-
-            let connect_without_credentials = TcpMessage::Connect(collection_name.to_owned(), None, None);
-            assert!(client.write_message(connect_without_credentials).is_ok());
-            assert_eq!(client.read_message(), Ok(TcpMessage::Error(DatabaseError::AuthenticationError)));
-
-            let connect_with_credentials = TcpMessage::Connect(collection_name.to_owned(), Some("username".to_owned()), Some("password".to_owned()));
-            assert!(client.write_message(connect_with_credentials).is_ok());
-            assert_eq!(client.read_message(), Ok(TcpMessage::Connected));
-
-            assert!(remove_file(format!("{}.log", collection_name)).is_ok());
-            assert!(remove_file(format!("{}.index.log", collection_name)).is_ok());
+        thread::spawn(move || {
+            server.listen();
         });
+
+        let mut client = create_client(addr);
+
+        let connect_without_credentials = TcpMessage::Connect(collection_name.to_owned(), None, None);
+        assert!(client.write_message(connect_without_credentials).is_ok());
+        assert_eq!(client.read_message(), Ok(TcpMessage::Error(DatabaseError::AuthenticationError)));
+
+        let connect_with_credentials = TcpMessage::Connect(collection_name.to_owned(), Some("username".to_owned()), Some("password".to_owned()));
+        assert!(client.write_message(connect_with_credentials).is_ok());
+        assert_eq!(client.read_message(), Ok(TcpMessage::Connected));
     }
 }

@@ -216,8 +216,7 @@ fn get_current_timestamp_in_ms() -> u64 {
 
 #[cfg(test)]
 mod tests {
-    use super::get_current_timestamp_in_ms;
-    use super::super::*;
+    use testkit::*;
 
     use std::sync::mpsc::channel;
 
@@ -227,7 +226,7 @@ mod tests {
         assert_eq!(event.id, 0);
         assert_eq!(event.data, "data".to_owned());
         assert_eq!(event.tags, vec!["tag1".to_owned(), "tag2".to_owned()]);
-        assert!(event.timestamp <= get_current_timestamp_in_ms());
+        assert!(event.timestamp <= super::get_current_timestamp_in_ms());
 
         let event = event.with_id(1);
         assert_eq!(event.id, 1);
@@ -237,7 +236,7 @@ mod tests {
 
         let event = event.with_current_timestamp();
         assert_ne!(event.timestamp, 1234567890);
-        assert!(event.timestamp <= get_current_timestamp_in_ms());
+        assert!(event.timestamp <= super::get_current_timestamp_in_ms());
     }
 
     #[test]
@@ -283,6 +282,5 @@ mod tests {
         assert_eq!(event_stream.next(), None);
         assert_eq!(event_stream.try_recv(), Err(EventStreamError::Closed));
         assert_eq!(event_stream.recv(), Err(EventStreamError::Closed));
-
     }
 }

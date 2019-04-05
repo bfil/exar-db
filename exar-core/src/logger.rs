@@ -86,16 +86,14 @@ impl Logger {
 
 #[cfg(test)]
 mod tests {
-    use super::super::*;
-    use exar_testkit::*;
+    use testkit::*;
 
     use indexed_line_reader::*;
 
     use std::io::{BufRead, BufReader};
 
     fn setup() -> (Log, Publisher, Scanner, Event) {
-        let data_config = DataConfig { path: "".to_owned(), index_granularity: 10 };
-        let log         = Log::new(&random_collection_name(), &data_config).expect("Unable to create log");
+        let log         = temp_log(10);
         let publisher   = Publisher::new(&PublisherConfig::default()).expect("Unable to create publisher");
         let scanner     = Scanner::new(&log, &publisher, &ScannerConfig::default()).expect("Unable to create scanner");
         let event       = Event::new("data", vec!["tag1", "tag2"]);
@@ -109,7 +107,7 @@ mod tests {
         assert!(log.remove().is_ok());
 
         let collection_name = random_collection_name();
-        let data_config     = DataConfig { path: "".to_owned(), index_granularity: 10 };
+        let data_config     = temp_data_config(10);
         let log             = Log::new(&collection_name, &data_config).expect("Unable to create log");
         let mut logger      = Logger::new(&log, &publisher, &scanner).expect("Unable to create logger");
 

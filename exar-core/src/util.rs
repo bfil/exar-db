@@ -65,15 +65,16 @@ impl Merge for Vec<Interval<u64>> {
 
 #[cfg(test)]
 mod tests {
-    use super::super::*;
+    use testkit::*;
 
-    use std::fs::*;
+    use std::fs::OpenOptions;
     use std::io::{BufRead, BufReader, BufWriter, Seek, SeekFrom};
 
     #[test]
     fn test_write_line() {
+        let log_file_path = temp_log_file_path();
         let file = OpenOptions::new().read(true).write(true).create(true)
-                                     .open("buf-writer.log").expect("Unable to create file");
+                                     .open(&log_file_path).expect("Unable to create file");
 
         let mut buf_writer = BufWriter::new(file);
         assert!(buf_writer.write_line("line 1").is_ok());
@@ -92,8 +93,6 @@ mod tests {
                                .expect("Unable to read next line");
 
         assert_eq!(line, "line 2".to_owned());
-
-        assert!(remove_file("buf-writer.log").is_ok());
     }
 
     #[test]

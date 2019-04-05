@@ -120,14 +120,14 @@
 //! - The 4th field is the error message/description.
 //!
 
-#[macro_use]
 extern crate exar;
 
-#[cfg(test)] #[macro_use]
-extern crate exar_testkit;
+#[cfg(test)] extern crate exar_testkit;
 
 mod message;
 mod stream;
+
+#[cfg(test)] mod testkit;
 
 pub use self::message::*;
 pub use self::stream::*;

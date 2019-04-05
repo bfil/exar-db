@@ -1,9 +1,10 @@
 extern crate rand;
+extern crate tempfile;
 
-mod collections;
+mod data;
 mod encoding;
 mod net;
 
-pub use self::collections::*;
+pub use self::data::*;
 pub use self::encoding::*;
 pub use self::net::*;

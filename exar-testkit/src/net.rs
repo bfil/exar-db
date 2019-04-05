@@ -14,11 +14,7 @@ fn base_port() -> u16 {
     }).map(|p| p.0).unwrap_or(0) as u16 * 1000 + 19600
 }
 
-fn next_test_ip4() -> SocketAddr {
+pub fn find_available_addr() -> SocketAddr {
     let port = PORT.fetch_add(1, Ordering::SeqCst) as u16 + base_port();
     SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), port))
-}
-
-pub fn with_addr(f: &mut FnMut(SocketAddr)) {
-    f(next_test_ip4());
 }

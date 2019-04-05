@@ -176,7 +176,7 @@ impl Display for DatabaseError {
 
 #[cfg(test)]
 mod tests {
-    use super::super::*;
+    use testkit::*;
 
     use std::io::ErrorKind;
 

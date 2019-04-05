@@ -102,55 +102,13 @@ impl<T: Read> Iterator for TcpMessages<T> {
 
 #[cfg(test)]
 mod tests {
-    use exar::*;
-    use super::super::*;
-
-    use std::fs::*;
-    use std::io::{Error, Read, Write};
-
-    struct LogStream {
-        path: String,
-        reader: File,
-        writer: File
-    }
-
-    impl LogStream {
-        pub fn new(path: &str) -> Result<Self, Error> {
-            let writer = OpenOptions::new().create(true).write(true).append(true).open(path)?;
-            let reader = OpenOptions::new().read(true).open(path)?;
-            Ok(LogStream { path: path.to_owned(), reader, writer })
-        }
-    }
-
-    impl Read for LogStream {
-        fn read(&mut self, buf: &mut [u8]) -> Result<usize, Error> {
-            self.reader.read(buf)
-        }
-    }
-
-    impl Write for LogStream {
-        fn write(&mut self, buf: &[u8]) -> Result<usize, Error> {
-            self.writer.write(buf)
-        }
-        fn flush(&mut self) -> Result<(), Error> {
-            self.writer.flush()
-        }
-    }
-
-    impl TryClone for LogStream {
-        fn try_clone(&self) -> DatabaseResult<Self> {
-            match LogStream::new(&self.path) {
-                Ok(cloned_stream) => Ok(cloned_stream),
-                Err(err)          => Err(DatabaseError::from_io_error(err))
-            }
-        }
-    }
+    use testkit::*;
 
     #[test]
     fn test_tcp_message_stream() {
-
-        let log_stream = LogStream::new("message-stream.log").expect("Unable to create log stream");
-        let mut stream = TcpMessageStream::new(log_stream).expect("Unable to create message stream");
+        let log_file_name = temp_log_file_path();
+        let log_stream    = LogMessageStream::new(&log_file_name).expect("Unable to create log stream");
+        let mut stream    = TcpMessageStream::new(log_stream).expect("Unable to create message stream");
 
         let message = TcpMessage::Connect("collection".to_string(), None, None);
 
@@ -165,7 +123,5 @@ mod tests {
         assert_eq!(messages.next(), Some(Ok(message)));
 
         assert_eq!(messages.next(), None);
-
-        assert!(remove_file("message-stream.log").is_ok());
     }
 }

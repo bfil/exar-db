@@ -20,8 +20,8 @@ pub enum DatabaseError {
     SubscriptionError,
     /// The validation of the event failed.
     ValidationError(ValidationError),
-    /// An unexpected error occurred.
-    UnexpectedError
+    /// An internal error occurred.
+    InternalError
 }
 
 impl DatabaseError {
@@ -35,7 +35,7 @@ impl ToTabSeparatedString for DatabaseError {
     fn to_tab_separated_string(&self) -> String {
         match *self {
             DatabaseError::AuthenticationError => tab_separated!("AuthenticationError"),
-            DatabaseError::ConnectionError => tab_separated!("ConnectionError"),
+            DatabaseError::ConnectionError     => tab_separated!("ConnectionError"),
             DatabaseError::EventStreamError(ref error) => {
                 tab_separated!("EventStreamError", match *error {
                     EventStreamError::Empty  => "Empty",
@@ -51,7 +51,7 @@ impl ToTabSeparatedString for DatabaseError {
             },
             DatabaseError::SubscriptionError          => tab_separated!("SubscriptionError"),
             DatabaseError::ValidationError(ref error) => tab_separated!("ValidationError", error.description),
-            DatabaseError::UnexpectedError            => tab_separated!("UnexpectedError")
+            DatabaseError::InternalError              => tab_separated!("InternalError")
         }
     }
 }
@@ -100,7 +100,7 @@ impl FromTabSeparatedStr for DatabaseError {
                 let description: String = parser.parse_next()?;
                 Ok(DatabaseError::ValidationError(ValidationError::new(&description)))
             },
-            "UnexpectedError" => Ok(DatabaseError::UnexpectedError),
+            "InternalError" => Ok(DatabaseError::InternalError),
             x => Err(ParseError::ParseError(format!("unknown database error: {}", x)))
         }
     }
@@ -169,7 +169,7 @@ impl Display for DatabaseError {
             DatabaseError::ParseError(ref error)                      => write!(f, "{}", error),
             DatabaseError::SubscriptionError                          => write!(f, "subscription failure"),
             DatabaseError::ValidationError(ref error)                 => write!(f, "{}", error),
-            DatabaseError::UnexpectedError                            => write!(f, "unexpected error")
+            DatabaseError::InternalError                              => write!(f, "internal error")
         }
     }
 }
@@ -191,7 +191,7 @@ mod tests {
         let missing_field        = DatabaseError::ParseError(ParseError::MissingField(1));
         let subscription_error   = DatabaseError::SubscriptionError;
         let validation_error     = DatabaseError::ValidationError(ValidationError { description: "error".to_owned() });
-        let unexpected_error     = DatabaseError::UnexpectedError;
+        let internal_error       = DatabaseError::InternalError;
 
         assert_encoded_eq!(authentication_error, "AuthenticationError");
         assert_encoded_eq!(connection_error, "ConnectionError");
@@ -202,7 +202,7 @@ mod tests {
         assert_encoded_eq!(missing_field, "ParseError\tMissingField\t1");
         assert_encoded_eq!(subscription_error, "SubscriptionError");
         assert_encoded_eq!(validation_error, "ValidationError\terror");
-        assert_encoded_eq!(unexpected_error, "UnexpectedError");
+        assert_encoded_eq!(internal_error, "InternalError");
     }
 
     #[test]
@@ -216,7 +216,7 @@ mod tests {
         let missing_field        = DatabaseError::ParseError(ParseError::MissingField(1));
         let subscription_error   = DatabaseError::SubscriptionError;
         let validation_error     = DatabaseError::ValidationError(ValidationError { description: "error".to_owned() });
-        let unexpected_error     = DatabaseError::UnexpectedError;
+        let internal_error       = DatabaseError::InternalError;
 
         assert_decoded_eq!("AuthenticationError", authentication_error);
         assert_decoded_eq!("ConnectionError", connection_error);
@@ -227,6 +227,6 @@ mod tests {
         assert_decoded_eq!("ParseError\tMissingField\t1", missing_field);
         assert_decoded_eq!("SubscriptionError", subscription_error);
         assert_decoded_eq!("ValidationError\terror", validation_error);
-        assert_decoded_eq!("UnexpectedError", unexpected_error);
+        assert_decoded_eq!("InternalError", internal_error);
     }
 }

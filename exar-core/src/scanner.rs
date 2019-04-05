@@ -3,8 +3,7 @@ use super::*;
 use indexed_line_reader::*;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Seek, SeekFrom};
-use std::sync::mpsc::{channel, Receiver, Sender};
-use std::sync::{Arc, Mutex};
+use std::sync::mpsc::{channel, Receiver};
 
 /// Exar DB's log file scanner.
 ///
@@ -26,7 +25,7 @@ use std::sync::{Arc, Mutex};
 /// let line_reader = log.open_line_reader().expect("Unable to open line reader");
 /// let mut scanner = Scanner::new(&log, &publisher, &ScannerConfig::default()).expect("Unable to create scanner");
 ///
-/// scanner.sender_mut().handle_query(Query::live()).unwrap();
+/// scanner.sender().handle_query(Query::live()).unwrap();
 ///
 /// drop(scanner);
 /// # }
@@ -48,50 +47,42 @@ impl Scanner {
             let publisher_sender = publisher.sender().clone();
             threads.push(ScannerThread::new(line_reader, receiver, publisher_sender))
         }
-        let scanner_sender = ScannerSender::new(senders, config.routing_strategy.clone());
-        let mut threads = ControllableThreads::new(scanner_sender, threads);
-        threads.start()?;
+        let scanner_sender = ScannerSender::new(MultiSender::new(senders, config.routing_strategy.clone()));
+        let threads = ControllableThreads::new(scanner_sender, threads);
         Ok(Scanner { threads })
     }
 
     pub fn sender(&self) -> &ScannerSender {
         self.threads.sender()
     }
-
-    pub fn sender_mut(&mut self) -> &mut ScannerSender {
-        self.threads.sender_mut()
-    }
 }
 
 #[derive(Clone, Debug)]
 pub struct ScannerSender {
-    senders: Vec<Sender<ScannerMessage>>,
-    routing_strategy: Arc<Mutex<RoutingStrategy>>
+    sender: MultiSender<ScannerMessage>
 }
 
 impl ScannerSender {
-    pub fn new(senders: Vec<Sender<ScannerMessage>>, routing_strategy: RoutingStrategy) -> Self {
-        ScannerSender { senders, routing_strategy: Arc::new(Mutex::new(routing_strategy)) }
+    pub fn new(sender: MultiSender<ScannerMessage>) -> Self {
+        ScannerSender { sender }
     }
 
     pub fn handle_query(&self, query: Query) -> DatabaseResult<(EventStream, UnsubscribeHandle)> {
-        let mut routing_strategy = self.routing_strategy.lock().unwrap();
-        let (sender, receiver)   = channel();
-        let unsubscribe_handle   = UnsubscribeHandle::new(sender.clone());
-        let subscription         = Subscription::new(sender, query);
-        let updated_strategy     = self.senders.route_message(ScannerMessage::HandleSubscription(subscription), &routing_strategy)?;
-        *routing_strategy        = updated_strategy;
+        let (sender, receiver) = channel();
+        let unsubscribe_handle = UnsubscribeHandle::new(sender.clone());
+        let subscription       = Subscription::new(sender, query);
+        self.sender.route_message(ScannerMessage::HandleSubscription(subscription))?;
         Ok((EventStream::new(receiver), unsubscribe_handle))
     }
 
-    pub fn update_index(&mut self, index: LinesIndex) -> DatabaseResult<()> {
-        self.senders.broadcast_message(ScannerMessage::UpdateIndex(index))
+    pub fn update_index(&self, index: LinesIndex) -> DatabaseResult<()> {
+        self.sender.broadcast_message(ScannerMessage::UpdateIndex(index))
     }
 }
 
 impl Stop for ScannerSender {
     fn stop(&self) -> DatabaseResult<()> {
-        self.senders.broadcast_message(ScannerMessage::Stop)
+        self.sender.broadcast_message(ScannerMessage::Stop)
     }
 }
 

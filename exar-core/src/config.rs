@@ -2,6 +2,7 @@ use super::*;
 
 use std::collections::BTreeMap;
 
+pub const DEFAULT_SCANNER_THREADS: u8    = 2;
 pub const DEFAULT_INDEX_GRANULARITY: u64 = 100000;
 
 /// Exar DB's configuration.
@@ -178,7 +179,7 @@ impl Default for ScannerConfig {
     fn default() -> Self {
         ScannerConfig {
             routing_strategy: RoutingStrategy::default(),
-            threads: 2
+            threads: DEFAULT_SCANNER_THREADS
         }
     }
 }

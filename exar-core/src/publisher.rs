@@ -18,23 +18,18 @@ use std::sync::mpsc::{channel, Receiver, Sender};
 /// ```
 #[derive(Debug)]
 pub struct Publisher {
-    thread: ControllableThread<PublisherSender, PublisherThread>
+    threads: ControllableThreads<PublisherSender, PublisherThread>
 }
 
 impl Publisher {
     pub fn new(config: &PublisherConfig) -> DatabaseResult<Self> {
         let (sender, receiver) = channel();
-        let mut thread = ControllableThread::new(PublisherSender::new(sender), PublisherThread::new(receiver, config));
-        thread.start()?;
-        Ok(Publisher { thread })
+        let threads = ControllableThreads::new(PublisherSender::new(sender), vec![PublisherThread::new(receiver, config)]);
+        Ok(Publisher { threads })
     }
 
     pub fn sender(&self) -> &PublisherSender {
-        self.thread.sender()
-    }
-
-    pub fn sender_mut(&mut self) -> &mut PublisherSender {
-        self.thread.sender_mut()
+        self.threads.sender()
     }
 }
 
@@ -48,11 +43,11 @@ impl PublisherSender {
         PublisherSender { sender }
     }
 
-    pub fn publish(&mut self, event: Event) -> DatabaseResult<()> {
+    pub fn publish(&self, event: Event) -> DatabaseResult<()> {
         self.sender.send_message(PublisherMessage::PublishEvent(event))
     }
 
-    pub fn handle_subscription(&mut self, subscription: Subscription) -> DatabaseResult<()> {
+    pub fn handle_subscription(&self, subscription: Subscription) -> DatabaseResult<()> {
         self.sender.send_message(PublisherMessage::HandleSubscription(subscription))
     }
 }

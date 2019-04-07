@@ -122,8 +122,8 @@ impl ScannerThread {
                         match line {
                             Ok(line) => match Event::from_tab_separated_str(&line) {
                                 Ok(ref event) => {
-                                    for subscription in self.subscriptions.iter_mut().filter(|s| s.matches_event(event)) {
-                                        let _ = subscription.send(event.clone());
+                                    for subscription in self.subscriptions.iter_mut() {
+                                        let _ = subscription.emit(event.clone());
                                     }
                                     if interval.end == event.id || self.subscriptions.iter().all(|s| !s.is_active()) {
                                         break;

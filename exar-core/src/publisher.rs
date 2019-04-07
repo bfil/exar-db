@@ -97,9 +97,7 @@ impl Run<Self> for PublisherThread {
                             },
                             Some(first_buffered_event) => {
                                 for event in self.events_buffer.iter().skip((min_subscription_event_id - first_buffered_event.id) as usize) {
-                                    if subscription.matches_event(event) {
-                                        let _ = subscription.send(event.clone());
-                                    }
+                                    let _ = subscription.emit(event.clone());
                                 }
                                 if subscription.is_active() && subscription.is_live() {
                                     self.subscriptions.push(subscription)
@@ -113,8 +111,8 @@ impl Run<Self> for PublisherThread {
                     },
                     PublisherMessage::PublishEvent(ref event) => {
                         self.buffer_event(event);
-                        for subscription in self.subscriptions.iter_mut().filter(|s| s.matches_event(event)) {
-                            let _ = subscription.send(event.clone());
+                        for subscription in self.subscriptions.iter_mut() {
+                            let _ = subscription.emit(event.clone());
                         }
                         self.subscriptions.retain(|s| s.is_active())
                     },

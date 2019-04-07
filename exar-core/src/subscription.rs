@@ -13,10 +13,10 @@ use std::sync::mpsc::Sender;
 /// use std::sync::mpsc::channel;
 ///
 /// let (sender, receiver) = channel();
-/// let event = Event::new("data", vec!["tag1", "tag2"]);
+/// let event = Event::new("data", vec!["tag1", "tag2"]).with_id(1);
 ///
 /// let mut subscription = Subscription::new(sender, Query::current());
-/// subscription.send(event).unwrap();
+/// subscription.emit(event).unwrap();
 /// let event_stream_message = receiver.recv().unwrap();
 /// # }
 /// ```
@@ -36,24 +36,32 @@ impl Subscription {
         Subscription { active: true, sender, query, offset, count: 0 }
     }
 
-    /// Sends an `Event` to the subscriber or returns a `DatabaseError` if a failure occurs.
-    pub fn send(&mut self, event: Event) -> DatabaseResult<()> {
-        let event_id = event.id;
-        match self.sender.send(EventStreamMessage::Event(event)) {
-            Ok(_) => {
-                self.offset = event_id;
-                self.count += 1;
-                if !self.is_active() {
-                    Ok(self.active = false)
-                } else {
-                    Ok(())
+    /// Emits an `Event` to the subscriber (if it should) and returns whether the event was emitted
+    /// or returns a `DatabaseError` if a failure occurs.
+    pub fn emit(&mut self, event: Event) -> DatabaseResult<bool> {
+        if self.should_emit(&event) {
+            let event_id = event.id;
+            match self.sender.send(EventStreamMessage::Event(event)) {
+                Ok(_) => {
+                    self.offset = event_id;
+                    self.count += 1;
+                    if !self.is_active() {
+                        self.active = false
+                    }
+                    Ok(true)
+                },
+                Err(_) => {
+                    self.active = false;
+                    Err(DatabaseError::EventStreamError(EventStreamError::Closed))
                 }
-            },
-            Err(_) => {
-                self.active = false;
-                Err(DatabaseError::EventStreamError(EventStreamError::Closed))
             }
+        } else {
+            Ok(false)
         }
+    }
+
+    fn should_emit(&self, event: &Event) -> bool {
+        self.is_active() && event.id > self.offset && self.query.matches(event)
     }
 
     /// Returns whether the subscription is still active.
@@ -68,11 +76,6 @@ impl Subscription {
     /// Returns whether the subscription is interested in live `Event`s.
     pub fn is_live(&self) -> bool {
         self.query.live_stream
-    }
-
-    /// Returns whether the subscription is interested in the given `Event`.
-    pub fn matches_event(&self, event: &Event) -> bool {
-        self.is_active() && event.id > self.offset && self.query.matches(event)
     }
 
     /// Returns the current offsets interval of the subscription.
@@ -96,18 +99,19 @@ mod tests {
     #[test]
     fn test_simple_subscription() {
         let (sender, receiver) = channel();
-        let event = Event::new("data", vec!["tag1", "tag2"]).with_id(1);
+        let first_event        = Event::new("data", vec!["tag1", "tag2"]).with_id(1);
+        let second_event       = Event::new("data", vec!["tag1", "tag2"]).with_id(2);
 
         let mut subscription = Subscription::new(sender, Query::current());
 
-        assert!(subscription.send(event.clone()).is_ok());
-        assert_eq!(receiver.recv(), Ok(EventStreamMessage::Event(event.clone())));
+        assert_eq!(subscription.emit(first_event.clone()), Ok(true));
+        assert_eq!(receiver.recv(), Ok(EventStreamMessage::Event(first_event)));
         assert_eq!(subscription.interval().start, 1);
         assert!(subscription.is_active());
 
         drop(receiver);
 
-        assert_eq!(subscription.send(event.clone()), Err(DatabaseError::EventStreamError(EventStreamError::Closed)));
+        assert_eq!(subscription.emit(second_event), Err(DatabaseError::EventStreamError(EventStreamError::Closed)));
         assert_eq!(subscription.interval().start, 1);
         assert!(!subscription.is_active());
     }
@@ -115,14 +119,16 @@ mod tests {
     #[test]
     fn test_subscription_event_stream_end() {
         let (sender, receiver) = channel();
-        let event = Event::new("data", vec!["tag1", "tag2"]).with_id(1);
+        let first_event        = Event::new("data", vec!["tag1", "tag2"]).with_id(1);
+        let second_event       = Event::new("data", vec!["tag1", "tag2"]).with_id(2);
 
         let mut subscription = Subscription::new(sender, Query::current().limit(1));
 
-        assert!(subscription.send(event.clone()).is_ok());
-        assert_eq!(receiver.recv(), Ok(EventStreamMessage::Event(event.clone())));
+        assert_eq!(subscription.emit(first_event.clone()), Ok(true));
+        assert_eq!(receiver.recv(), Ok(EventStreamMessage::Event(first_event.clone())));
         assert_eq!(subscription.interval().start, 1);
         assert!(!subscription.is_active());
+        assert_eq!(subscription.emit(second_event), Ok(false));
 
         drop(subscription);
         assert_eq!(receiver.recv(), Ok(EventStreamMessage::End));
@@ -131,18 +137,19 @@ mod tests {
     #[test]
     fn test_subscription_event_stream_receiver_drop() {
         let (sender, receiver) = channel();
-        let event = Event::new("data", vec!["tag1", "tag2"]).with_id(1);
+        let first_event        = Event::new("data", vec!["tag1", "tag2"]).with_id(1);
+        let second_event       = Event::new("data", vec!["tag1", "tag2"]).with_id(2);
 
-        let mut subscription = Subscription::new(sender, Query::current().limit(1));
+        let mut subscription = Subscription::new(sender, Query::current());
 
-        assert!(subscription.send(event.clone()).is_ok());
-        assert_eq!(receiver.recv(), Ok(EventStreamMessage::Event(event.clone())));
+        assert_eq!(subscription.emit(first_event.clone()), Ok(true));
+        assert_eq!(receiver.recv(), Ok(EventStreamMessage::Event(first_event)));
         assert_eq!(subscription.interval().start, 1);
-        assert!(!subscription.is_active());
+        assert!(subscription.is_active());
 
         drop(receiver);
 
-        assert_eq!(subscription.send(event.clone()), Err(DatabaseError::EventStreamError(EventStreamError::Closed)));
+        assert_eq!(subscription.emit(second_event), Err(DatabaseError::EventStreamError(EventStreamError::Closed)));
         assert_eq!(subscription.interval().start, 1);
         assert!(!subscription.is_active());
     }

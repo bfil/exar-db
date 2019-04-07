@@ -7,8 +7,8 @@ use std::sync::mpsc::{channel, Receiver};
 
 /// Exar DB's log file scanner.
 ///
-/// It manages event stream subscriptions and scans portions
-/// of the log file depending on the subscriptions query parameters.
+/// It manages event emitters and scans portions
+/// of the log file depending on the event emitters' query parameters.
 ///
 /// # Examples
 /// ```no_run
@@ -25,9 +25,9 @@ use std::sync::mpsc::{channel, Receiver};
 /// let line_reader = log.open_line_reader().expect("Unable to open line reader");
 /// let mut scanner = Scanner::new(&log, &publisher, &ScannerConfig::default()).expect("Unable to create scanner");
 ///
-/// let (sender, _)  = channel();
-/// let subscription = Subscription::new(sender, Query::live());
-/// scanner.sender().handle_subscription(subscription).unwrap();
+/// let (sender, _)   = channel();
+/// let event_emitter = EventEmitter::new(sender, Query::live());
+/// scanner.sender().register_event_emitter(event_emitter).unwrap();
 ///
 /// drop(scanner);
 /// # }
@@ -69,8 +69,8 @@ impl ScannerSender {
         ScannerSender { sender }
     }
 
-    pub fn handle_subscription(&self, subscription: Subscription) -> DatabaseResult<()> {
-        self.sender.route_message(ScannerMessage::HandleSubscription(subscription))
+    pub fn register_event_emitter(&self, event_emitter: EventEmitter) -> DatabaseResult<()> {
+        self.sender.route_message(ScannerMessage::RegisterEventEmitter(event_emitter))
     }
 
     pub fn update_index(&self, index: LinesIndex) -> DatabaseResult<()> {
@@ -87,43 +87,43 @@ impl Stop for ScannerSender {
 /// Exar DB's log file scanner thread.
 ///
 /// It uses a channel receiver to receive actions to be performed between scans,
-/// and it manages the thread that continuously scans portions of the log file
-/// depending on the subscriptions query parameters.
+/// and it manages the thread that scans portions of the log file
+/// depending on the event emitters' query parameters.
 #[derive(Debug)]
 pub struct ScannerThread {
     reader: IndexedLineReader<BufReader<File>>,
     receiver: Receiver<ScannerMessage>,
     publisher_sender: PublisherSender,
-    subscriptions: Vec<Subscription>
+    event_emitters: Vec<EventEmitter>
 }
 
 impl ScannerThread {
     fn new(reader: IndexedLineReader<BufReader<File>>, receiver: Receiver<ScannerMessage>, publisher_sender: PublisherSender) -> ScannerThread {
-        ScannerThread { reader, receiver, publisher_sender, subscriptions: vec![] }
+        ScannerThread { reader, receiver, publisher_sender, event_emitters: vec![] }
     }
 
-    fn forward_subscriptions_to_publisher(&mut self) {
-        for subscription in self.subscriptions.drain(..) {
-            let _ = self.publisher_sender.handle_subscription(subscription);
+    fn forward_event_emitters_to_publisher(&mut self) {
+        for event_emitter in self.event_emitters.drain(..) {
+            let _ = self.publisher_sender.register_event_emitter(event_emitter);
         }
     }
 
-    fn subscriptions_intervals(&self) -> Vec<Interval<u64>> {
-        self.subscriptions.iter().map(|s| s.interval()).collect()
+    fn event_emitters_intervals(&self) -> Vec<Interval<u64>> {
+        self.event_emitters.iter().map(|s| s.interval()).collect()
     }
 
     fn scan(&mut self) -> DatabaseResult<()> {
-        for interval in self.subscriptions_intervals().merged() {
+        for interval in self.event_emitters_intervals().merged() {
             match self.reader.seek(SeekFrom::Start(interval.start)) {
                 Ok(_) => {
                     for line in (&mut self.reader).lines() {
                         match line {
                             Ok(line) => match Event::from_tab_separated_str(&line) {
                                 Ok(ref event) => {
-                                    for subscription in self.subscriptions.iter_mut() {
-                                        let _ = subscription.emit(event.clone());
+                                    for event_emitter in self.event_emitters.iter_mut() {
+                                        let _ = event_emitter.emit(event.clone());
                                     }
-                                    if interval.end == event.id || self.subscriptions.iter().all(|s| !s.is_active()) {
+                                    if interval.end == event.id || self.event_emitters.iter().all(|s| !s.is_active()) {
                                         break;
                                     }
                                 },
@@ -150,8 +150,8 @@ impl Run<Self> for ScannerThread {
                 }
                 for message in messages {
                     match message {
-                        ScannerMessage::HandleSubscription(subscription) => {
-                            self.subscriptions.push(subscription);
+                        ScannerMessage::RegisterEventEmitter(event_emitter) => {
+                            self.event_emitters.push(event_emitter);
                         },
                         ScannerMessage::UpdateIndex(index) => {
                             self.reader.restore_index(index);
@@ -159,9 +159,9 @@ impl Run<Self> for ScannerThread {
                         ScannerMessage::Stop => break 'main
                     }
                 }
-                if !self.subscriptions.is_empty() {
+                if !self.event_emitters.is_empty() {
                     match self.scan() {
-                        Ok(_)    => self.forward_subscriptions_to_publisher(),
+                        Ok(_)    => self.forward_event_emitters_to_publisher(),
                         Err(err) => error!("Unable to scan log: {}", err)
                     }
                 }
@@ -173,7 +173,7 @@ impl Run<Self> for ScannerThread {
 
 #[derive(Clone, Debug)]
 pub enum ScannerMessage {
-    HandleSubscription(Subscription),
+    RegisterEventEmitter(EventEmitter),
     UpdateIndex(LinesIndex),
     Stop
 }
@@ -227,7 +227,7 @@ mod tests {
     }
 
     #[test]
-    fn test_scanner_thread_subscriptions_management() {
+    fn test_scanner_thread_event_emitters_management() {
         let (log, _, publisher, config) = setup();
 
         let scanner        = Scanner::new(&log, &publisher, &config).expect("Unable to create scanner");
@@ -242,10 +242,10 @@ mod tests {
         let scanner_thread = ScannerThread::new(line_reader, thread_receiver, publisher.sender().clone());
         thread::spawn(|| scanner_thread.run());
 
-        let (sender, receiver) = channel();
-        let live_subscription = Subscription::new(sender, Query::live());
+        let (sender, receiver)  = channel();
+        let live_events_emitter = EventEmitter::new(sender, Query::live());
 
-        assert!(thread_sender.send(ScannerMessage::HandleSubscription(live_subscription.clone())).is_ok());
+        assert!(thread_sender.send(ScannerMessage::RegisterEventEmitter(live_events_emitter.clone())).is_ok());
         thread::sleep(sleep_duration * 2);
 
         assert_eq!(receiver.try_recv().map(|e| match e {
@@ -254,10 +254,10 @@ mod tests {
         }), Ok(1));
         assert_eq!(receiver.try_recv(), Err(TryRecvError::Empty));
 
-        let (sender, receiver) = channel();
-        let current_subscription = Subscription::new(sender, Query::current());
+        let (sender, receiver)     = channel();
+        let current_events_emitter = EventEmitter::new(sender, Query::current());
 
-        assert!(thread_sender.send(ScannerMessage::HandleSubscription(current_subscription)).is_ok());
+        assert!(thread_sender.send(ScannerMessage::RegisterEventEmitter(current_events_emitter)).is_ok());
         thread::sleep(sleep_duration * 2);
 
         assert_eq!(receiver.try_recv().map(|e| match e {

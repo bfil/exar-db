@@ -37,9 +37,9 @@ impl Connection {
         self.collection.lock().unwrap().publish(event)
     }
 
-    /// Subscribes to the underlying collection of events using the given query and returns an event stream
+    /// Subscribes to the underlying collection of events using the given query and returns a subscription
     /// or a `DatabaseError` if a failure occurs.
-    pub fn subscribe(&self, query: Query) -> DatabaseResult<(EventStream, UnsubscribeHandle)> {
+    pub fn subscribe(&self, query: Query) -> DatabaseResult<Subscription> {
         self.collection.lock().unwrap().subscribe(query)
     }
 
@@ -64,8 +64,8 @@ mod tests {
         assert_eq!(connection.publish(test_event.clone()), Ok(1));
 
         let query                    = Query::current();
-        let (event_stream, _)        = connection.subscribe(query).expect("Unable to subscribe");
-        let retrieved_events: Vec<_> = event_stream.take(1).collect();
+        let subscription             = connection.subscribe(query).expect("Unable to subscribe");
+        let retrieved_events: Vec<_> = subscription.event_stream().take(1).collect();
         let expected_event           = test_event.clone().with_id(1).with_timestamp(retrieved_events[0].timestamp);
 
         assert_eq!(retrieved_events, vec![expected_event]);

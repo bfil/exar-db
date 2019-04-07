@@ -1,6 +1,6 @@
 use super::*;
 
-/// Exar DB's subscription query.
+/// Exar DB's query.
 ///
 /// # Examples
 /// ```

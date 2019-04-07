@@ -47,9 +47,9 @@
 //! let shared_collection = db.collection(collection_name).expect("Unable to retrieve collection");
 //! let mut collection    = shared_collection.lock().unwrap();
 //!
-//! let query             = Query::live().offset(0).limit(10).by_tag("tag1");
-//! let (event_stream, _) = collection.subscribe(query).expect("Unable to subscribe");
-//! for event in event_stream {
+//! let query        = Query::live().offset(0).limit(10).by_tag("tag1");
+//! let subscription = collection.subscribe(query).expect("Unable to subscribe");
+//! for event in subscription.event_stream() {
 //!     println!("Received event: {}", event);
 //! }
 //! # }

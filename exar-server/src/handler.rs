@@ -83,7 +83,8 @@ impl Handler {
                 self.stream.write_message(TcpMessage::Published(event_id))
             },
             (TcpMessage::Subscribe(live, offset, limit, tag), State::Connected(connection)) => {
-                let (event_stream, unsubscribe_handle) = connection.subscribe(Query::new(live, offset, limit, tag))?;
+                let subscription = connection.subscribe(Query::new(live, offset, limit, tag))?;
+                let (event_stream, unsubscribe_handle) = subscription.into_event_stream_and_unsubscribe_handle();
                 self.stream.write_message(TcpMessage::Subscribed)?;
                 if live {
                     let cloned_state      = self.state.clone();

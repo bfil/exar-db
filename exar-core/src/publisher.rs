@@ -5,8 +5,8 @@ use std::sync::mpsc::{channel, Receiver, Sender};
 
 /// Exar DB's events' publisher.
 ///
-/// It manages event stream subscriptions and continuously published
-/// new events depending on the subscriptions query parameters.
+/// It manages event emitters and continuously published
+/// new events depending on the event emitters' query parameters.
 ///
 /// # Examples
 /// ```no_run
@@ -47,8 +47,8 @@ impl PublisherSender {
         self.sender.send_message(PublisherMessage::PublishEvent(event))
     }
 
-    pub fn handle_subscription(&self, subscription: Subscription) -> DatabaseResult<()> {
-        self.sender.send_message(PublisherMessage::HandleSubscription(subscription))
+    pub fn register_event_emitter(&self, event_emitter: EventEmitter) -> DatabaseResult<()> {
+        self.sender.send_message(PublisherMessage::RegisterEventEmitter(event_emitter))
     }
 }
 
@@ -63,7 +63,7 @@ struct PublisherThread {
     receiver: Receiver<PublisherMessage>,
     buffer_size: usize,
     events_buffer: VecDeque<Event>,
-    subscriptions: Vec<Subscription>
+    event_emitters: Vec<EventEmitter>
 }
 
 impl PublisherThread {
@@ -72,7 +72,7 @@ impl PublisherThread {
             receiver,
             buffer_size: config.buffer_size,
             events_buffer: VecDeque::with_capacity(config.buffer_size),
-            subscriptions: vec![]
+            event_emitters: vec![]
         }
     }
 
@@ -89,32 +89,32 @@ impl Run<Self> for PublisherThread {
         'main: loop {
             while let Ok(message) = self.receiver.recv() {
                 match message {
-                    PublisherMessage::HandleSubscription(mut subscription) => {
-                        let min_subscription_event_id = subscription.interval().start + 1;
+                    PublisherMessage::RegisterEventEmitter(mut event_emitter) => {
+                        let min_event_emitter_event_id = event_emitter.interval().start + 1;
                         match self.events_buffer.get(0) {
-                            Some(first_buffered_event) if min_subscription_event_id < first_buffered_event.id => {
-                                drop(subscription)
+                            Some(first_buffered_event) if min_event_emitter_event_id < first_buffered_event.id => {
+                                drop(event_emitter)
                             },
                             Some(first_buffered_event) => {
-                                for event in self.events_buffer.iter().skip((min_subscription_event_id - first_buffered_event.id) as usize) {
-                                    let _ = subscription.emit(event.clone());
+                                for event in self.events_buffer.iter().skip((min_event_emitter_event_id - first_buffered_event.id) as usize) {
+                                    let _ = event_emitter.emit(event.clone());
                                 }
-                                if subscription.is_active() && subscription.is_live() {
-                                    self.subscriptions.push(subscription)
+                                if event_emitter.is_active() && event_emitter.is_live() {
+                                    self.event_emitters.push(event_emitter)
                                 }
                             },
                             None =>
-                                if subscription.is_active() && subscription.is_live() {
-                                    self.subscriptions.push(subscription)
+                                if event_emitter.is_active() && event_emitter.is_live() {
+                                    self.event_emitters.push(event_emitter)
                                 }
                         }
                     },
                     PublisherMessage::PublishEvent(ref event) => {
                         self.buffer_event(event);
-                        for subscription in self.subscriptions.iter_mut() {
-                            let _ = subscription.emit(event.clone());
+                        for event_emitter in self.event_emitters.iter_mut() {
+                            let _ = event_emitter.emit(event.clone());
                         }
-                        self.subscriptions.retain(|s| s.is_active())
+                        self.event_emitters.retain(|s| s.is_active())
                     },
                     PublisherMessage::Stop => break 'main
                 }
@@ -126,7 +126,7 @@ impl Run<Self> for PublisherThread {
 
 #[derive(Clone, Debug)]
 pub enum PublisherMessage {
-    HandleSubscription(Subscription),
+    RegisterEventEmitter(EventEmitter),
     PublishEvent(Event),
     Stop
 }

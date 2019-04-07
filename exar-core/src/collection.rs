@@ -46,14 +46,13 @@ impl Collection {
         self.logger.log(event)
     }
 
-    /// Subscribes to the collection of events using the given query and returns an event stream
+    /// Subscribes to the collection of events using the given query and returns a subscription
     /// or a `DatabaseError` if a failure occurs.
-    pub fn subscribe(&self, query: Query) -> DatabaseResult<(EventStream, UnsubscribeHandle)> {
+    pub fn subscribe(&self, query: Query) -> DatabaseResult<Subscription> {
         let (sender, receiver) = channel();
-        let unsubscribe_handle = UnsubscribeHandle::new(sender.clone());
-        let subscription       = Subscription::new(sender, query);
-        self.scanner_sender.handle_subscription(subscription)?;
-        Ok((EventStream::new(receiver), unsubscribe_handle))
+        let event_emitter      = EventEmitter::new(sender.clone(), query);
+        self.scanner_sender.register_event_emitter(event_emitter)?;
+        Ok(Subscription::new(sender, receiver))
     }
 
     /// Returns the name of the collection.
@@ -96,8 +95,8 @@ mod tests {
         assert_eq!(collection.publish(test_event.clone()), Ok(1));
 
         let query                    = Query::current();
-        let (event_stream, _)        = collection.subscribe(query).expect("Unable to subscribe");
-        let retrieved_events: Vec<_> = event_stream.take(1).collect();
+        let subscription             = collection.subscribe(query).expect("Unable to subscribe");
+        let retrieved_events: Vec<_> = subscription.event_stream().take(1).collect();
         let expected_event           = test_event.clone().with_id(1).with_timestamp(retrieved_events[0].timestamp);
 
         assert_eq!(retrieved_events, vec![expected_event]);

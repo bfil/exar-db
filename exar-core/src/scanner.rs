@@ -7,8 +7,8 @@ use std::sync::mpsc::{channel, Receiver};
 
 /// Exar DB's log file scanner.
 ///
-/// It manages event stream subscriptions and continuously scans
-/// portions of the log file depending on the subscriptions query parameters.
+/// It manages event stream subscriptions and scans portions
+/// of the log file depending on the subscriptions query parameters.
 ///
 /// # Examples
 /// ```no_run
@@ -25,7 +25,9 @@ use std::sync::mpsc::{channel, Receiver};
 /// let line_reader = log.open_line_reader().expect("Unable to open line reader");
 /// let mut scanner = Scanner::new(&log, &publisher, &ScannerConfig::default()).expect("Unable to create scanner");
 ///
-/// scanner.sender().handle_query(Query::live()).unwrap();
+/// let (sender, _)  = channel();
+/// let subscription = Subscription::new(sender, Query::live());
+/// scanner.sender().handle_subscription(subscription).unwrap();
 ///
 /// drop(scanner);
 /// # }
@@ -67,12 +69,8 @@ impl ScannerSender {
         ScannerSender { sender }
     }
 
-    pub fn handle_query(&self, query: Query) -> DatabaseResult<(EventStream, UnsubscribeHandle)> {
-        let (sender, receiver) = channel();
-        let unsubscribe_handle = UnsubscribeHandle::new(sender.clone());
-        let subscription       = Subscription::new(sender, query);
-        self.sender.route_message(ScannerMessage::HandleSubscription(subscription))?;
-        Ok((EventStream::new(receiver), unsubscribe_handle))
+    pub fn handle_subscription(&self, subscription: Subscription) -> DatabaseResult<()> {
+        self.sender.route_message(ScannerMessage::HandleSubscription(subscription))
     }
 
     pub fn update_index(&self, index: LinesIndex) -> DatabaseResult<()> {

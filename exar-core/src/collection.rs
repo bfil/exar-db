@@ -1,5 +1,7 @@
 use super::*;
 
+use std::sync::mpsc::channel;
+
 /// Exar DB's collection of events, containing the reference to the log and index files.
 ///
 /// It is responsible of creating and managing the log scanner threads and the single-threaded logger.
@@ -47,7 +49,11 @@ impl Collection {
     /// Subscribes to the collection of events using the given query and returns an event stream
     /// or a `DatabaseError` if a failure occurs.
     pub fn subscribe(&self, query: Query) -> DatabaseResult<(EventStream, UnsubscribeHandle)> {
-        self.scanner_sender.handle_query(query)
+        let (sender, receiver) = channel();
+        let unsubscribe_handle = UnsubscribeHandle::new(sender.clone());
+        let subscription       = Subscription::new(sender, query);
+        self.scanner_sender.handle_subscription(subscription)?;
+        Ok((EventStream::new(receiver), unsubscribe_handle))
     }
 
     /// Returns the name of the collection.

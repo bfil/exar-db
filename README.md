@@ -31,11 +31,11 @@ The database can be configured using a `TOML` configuration file, example below:
 ```toml
 log4rs_path = "/path/to/log4rs.toml"
 [database]
-logs_path = "~/exar-db/data"
-scanners = { nr_of_scanners = 2 }
+data = { path = "~/exar-db/data" }
+scanner = { threads = 2 }
 [database.collections.my-collection]
-routing_strategy = "Random"
-scanners = { nr_of_scanners = 4 }
+scanner = { threads = 4, routing_strategy = "Random" }
+publisher = { buffer_size = 10000 }
 [server]
 host = "127.0.0.1"
 port = 38580

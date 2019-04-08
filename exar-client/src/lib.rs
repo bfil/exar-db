@@ -8,7 +8,7 @@
 //! # fn main() {
 //! use exar_client::*;
 //!
-//! let addr = "127.0.0.1:38580";
+//! let addr   = "127.0.0.1:38580";
 //! let client = Client::connect(addr, "test", Some("username"), Some("password")).unwrap();
 //! # }
 //! ```
@@ -21,11 +21,10 @@
 //! use exar::*;
 //! use exar_client::*;
 //!
-//! let addr = "127.0.0.1:38580";
+//! let addr       = "127.0.0.1:38580";
 //! let mut client = Client::connect(addr, "test", Some("username"), Some("password")).expect("Unable to connect");
 //!
 //! let event = Event::new("payload", vec!["tag1", "tag2"]);
-//!
 //! match client.publish(event) {
 //!     Ok(event_id) => println!("Published event with ID: {}", event_id),
 //!     Err(err)     => panic!("Unable to publish event: {}", err)
@@ -41,7 +40,7 @@
 //! use exar::*;
 //! use exar_client::*;
 //!
-//! let addr = "127.0.0.1:38580";
+//! let addr       = "127.0.0.1:38580";
 //! let mut client = Client::connect(addr, "test", Some("username"), Some("password")).expect("Unable to connect");
 //!
 //! let query        = Query::live().offset(0).limit(10).by_tag("tag1");
@@ -276,6 +275,7 @@ mod tests {
             StreamAction::Write(TcpMessage::Subscribed),
             StreamAction::Write(TcpMessage::Event(event.clone().with_id(1))),
             StreamAction::Write(TcpMessage::Event(event.clone().with_id(2))),
+            StreamAction::Read(TcpMessage::Unsubscribe),
             StreamAction::Write(TcpMessage::EndOfEventStream)
         ]);
 
@@ -284,7 +284,7 @@ mod tests {
         assert_eq!(event_stream.next(), Some(event.clone().with_id(1)));
         assert_eq!(event_stream.next(), Some(event.clone().with_id(2)));
 
-        client.unsubscribe().is_ok();
+        assert!(client.unsubscribe().is_ok());
 
         assert_eq!(event_stream.next(), None);
     }

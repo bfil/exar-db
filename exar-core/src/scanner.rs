@@ -7,8 +7,8 @@ use std::sync::mpsc::{channel, Receiver};
 
 /// Exar DB's log file scanner.
 ///
-/// It manages event emitters and scans portions
-/// of the log file depending on the event emitters' query parameters.
+/// It manages event emitters and scans portions of the log file
+/// and emits events to the subscriptions depending on the event emitters' query parameters.
 ///
 /// # Examples
 /// ```no_run
@@ -50,7 +50,7 @@ impl Scanner {
             threads.push(ScannerThread::new(line_reader, receiver, publisher_sender))
         }
         let scanner_sender = ScannerSender::new(MultiSender::new(senders, config.routing_strategy.clone()));
-        let threads = ControllableThreads::new(scanner_sender, threads);
+        let threads = ControllableThreads::new(scanner_sender, threads)?;
         Ok(Scanner { threads })
     }
 
@@ -207,7 +207,16 @@ mod tests {
     }
 
     #[test]
-    fn test_scanner_thread_new_indexed_line() {
+    fn test_scanner_constructor_failure() {
+        let (log, _, publisher, mut config) = setup();
+        config.threads = 0;
+
+        assert!(Scanner::new(&log, &publisher, &config).is_err());
+        assert!(log.remove().is_ok());
+    }
+
+    #[test]
+    fn test_scanner_thread_index_updates() {
         let (log, line_reader, publisher, _) = setup();
 
         let (sender, receiver) = channel();
@@ -248,23 +257,16 @@ mod tests {
         assert!(thread_sender.send(ScannerMessage::RegisterEventEmitter(live_events_emitter.clone())).is_ok());
         thread::sleep(sleep_duration * 2);
 
-        assert_eq!(receiver.try_recv().map(|e| match e {
-            EventStreamMessage::Event(e) => e.id,
-            message                      => panic!("Unexpected event stream message: {:?}", message),
-        }), Ok(1));
+        assert_event_received(&receiver, 1);
         assert_eq!(receiver.try_recv(), Err(TryRecvError::Empty));
 
         let (sender, receiver)     = channel();
         let current_events_emitter = EventEmitter::new(sender, Query::current());
 
         assert!(thread_sender.send(ScannerMessage::RegisterEventEmitter(current_events_emitter)).is_ok());
-        thread::sleep(sleep_duration * 2);
 
-        assert_eq!(receiver.try_recv().map(|e| match e {
-            EventStreamMessage::Event(e) => e.id,
-            message                      => panic!("Unexpected event stream message: {:?}", message),
-        }), Ok(1));
-        assert_eq!(receiver.try_recv(), Ok(EventStreamMessage::End));
+        assert_event_received(&receiver, 1);
+        assert_end_of_event_stream_received(&receiver);
 
         assert!(log.remove().is_ok());
     }

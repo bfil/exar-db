@@ -152,37 +152,35 @@ mod tests {
         let addr            = find_available_addr();
         let collection_name = random_collection_name();
 
-        let handle     = create_handler(addr, Credentials::empty());
+        let handler    = create_handler(addr, Credentials::empty());
         let mut client = create_client(addr);
 
-        assert!(client.write_message(TcpMessage::Connect(collection_name.to_owned(),
-                                                         None, None)).is_ok());
+        assert!(client.write_message(TcpMessage::Connect(collection_name.to_owned(), None, None)).is_ok());
         assert_eq!(client.read_message(), Ok(TcpMessage::Connected));
 
         drop(client);
 
-        handle.join().expect("Unable to join server thread");
+        handler.join().expect("Unable to join server thread");
     }
 
     #[test]
     fn test_connection_with_credentials() {
         let addr            = find_available_addr();
         let collection_name = random_collection_name();
+        let credentials     = Credentials::new("username", "password");
 
-        let handle     = create_handler(addr, Credentials::new("username", "password"));
+        let handler    = create_handler(addr, credentials.clone());
         let mut client = create_client(addr);
 
-        assert!(client.write_message(TcpMessage::Connect(collection_name.to_owned(),
-                                                         None, None)).is_ok());
+        assert!(client.write_message(TcpMessage::Connect(collection_name.to_owned(), None, None)).is_ok());
         assert_eq!(client.read_message(), Ok(TcpMessage::Error(DatabaseError::AuthenticationError)));
 
-        assert!(client.write_message(TcpMessage::Connect(collection_name.to_owned(),
-                                                         Some("username".to_owned()), Some("password".to_owned()))).is_ok());
+        assert!(client.write_message(TcpMessage::Connect(collection_name.to_owned(), credentials.username, credentials.password)).is_ok());
         assert_eq!(client.read_message(), Ok(TcpMessage::Connected));
 
         drop(client);
 
-        handle.join().expect("Unable to join server thread");
+        handler.join().expect("Unable to join server thread");
     }
 
     #[test]
@@ -190,11 +188,10 @@ mod tests {
         let addr            = find_available_addr();
         let collection_name = random_collection_name();
 
-        let handle     = create_handler(addr, Credentials::empty());
+        let handler    = create_handler(addr, Credentials::empty());
         let mut client = create_client(addr);
 
-        assert!(client.write_message(TcpMessage::Connect(collection_name.to_owned(),
-                                                         None, None)).is_ok());
+        assert!(client.write_message(TcpMessage::Connect(collection_name.to_owned(), None, None)).is_ok());
         assert_eq!(client.read_message(), Ok(TcpMessage::Connected));
 
         let event = Event::new("data", vec!["tag1", "tag2"]).with_timestamp(1234567890);
@@ -204,22 +201,48 @@ mod tests {
 
         assert!(client.write_message(TcpMessage::Subscribe(false, 0, None, None)).is_ok());
         assert_eq!(client.read_message(), Ok(TcpMessage::Subscribed));
-        if let Ok(TcpMessage::Event(received_event)) = client.read_message() {
-            assert_eq!(received_event, event.with_id(1));
-            assert_eq!(client.read_message(), Ok(TcpMessage::EndOfEventStream));
-        } else {
-            panic!("Unable to receive event");
-        }
+
+        assert_eq!(client.read_message(), Ok(TcpMessage::Event(event.clone().with_id(1))));
+        assert_eq!(client.read_message(), Ok(TcpMessage::EndOfEventStream));
 
         drop(client);
 
-        handle.join().expect("Unable to join server thread");
+        handler.join().expect("Unable to join server thread");
+    }
+
+    #[test]
+    fn test_unsubscribe() {
+        let addr            = find_available_addr();
+        let collection_name = random_collection_name();
+
+        let handler    = create_handler(addr, Credentials::empty());
+        let mut client = create_client(addr);
+
+        assert!(client.write_message(TcpMessage::Connect(collection_name.to_owned(), None, None)).is_ok());
+        assert_eq!(client.read_message(), Ok(TcpMessage::Connected));
+
+        let event = Event::new("data", vec!["tag1", "tag2"]).with_timestamp(1234567890);
+
+        assert!(client.write_message(TcpMessage::Publish(event.clone())).is_ok());
+        assert_eq!(client.read_message(), Ok(TcpMessage::Published(1)));
+
+        assert!(client.write_message(TcpMessage::Subscribe(true, 0, None, None)).is_ok());
+        assert_eq!(client.read_message(), Ok(TcpMessage::Subscribed));
+
+        assert_eq!(client.read_message(), Ok(TcpMessage::Event(event.clone().with_id(1))));
+
+        assert!(client.write_message(TcpMessage::Unsubscribe).is_ok());
+        assert_eq!(client.read_message(), Ok(TcpMessage::EndOfEventStream));
+
+        drop(client);
+
+        handler.join().expect("Unable to join server thread");
     }
 
     #[test]
     fn test_unexpected_tcp_message() {
         let addr       = find_available_addr();
-        let handle     = create_handler(addr, Credentials::empty());
+        let handler    = create_handler(addr, Credentials::empty());
         let mut client = create_client(addr);
 
         assert!(client.write_message(TcpMessage::Subscribe(false, 0, None, None)).is_ok());
@@ -227,6 +250,6 @@ mod tests {
 
         drop(client);
 
-        handle.join().expect("Unable to join server thread");
+        handler.join().expect("Unable to join server thread");
     }
 }

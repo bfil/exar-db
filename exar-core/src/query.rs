@@ -92,24 +92,29 @@ mod tests {
         assert_eq!(query.offset, 100);
         assert_eq!(query.limit, Some(20));
         assert_eq!(query.tag, Some("tag".to_owned()));
+        assert_eq!(query.interval(), Interval::new(100, u64::max_value()));
 
         let query = Query::current();
         assert_eq!(query.live_stream, false);
         assert_eq!(query.offset, 0);
         assert_eq!(query.limit, None);
         assert_eq!(query.tag, None);
+        assert_eq!(query.interval(), Interval::new(0, u64::max_value()));
 
         let query = Query::live();
         assert_eq!(query.live_stream, true);
         assert_eq!(query.offset, 0);
         assert_eq!(query.limit, None);
         assert_eq!(query.tag, None);
+        assert_eq!(query.interval(), Interval::new(0, u64::max_value()));
 
         let query = query.offset(100);
         assert_eq!(query.offset, 100);
+        assert_eq!(query.interval(), Interval::new(100, u64::max_value()));
 
         let query = query.limit(20);
         assert_eq!(query.limit, Some(20));
+        assert_eq!(query.interval(), Interval::new(100, 120));
 
         let query = query.by_tag("tag");
         assert_eq!(query.tag, Some("tag".to_owned()));

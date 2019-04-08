@@ -83,7 +83,7 @@ mod tests {
     }
 
     #[test]
-    fn test_constructor_error() {
+    fn test_constructor_failure() {
         assert!(Collection::new(&invalid_collection_name(), &temp_collection_config()).is_err());
     }
 
@@ -100,12 +100,10 @@ mod tests {
         let expected_event           = test_event.clone().with_id(1).with_timestamp(retrieved_events[0].timestamp);
 
         assert_eq!(retrieved_events, vec![expected_event]);
-
-        assert!(collection.delete().is_ok());
     }
 
     #[test]
-    fn test_drop() {
+    fn test_delete() {
         let collection = temp_collection();
 
         assert!(collection.delete().is_ok());

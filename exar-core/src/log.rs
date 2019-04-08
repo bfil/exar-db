@@ -8,7 +8,7 @@ use std::io::{BufReader, BufWriter, BufRead};
 /// Exar DB's log file abstraction.
 ///
 /// It offers helper methods to manage a log file and its index.
-/// It also allows to open readers and writers for the log file.
+/// It also allows to open readers and writers for the log and index files.
 ///
 /// # Examples
 /// ```no_run
@@ -38,7 +38,7 @@ pub struct Log {
 }
 
 impl Log {
-    /// Returns a new `Log` pointing to the given path/name and using the given index granularity.
+    /// Returns a new `Log` with the given name and `DataConfig`.
     pub fn new(name: &str, config: &DataConfig) ->  DatabaseResult<Log> {
         let mut log = Log {
             path: config.path.to_owned(),

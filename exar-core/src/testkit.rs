@@ -3,6 +3,7 @@ pub use super::*;
 pub use exar_testkit::*;
 
 use std::collections::BTreeMap;
+use std::sync::mpsc::Receiver;
 
 pub fn temp_data_config(index_granularity: u64) -> DataConfig {
     DataConfig { path: temp_dir(), index_granularity }
@@ -35,4 +36,18 @@ pub fn temp_collection() -> Collection {
 
 pub fn temp_database() -> Database {
     Database::new(temp_database_config())
+}
+
+pub fn assert_event_received(receiver: &Receiver<EventStreamMessage>, event_id: u64) {
+    match receiver.recv().expect("Unable to receive event") {
+        EventStreamMessage::Event(event) => assert_eq!(event.id, event_id),
+        EventStreamMessage::End          => panic!("Unexpected end of event stream")
+    };
+}
+
+pub fn assert_end_of_event_stream_received(receiver: &Receiver<EventStreamMessage>) {
+    match receiver.recv().expect("Unable to receive event") {
+        EventStreamMessage::Event(event) => panic!("Unexpected event: {}", event),
+        EventStreamMessage::End          => ()
+    };
 }

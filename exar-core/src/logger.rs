@@ -17,8 +17,8 @@ use std::io::{BufWriter, Write};
 /// let scanner   = Scanner::new(&log, &publisher, &ScannerConfig::default()).expect("Unable to create scanner");
 /// let event     = Event::new("data", vec!["tag1", "tag2"]);
 ///
-/// let mut logger = Logger::new(&log, &publisher, &scanner).unwrap();
-/// let event_id   = logger.log(event).unwrap();
+/// let mut logger = Logger::new(&log, &publisher, &scanner).expect("Unable to create logger");
+/// let event_id   = logger.log(event).expect("Unable to log event");
 /// # }
 /// ```
 #[derive(Debug)]
@@ -91,12 +91,13 @@ mod tests {
     use indexed_line_reader::*;
 
     use std::io::{BufRead, BufReader};
+    use std::sync::mpsc::channel;
 
     fn setup() -> (Log, Publisher, Scanner, Event) {
-        let log         = temp_log(10);
-        let publisher   = Publisher::new(&PublisherConfig::default()).expect("Unable to create publisher");
-        let scanner     = Scanner::new(&log, &publisher, &ScannerConfig::default()).expect("Unable to create scanner");
-        let event       = Event::new("data", vec!["tag1", "tag2"]);
+        let log       = temp_log(10);
+        let publisher = Publisher::new(&PublisherConfig::default()).expect("Unable to create publisher");
+        let scanner   = Scanner::new(&log, &publisher, &ScannerConfig::default()).expect("Unable to create scanner");
+        let event     = Event::new("data", vec!["tag1", "tag2"]);
         (log, publisher, scanner, event)
     }
 
@@ -117,7 +118,7 @@ mod tests {
 
         assert_eq!(logger.log(event).expect("Unable to log event"), 1);
 
-        drop(logger);
+        assert!(logger.flush().is_ok());
 
         let log    = Log::new(&collection_name, &data_config).expect("Unable to create log");
         let logger = Logger::new(&log, &publisher, &scanner).expect("Unable to create logger");
@@ -142,7 +143,7 @@ mod tests {
         assert_eq!(logger.offset, 3);
         assert_eq!(logger.bytes_written, 62);
 
-        drop(logger);
+        assert!(logger.flush().is_ok());
 
         let reader = log.open_reader().expect("Unable to open reader");
 
@@ -174,26 +175,54 @@ mod tests {
     }
 
     #[test]
+    fn test_events_publishing() {
+        let (log, publisher, scanner, event) = setup();
+
+        let mut logger         = Logger::new(&log, &publisher, &scanner).expect("Unable to create logger");
+        let (sender, receiver) = channel();
+        let event_emitter      = EventEmitter::new(sender, Query::live());
+
+        assert_eq!(logger.log(event.clone()), Ok(1));
+
+        publisher.sender().register_event_emitter(event_emitter).expect("Unable to register event emitter with the publisher");
+
+        match receiver.recv().expect("Unable to receive event") {
+            EventStreamMessage::Event(event) => assert_eq!(event.id, 1),
+            EventStreamMessage::End          => panic!("Unexpected end of event stream")
+        };
+
+        assert_eq!(logger.log(event.clone()), Ok(2));
+
+        match receiver.recv().expect("Unable to receive event") {
+            EventStreamMessage::Event(event) => assert_eq!(event.id, 2),
+            EventStreamMessage::End          => panic!("Unexpected end of event stream")
+        };
+    }
+
+    #[test]
     fn test_index_updates() {
         let (log, publisher, scanner, event) = setup();
 
         let mut logger = Logger::new(&log, &publisher, &scanner).expect("Unable to create logger");
+
+        let (sender, receiver) = channel();
+        logger.scanner_sender = ScannerSender::new(MultiSender::new(vec![sender], RoutingStrategy::default()));
 
         for i in 0..100 {
             assert_eq!(logger.log(event.clone()), Ok(i+1));
         }
 
         let mut expected_index = LinesIndex::new(10);
-        expected_index.insert( 10,  279);
-        expected_index.insert( 20,  599);
-        expected_index.insert( 30,  919);
-        expected_index.insert( 40, 1239);
-        expected_index.insert( 50, 1559);
-        expected_index.insert( 60, 1879);
-        expected_index.insert( 70, 2199);
-        expected_index.insert( 80, 2519);
-        expected_index.insert( 90, 2839);
-        expected_index.insert(100, 3159);
+
+        for i in 0..10 {
+            let offset     = 10  + (i * 10);
+            let byte_count = 279 + (i * 320);
+            expected_index.insert( offset,  byte_count);
+            match receiver.recv().expect("Unable to receive event") {
+                ScannerMessage::UpdateIndex(index) => assert_eq!(index, expected_index),
+                _                                  => panic!("Unexpected scanner message")
+            };
+        }
 
         assert_eq!(logger.log.clone_index(), expected_index);
 

@@ -57,7 +57,7 @@ impl Default for DatabaseConfig {
 
 impl DatabaseConfig {
     /// Returns the configuration for a given collection
-    /// by applying overrides to the base DatabaseConfig.
+    /// by applying overrides to the base `DatabaseConfig`.
     pub fn collection_config(&self, collection_name: &str) -> CollectionConfig {
         match self.collections.get(collection_name) {
             Some(collection_config) => {
@@ -112,7 +112,7 @@ impl DatabaseConfig {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct DataConfig {
-    /// Path to the logs directory.
+    /// Path to the data directory.
     pub path: String,
     /// Granularity of the log lines index (used by `IndexedLineReader`).
     pub index_granularity: u64
@@ -145,7 +145,7 @@ impl Default for DataConfig {
 /// ```
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PartialDataConfig {
-    /// Path to the logs directory.
+    /// Path to the data directory.
     pub path: Option<String>,
     /// Granularity of the log lines index (used by `IndexedLineReader`).
     pub index_granularity: Option<u64>

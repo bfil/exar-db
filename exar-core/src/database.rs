@@ -85,6 +85,9 @@ impl Database {
 mod tests {
     use testkit::*;
 
+    use std::fs::OpenOptions;
+    use std::io::{BufRead, BufReader};
+
     #[test]
     fn test_constructor() {
         let db = temp_database();
@@ -94,8 +97,7 @@ mod tests {
 
     #[test]
     fn test_collection() {
-        let mut db = temp_database();
-
+        let mut db              = temp_database();
         let ref collection_name = random_collection_name();
         assert!(db.collection(collection_name).is_ok());
         assert!(db.collections.contains_key(collection_name));
@@ -103,10 +105,10 @@ mod tests {
     }
 
     #[test]
-    fn test_connection_failure() {
-        let mut db = temp_database();
-
+    fn test_collection_failure() {
+        let mut db              = temp_database();
         let ref collection_name = invalid_collection_name();
+
         assert!(db.collection(collection_name).is_err());
         assert!(!db.collections.contains_key(collection_name));
         assert!(db.delete_collection(collection_name).is_err());
@@ -114,9 +116,9 @@ mod tests {
 
     #[test]
     fn test_collection_management() {
-        let mut db = temp_database();
-
+        let mut db              = temp_database();
         let ref collection_name = random_collection_name();
+
         assert!(!db.collections.contains_key(collection_name));
         assert!(db.collection(collection_name).is_ok());
         assert!(db.collections.contains_key(collection_name));
@@ -129,5 +131,33 @@ mod tests {
         assert!(db.delete_collection(collection_name).is_ok());
         assert!(!db.collections.contains_key(collection_name));
         assert_eq!(db.collections.len(), 0);
+
+        let collection = db.collection(collection_name).expect("Unable to get database collection");
+
+        assert!(db.collections.contains_key(collection_name));
+        assert_eq!(db.collections.len(), 1);
+
+        assert!(db.collections.get(collection_name).unwrap().upgrade().is_some());
+        drop(collection);
+        assert!(db.collections.get(collection_name).unwrap().upgrade().is_none());
+    }
+
+    #[test]
+    fn test_flush_collections() {
+        let mut db                   = temp_database();
+        let ref collection_name      = random_collection_name();
+        let event                    = Event::new("data", vec!["tag1", "tag2"]);
+        let collection               = db.collection(collection_name).expect("Unable to get database collection");
+        let mut collection           = collection.lock().unwrap();
+        let collection_log_file_path = format!("{}/{}.log", db.config.data.path, collection_name);
+        let collection_log_file      = OpenOptions::new().read(true).open(&collection_log_file_path)
+                                                                    .expect("Unable to open collection's log file");
+
+        assert!(collection.publish(event).is_ok());
+        drop(collection);
+
+        assert_eq!(BufReader::new(&collection_log_file).lines().collect::<Vec<_>>().len(), 0);
+        db.flush_collections();
+        assert_eq!(BufReader::new(&collection_log_file).lines().collect::<Vec<_>>().len(), 1);
     }
 }

@@ -1,7 +1,7 @@
 use super::*;
 
 use std::collections::VecDeque;
-use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::mpsc::{Receiver, Sender};
 
 /// Exar DB's events' publisher.
 ///
@@ -31,18 +31,21 @@ use std::sync::mpsc::{channel, Receiver, Sender};
 /// ```
 #[derive(Debug)]
 pub struct Publisher {
-    threads: ControllableThreads<PublisherSender, PublisherThread>
+    executor: SingleThreadedExecutor<PublisherSender, PublisherThread>
 }
 
 impl Publisher {
     pub fn new(config: &PublisherConfig) -> DatabaseResult<Self> {
-        let (sender, receiver) = channel();
-        let threads = ControllableThreads::new(PublisherSender::new(sender), vec![PublisherThread::new(receiver, config)])?;
-        Ok(Publisher { threads })
+        Ok(Publisher {
+            executor: SingleThreadedExecutor::new(
+                |sender| PublisherSender::new(sender),
+                |receiver| Ok(PublisherThread::new(receiver, config))
+            )?
+        })
     }
 
     pub fn sender(&self) -> &PublisherSender {
-        self.threads.sender()
+        self.executor.sender()
     }
 }
 
@@ -97,8 +100,7 @@ impl PublisherThread {
     }
 }
 
-impl Run<Self> for PublisherThread {
-
+impl Run for PublisherThread {
     fn run(mut self) -> Self {
         'main: loop {
             while let Ok(message) = self.receiver.recv() {

@@ -206,7 +206,7 @@ mod tests {
         let mut logger = Logger::new(&log, &publisher, &scanner).expect("Unable to create logger");
 
         let (sender, receiver) = channel();
-        logger.scanner_sender = ScannerSender::new(MultiSender::new(vec![sender], RoutingStrategy::default()));
+        logger.scanner_sender = ScannerSender::new(Router::new(vec![sender], RoutingStrategy::default()));
 
         for i in 0..100 {
             assert_eq!(logger.log(event.clone()), Ok(i+1));

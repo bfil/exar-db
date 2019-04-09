@@ -3,7 +3,7 @@ use super::*;
 use indexed_line_reader::*;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Seek, SeekFrom};
-use std::sync::mpsc::{channel, Receiver};
+use std::sync::mpsc::Receiver;
 
 /// Exar DB's log file scanner.
 ///
@@ -34,53 +34,51 @@ use std::sync::mpsc::{channel, Receiver};
 /// ```
 #[derive(Debug)]
 pub struct Scanner {
-    threads: ControllableThreads<ScannerSender, ScannerThread>
+    executor: MultiThreadedExecutor<ScannerSender, ScannerThread>
 }
 
 impl Scanner {
     /// Creates a new log scanner using the given `IndexedLineReader` and a `Publisher`.
     pub fn new(log: &Log, publisher: &Publisher, config: &ScannerConfig) -> DatabaseResult<Self> {
-        let mut senders = vec![];
-        let mut threads = vec![];
-        for _ in 0..config.threads {
-            let (sender, receiver) = channel();
-            senders.push(sender);
-            let line_reader = log.open_line_reader_with_index()?;
-            let publisher_sender = publisher.sender().clone();
-            threads.push(ScannerThread::new(line_reader, receiver, publisher_sender))
-        }
-        let scanner_sender = ScannerSender::new(MultiSender::new(senders, config.routing_strategy.clone()));
-        let threads = ControllableThreads::new(scanner_sender, threads)?;
-        Ok(Scanner { threads })
+        Ok(Scanner {
+            executor: MultiThreadedExecutor::new(config.threads,
+                |senders| ScannerSender::new(Router::new(senders, config.routing_strategy.clone())),
+                |receiver| {
+                    let line_reader      = log.open_line_reader_with_index()?;
+                    let publisher_sender = publisher.sender().clone();
+                    Ok(ScannerThread::new(line_reader, receiver, publisher_sender))
+                }
+            )?
+        })
     }
 
     pub fn sender(&self) -> &ScannerSender {
-        self.threads.sender()
+        self.executor.sender()
     }
 }
 
 #[derive(Clone, Debug)]
 pub struct ScannerSender {
-    sender: MultiSender<ScannerMessage>
+    router: Router<ScannerMessage>
 }
 
 impl ScannerSender {
-    pub fn new(sender: MultiSender<ScannerMessage>) -> Self {
-        ScannerSender { sender }
+    pub fn new(router: Router<ScannerMessage>) -> Self {
+        ScannerSender { router }
     }
 
     pub fn register_event_emitter(&self, event_emitter: EventEmitter) -> DatabaseResult<()> {
-        self.sender.route_message(ScannerMessage::RegisterEventEmitter(event_emitter))
+        self.router.route_message(ScannerMessage::RegisterEventEmitter(event_emitter))
     }
 
     pub fn update_index(&self, index: LinesIndex) -> DatabaseResult<()> {
-        self.sender.broadcast_message(ScannerMessage::UpdateIndex(index))
+        self.router.broadcast_message(ScannerMessage::UpdateIndex(index))
     }
 }
 
 impl Stop for ScannerSender {
     fn stop(&self) -> DatabaseResult<()> {
-        self.sender.broadcast_message(ScannerMessage::Stop)
+        self.router.broadcast_message(ScannerMessage::Stop)
     }
 }
 
@@ -140,7 +138,7 @@ impl ScannerThread {
     }
 }
 
-impl Run<Self> for ScannerThread {
+impl Run for ScannerThread {
     fn run(mut self) -> Self {
         'main: loop {
             while let Ok(message) = self.receiver.recv() {

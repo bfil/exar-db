@@ -1,28 +1,206 @@
 use super::*;
 
-use rand;
-use rand::Rng;
-use std::sync::{Arc, Mutex};
-use std::sync::mpsc::Sender;
+use std::sync::mpsc::{channel, Sender, Receiver};
 use std::thread;
 use std::thread::JoinHandle;
 
+/// A single-threaded executor.
+///
+/// It runs a background thread that can be interacted with via messaging to run custom tasks.
+///
+/// # Examples
+/// ```no_run
+/// extern crate exar;
+///
+/// # fn main() {
+/// use exar::*;
+/// use std::sync::mpsc::{Sender, Receiver};
+///
+/// struct TestThread {
+///     receiver: Receiver<String>
+/// }
+///
+/// impl Run for TestThread {
+///     fn run(mut self) -> Self {
+///         'main: loop {
+///             while let Ok(message) = self.receiver.recv() {
+///                 match message.as_ref() {
+///                     "stop"  => break 'main,
+///                     message => println!("Received: {}", message)
+///                 }
+///             }
+///         };
+///         self
+///     }
+/// }
+///
+/// struct TestSender {
+///     sender: Sender<String>
+/// }
+///
+/// impl TestSender {
+///     fn send(&self, message: String) -> DatabaseResult<()> {
+///         self.sender.send_message(message)
+///     }
+/// }
+///
+/// impl Stop for TestSender {
+///     fn stop(&self) -> DatabaseResult<()> {
+///         self.sender.send_message("stop".to_owned())
+///     }
+/// }
+///
+/// let mut executor = SingleThreadedExecutor::new(
+///     |sender|   TestSender { sender },
+///     |receiver| Ok(TestThread { receiver })
+/// ).expect("Unable to create executor");
+///
+/// executor.sender().send("a".to_owned()).expect("Unable to send message");
+/// executor.sender().send("b".to_owned()).expect("Unable to send message");
+///
+/// drop(executor);
+/// # }
+/// ```
 #[derive(Debug)]
-pub struct ControllableThreads<S: Stop, T: Run<T> + Send + 'static> {
+pub struct SingleThreadedExecutor<S: Stop, T: Run + Send + 'static> {
+    sender: S,
+    thread: Option<T>,
+    join_handle: Option<JoinHandle<T>>
+}
+
+impl<S: Stop, T: Run + Send + 'static> SingleThreadedExecutor<S, T> {
+    pub fn new<M, FS, FR>(fs: FS, fr: FR) -> DatabaseResult<Self>
+        where FS: Fn(Sender<M>) -> S, FR: Fn(Receiver<M>) -> DatabaseResult<T> {
+        let (sender, receiver) = channel();
+        let sender = fs(sender);
+        let thread = fr(receiver)?;
+        let mut executor = SingleThreadedExecutor {
+            sender, thread: Some(thread), join_handle: None
+        };
+        match executor.start() {
+            Ok(_)    => Ok(executor),
+            Err(err) => {
+                            error!("Unable to start single-threaded executor: {}", err);
+                            Err(DatabaseError::InternalError)
+                        }
+        }
+    }
+
+    pub fn sender(&self) -> &S {
+        &self.sender
+    }
+
+    fn start(&mut self) -> DatabaseResult<()> {
+        match self.thread.take() {
+            Some(thread) => Ok(self.join_handle = Some(thread::spawn(|| thread.run()))),
+            None         => Err(DatabaseError::InternalError)
+        }
+    }
+
+    fn stop(&mut self) -> DatabaseResult<()> {
+        match self.join_handle.take() {
+            Some(join_handle) => {
+                                     self.sender.stop()?;
+                                     let thread = join_handle.join().map_err(|_| DatabaseError::InternalError)?;
+                                     Ok(self.thread = Some(thread))
+                                 },
+            None              => Err(DatabaseError::InternalError)
+        }
+    }
+}
+
+impl<S: Stop, T: Run + Send + 'static> Drop for SingleThreadedExecutor<S, T> {
+    fn drop(&mut self) {
+        match self.stop() {
+            Ok(_)    => (),
+            Err(err) => error!("Unable to stop single-threaded executor: {}", err)
+        };
+    }
+}
+
+/// A multi-threaded executor.
+///
+/// It runs a background thread that can be interacted with via messaging to run custom tasks.
+///
+/// # Examples
+/// ```no_run
+/// extern crate exar;
+///
+/// # fn main() {
+/// use exar::*;
+/// use std::sync::mpsc::{Sender, Receiver};
+///
+/// struct TestThread {
+///     receiver: Receiver<String>
+/// }
+///
+/// impl Run for TestThread {
+///     fn run(mut self) -> Self {
+///         'main: loop {
+///             while let Ok(message) = self.receiver.recv() {
+///                 match message.as_ref() {
+///                     "stop"  => break 'main,
+///                     message => println!("Received: {}", message)
+///                 }
+///             }
+///         };
+///         self
+///     }
+/// }
+///
+/// struct TestRouter {
+///     router: Router<String>
+/// }
+///
+/// impl TestRouter {
+///     fn route(&self, message: String) -> DatabaseResult<()> {
+///         self.router.route_message(message)
+///     }
+/// }
+///
+/// impl Stop for TestRouter {
+///     fn stop(&self) -> DatabaseResult<()> {
+///         self.router.broadcast_message("stop".to_owned())
+///     }
+/// }
+///
+/// let mut executor = MultiThreadedExecutor::new(2,
+///     |senders|  TestRouter { router: Router::new(senders, RoutingStrategy::default()) },
+///     |receiver| Ok(TestThread { receiver })
+/// ).expect("Unable to create executor");
+///
+/// executor.sender().route("a".to_owned()).expect("Unable to send message");
+/// executor.sender().route("b".to_owned()).expect("Unable to send message");
+///
+/// drop(executor);
+/// # }
+/// ```
+#[derive(Debug)]
+pub struct MultiThreadedExecutor<S: Stop, T: Run + Send + 'static> {
     sender: S,
     threads: Vec<T>,
     join_handles: Vec<JoinHandle<T>>
 }
 
-impl<S: Stop, T: Run<T> + Send + 'static> ControllableThreads<S, T> {
-    pub fn new(sender: S, threads: Vec<T>) -> DatabaseResult<Self> {
-        let mut threads = ControllableThreads { sender, threads, join_handles: vec![] };
-        match threads.start() {
-            Ok(_)    => Ok(threads),
+impl<S: Stop, T: Run + Send + 'static> MultiThreadedExecutor<S, T> {
+    pub fn new<M, FS, FR>(number_of_threads: u8, fs: FS, fr: FR) -> DatabaseResult<Self>
+        where FS: Fn(Vec<Sender<M>>) -> S, FR: Fn(Receiver<M>) -> DatabaseResult<T> {
+        let mut senders = vec![];
+        let mut threads = vec![];
+        for _ in 0..number_of_threads {
+            let (sender, receiver) = channel();
+            senders.push(sender);
+            let thread = fr(receiver)?;
+            threads.push(thread);
+        }
+        let sender = fs(senders);
+        let mut executor = MultiThreadedExecutor { sender, threads, join_handles: vec![] };
+        match executor.start() {
+            Ok(_)    => Ok(executor),
             Err(err) => {
-                            error!("Unable to start controllable threads: {}", err);
-                            Err(DatabaseError::InternalError)
-                        }
+                error!("Unable to start multi-threaded executor: {}", err);
+                Err(DatabaseError::InternalError)
+            }
         }
     }
 
@@ -56,104 +234,35 @@ impl<S: Stop, T: Run<T> + Send + 'static> ControllableThreads<S, T> {
     }
 }
 
-impl<S: Stop, T: Run<T> + Send + 'static> Drop for ControllableThreads<S, T> {
+impl<S: Stop, T: Run + Send + 'static> Drop for MultiThreadedExecutor<S, T> {
     fn drop(&mut self) {
         match self.stop() {
             Ok(_)    => (),
-            Err(err) => error!("Unable to stop controllable threads: {}", err)
+            Err(err) => error!("Unable to stop multi-threaded executor: {}", err)
         };
     }
 }
 
-pub trait Run<T> {
-    fn run(self) -> T;
+pub trait Run {
+    fn run(self) -> Self;
 }
 
 pub trait Stop {
     fn stop(&self) -> DatabaseResult<()>;
 }
 
-pub trait SendMessage<T> {
-    fn send_message(&self, message: T) -> DatabaseResult<()>;
-}
-
-impl<T> SendMessage<T> for Sender<T> {
-    fn send_message(&self, message: T) -> DatabaseResult<()> {
-        self.send(message).map_err(|_| DatabaseError::InternalError)
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct MultiSender<T> {
-    senders: Vec<Sender<T>>,
-    routing_strategy: Arc<Mutex<RoutingStrategy>>
-}
-
-impl<T> MultiSender<T> {
-    pub fn new(senders: Vec<Sender<T>>, routing_strategy: RoutingStrategy) -> Self {
-        MultiSender { senders, routing_strategy: Arc::new(Mutex::new(routing_strategy)) }
-    }
-
-    fn update_routing_strategy(&self, routing_strategy: RoutingStrategy) {
-        *self.routing_strategy.lock().unwrap() = routing_strategy;
-    }
-}
-
-pub trait BroadcastMessage<T> {
-    fn broadcast_message(&self, message: T) -> DatabaseResult<()>;
-}
-
-impl<T: Clone> BroadcastMessage<T> for MultiSender<T> {
-    fn broadcast_message(&self, message: T) -> DatabaseResult<()> {
-        for sender in &*self.senders {
-            sender.send_message(message.clone())?;
-        }
-        Ok(())
-    }
-}
-
-pub trait RouteMessage<T> {
-    fn route_message(&self, message: T) -> DatabaseResult<()>;
-}
-
-impl<T: Clone> RouteMessage<T> for MultiSender<T> {
-    fn route_message(&self, message: T) -> DatabaseResult<()> {
-        let routing_strategy = self.routing_strategy.lock().unwrap().clone();
-        (match routing_strategy {
-            RoutingStrategy::Random => match rand::thread_rng().choose(&self.senders) {
-                Some(sender) => {
-                    sender.send_message(message)?;
-                    Ok(())
-                },
-                None => Err(DatabaseError::SubscriptionError)
-            },
-            RoutingStrategy::RoundRobin(index) => {
-                match self.senders.get(index) {
-                    Some(sender) => {
-                        sender.send_message(message)?;
-                        let new_index = if index + 1 < self.senders.len() { index + 1 } else { 0 };
-                        self.update_routing_strategy(RoutingStrategy::RoundRobin(new_index));
-                        Ok(())
-                    },
-                    None => Err(DatabaseError::SubscriptionError)
-                }
-            }
-        })
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use testkit::*;
 
-    use std::sync::mpsc::{channel, Sender, Receiver};
+    use std::sync::mpsc::{Sender, Receiver};
 
     struct TestThread {
         receiver: Receiver<String>,
         messages: Vec<String>
     }
 
-    impl Run<TestThread> for TestThread {
+    impl Run for TestThread {
         fn run(mut self) -> Self {
             'main: loop {
                 while let Ok(message) = self.receiver.recv() {
@@ -167,107 +276,90 @@ mod tests {
         }
     }
 
-    impl Stop for Sender<String> {
+    struct TestSender {
+        sender: Sender<String>
+    }
+
+    impl TestSender {
+        fn send(&self, message: String) -> DatabaseResult<()> {
+            self.sender.send_message(message)
+        }
+    }
+
+    impl Stop for TestSender {
         fn stop(&self) -> DatabaseResult<()> {
-            self.send("stop".to_owned()).map_err(|_| DatabaseError::InternalError)
+            self.sender.send_message("stop".to_owned())
+        }
+    }
+
+    struct TestRouter {
+        router: Router<String>
+    }
+
+    impl TestRouter {
+        fn route(&self, message: String) -> DatabaseResult<()> {
+            self.router.route_message(message)
+        }
+    }
+
+    impl Stop for TestRouter {
+        fn stop(&self) -> DatabaseResult<()> {
+            self.router.broadcast_message("stop".to_owned())
         }
     }
 
     #[test]
-    fn test_controllable_threads() {
-        let (sender, receiver)       = channel();
-        let test_thread              = TestThread { receiver, messages: vec![] };
-        let mut controllable_threads = ControllableThreads::new(sender, vec![test_thread]).expect("Unable to create controllable threads");
+    fn test_single_threaded_executor() {
+        let mut executor = SingleThreadedExecutor::new(
+            |sender|   TestSender { sender },
+            |receiver| Ok(TestThread { receiver, messages: vec![] })
+        ).expect("Unable to create executor");
 
-        assert_eq!(controllable_threads.threads.len(), 0);
-        assert_eq!(controllable_threads.join_handles.len(), 1);
+        assert!(executor.thread.is_none());
+        assert!(executor.join_handle.is_some());
 
-        assert!(controllable_threads.sender().send("a".to_owned()).is_ok());
-        assert!(controllable_threads.sender().send("b".to_owned()).is_ok());
+        assert!(executor.sender().send("a".to_owned()).is_ok());
+        assert!(executor.sender().send("b".to_owned()).is_ok());
 
-        assert!(controllable_threads.stop().is_ok());
+        assert!(executor.stop().is_ok());
 
-        assert_eq!(controllable_threads.threads.len(), 1);
-        assert_eq!(controllable_threads.join_handles.len(), 0);
+        assert!(executor.thread.is_some());
+        assert!(executor.join_handle.is_none());
 
-        let test_thread = controllable_threads.threads.get(0).expect("Unable to get test thread");
+        let test_thread = executor.thread.take().expect("Unable to get test thread");
         assert_eq!(test_thread.messages, vec!["a".to_owned(), "b".to_owned()]);
     }
 
     #[test]
-    fn test_controllable_threads_constructor_failure() {
-        let (sender, _)                   = channel();
-        let test_threads: Vec<TestThread> = vec![];
-        assert!(ControllableThreads::new(sender, test_threads).is_err());
+    fn test_multi_threaded_executor() {
+        let mut executor = MultiThreadedExecutor::new(2,
+            |senders|  TestRouter { router: Router::new(senders, RoutingStrategy::default()) },
+            |receiver| Ok(TestThread { receiver, messages: vec![] })
+        ).expect("Unable to create executor");
+
+        assert_eq!(executor.threads.len(), 0);
+        assert_eq!(executor.join_handles.len(), 2);
+
+        assert!(executor.sender().route("a".to_owned()).is_ok());
+        assert!(executor.sender().route("b".to_owned()).is_ok());
+
+        assert!(executor.stop().is_ok());
+
+        assert_eq!(executor.threads.len(), 2);
+        assert_eq!(executor.join_handles.len(), 0);
+
+        let test_thread1 = executor.threads.get(0).expect("Unable to get test thread");
+        let test_thread2 = executor.threads.get(1).expect("Unable to get test thread");
+        assert_eq!(test_thread1.messages, vec!["a".to_owned()]);
+        assert_eq!(test_thread2.messages, vec!["b".to_owned()]);
     }
 
     #[test]
-    fn test_send_message() {
-        let (sender, receiver) = channel();
-        assert!(sender.send_message("test".to_owned()).is_ok());
-        assert_eq!(receiver.recv(), Ok("test".to_owned()));
-    }
-
-    #[test]
-    fn test_route_message_round_robin() {
-        let (sender1, receiver1) = channel();
-        let (sender2, receiver2) = channel();
-
-        let multi_sender = MultiSender::new(vec![sender1, sender2], RoutingStrategy::RoundRobin(0));
-
-        assert!(multi_sender.route_message("a".to_owned()).is_ok());
-        assert!(multi_sender.route_message("b".to_owned()).is_ok());
-        assert!(multi_sender.route_message("c".to_owned()).is_ok());
-        assert!(multi_sender.route_message("d".to_owned()).is_ok());
-
-        drop(multi_sender);
-
-        let receiver1_messages: Vec<String> = receiver1.iter().collect();
-        let receiver2_messages: Vec<String> = receiver2.iter().collect();
-
-        assert_eq!(receiver1_messages, vec!["a".to_owned(), "c".to_owned()]);
-        assert_eq!(receiver2_messages, vec!["b".to_owned(), "d".to_owned()]);
-    }
-
-    #[test]
-    fn test_route_message_random() {
-        let (sender1, receiver1) = channel();
-        let (sender2, receiver2) = channel();
-
-        let multi_sender = MultiSender::new(vec![sender1, sender2], RoutingStrategy::Random);
-
-        assert!(multi_sender.route_message("a".to_owned()).is_ok());
-        assert!(multi_sender.route_message("b".to_owned()).is_ok());
-        assert!(multi_sender.route_message("c".to_owned()).is_ok());
-        assert!(multi_sender.route_message("d".to_owned()).is_ok());
-
-        drop(multi_sender);
-
-        let receiver1_messages: Vec<String> = receiver1.iter().collect();
-        let receiver2_messages: Vec<String> = receiver2.iter().collect();
-
-        let mut all_messages = [&receiver1_messages[..], &receiver2_messages[..]].concat();
-        all_messages.sort();
-
-        assert_eq!(all_messages, vec!["a".to_owned(), "b".to_owned(), "c".to_owned(), "d".to_owned()]);
-    }
-
-    #[test]
-    fn test_broadcast_message() {
-        let (sender1, receiver1) = channel();
-        let (sender2, receiver2) = channel();
-
-        let multi_sender = MultiSender::new(vec![sender1, sender2], RoutingStrategy::RoundRobin(0));
-
-        assert!(multi_sender.broadcast_message("a".to_owned()).is_ok());
-        assert!(multi_sender.broadcast_message("b".to_owned()).is_ok());
-
-        drop(multi_sender);
-
-        let receiver1_messages: Vec<String> = receiver1.iter().collect();
-        let receiver2_messages: Vec<String> = receiver2.iter().collect();
-
-        assert_eq!(receiver1_messages, vec!["a".to_owned(), "b".to_owned()]);
-        assert_eq!(receiver2_messages, vec!["a".to_owned(), "b".to_owned()]);
+    fn test_multi_threaded_executor_constructor_failure() {
+        assert!(MultiThreadedExecutor::new(0, |senders| {
+            TestRouter { router: Router::new(senders, RoutingStrategy::default()) }
+        }, |receiver| {
+            Ok(TestThread { receiver, messages: vec![] })
+        }).is_err());
     }
 }

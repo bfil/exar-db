@@ -74,6 +74,15 @@
 //!
 //! - A single field containing the string `Subscribed`.
 //!
+//! ### Unsubscribe
+//! Message used to unsubscribe from an event stream.
+//!
+//! ```text
+//! Unsubscribe
+//! ```
+//!
+//! - A single field containing the string `Unsubscribe`.
+//!
 //! ### Event
 //! Message containing an event.
 //!
@@ -112,7 +121,7 @@
 //! - The 1st field is the string `Error`.
 //! - The 2nd field is the type of the error, possible values are:
 //!   `AuthenticationError`, `ConnectionError`, `EventStreamError`, `IoError`, `ParseError`,
-//!   `SubscriptionError`, `ValidationError`.
+//!   `SubscriptionError`, `ValidationError`, `InternalError`.
 //! - The 3rd field is the sub-type of the error (optional), possible values are:
 //!   `Empty` or `Closed` if the error type is `EventStreamError`,
 //!   `ParseError` or `MissingField` if the error type is `ParseError`,

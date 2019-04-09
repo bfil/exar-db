@@ -5,6 +5,7 @@ use rand::Rng;
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc::Sender;
 
+/// A trait for sending messages.
 pub trait SendMessage<T> {
     fn send_message(&self, message: T) -> DatabaseResult<()>;
 }
@@ -15,6 +16,27 @@ impl<T> SendMessage<T> for Sender<T> {
     }
 }
 
+/// A message router.
+///
+/// It can be used to route messages to multiple channel senders.
+///
+/// # Examples
+/// ```no_run
+/// extern crate exar;
+///
+/// # fn main() {
+/// use exar::*;
+/// use std::sync::mpsc::channel;
+///
+/// let (sender1, receiver1) = channel();
+/// let (sender2, receiver2) = channel();
+///
+/// let router = Router::new(vec![sender1, sender2], RoutingStrategy::RoundRobin(0));
+///
+/// router.route_message("a".to_owned()).expect("Unable to route message");
+/// router.route_message("b".to_owned()).expect("Unable to route message");
+/// # }
+/// ```
 #[derive(Clone, Debug)]
 pub struct Router<T> {
     senders: Vec<Sender<T>>,
@@ -22,6 +44,7 @@ pub struct Router<T> {
 }
 
 impl<T> Router<T> {
+    /// Creates a new instance of a router with the given `Sender`s and `RoutingStrategy`.
     pub fn new(senders: Vec<Sender<T>>, routing_strategy: RoutingStrategy) -> Self {
         Router { senders, routing_strategy: Arc::new(Mutex::new(routing_strategy)) }
     }
@@ -31,6 +54,7 @@ impl<T> Router<T> {
     }
 }
 
+/// A trait for broadcasting messages.
 pub trait BroadcastMessage<T> {
     fn broadcast_message(&self, message: T) -> DatabaseResult<()>;
 }
@@ -44,6 +68,7 @@ impl<T: Clone> BroadcastMessage<T> for Router<T> {
     }
 }
 
+/// A trait for routing messages.
 pub trait RouteMessage<T> {
     fn route_message(&self, message: T) -> DatabaseResult<()>;
 }

@@ -35,6 +35,7 @@ pub struct Publisher {
 }
 
 impl Publisher {
+    /// Creates a new real-time event publisher using the given `PublisherConfig`.
     pub fn new(config: &PublisherConfig) -> DatabaseResult<Self> {
         Ok(Publisher {
             executor: SingleThreadedExecutor::new(
@@ -44,6 +45,7 @@ impl Publisher {
         })
     }
 
+    /// Returns a reference to the `PublisherSender`.
     pub fn sender(&self) -> &PublisherSender {
         self.executor.sender()
     }
@@ -55,14 +57,17 @@ pub struct PublisherSender {
 }
 
 impl PublisherSender {
+    /// Creates a new publisher sender to interact with the publisher thread.
     pub fn new(sender: Sender<PublisherMessage>) -> Self {
         PublisherSender { sender }
     }
 
+    /// Sends a new event to be published to the publisher thread.
     pub fn publish(&self, event: Event) -> DatabaseResult<()> {
         self.sender.send_message(PublisherMessage::PublishEvent(event))
     }
 
+    /// Registers a new event emitter with the publisher thread.
     pub fn register_event_emitter(&self, event_emitter: EventEmitter) -> DatabaseResult<()> {
         self.sender.send_message(PublisherMessage::RegisterEventEmitter(event_emitter))
     }

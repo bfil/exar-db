@@ -16,7 +16,7 @@
 //! let db = Database::new(DatabaseConfig::default());
 //!
 //! let server_config = ServerConfig::default();
-//! let server = Server::new(Arc::new(Mutex::new(db)), server_config.clone()).unwrap();
+//! let server = Server::new(Arc::new(Mutex::new(db)), server_config.clone()).expect("Unable to create server");
 //!
 //! println!("ExarDB's server running at {}", server_config.address());
 //! server.listen();

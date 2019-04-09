@@ -14,9 +14,14 @@ use std::sync::mpsc::channel;
 /// # fn main() {
 /// use exar::*;
 ///
-/// let collection_name   = "test";
-/// let collection_config = CollectionConfig::default();
-/// let collection        = Collection::new(collection_name, &collection_config).unwrap();
+/// let mut collection = Collection::new("test", &CollectionConfig::default()).expect("Unable to create the collection");
+///
+/// collection.publish(Event::new("data", vec!["tag1", "tag2"])).expect("Unable to publish event");
+///
+/// let subscription   = collection.subscribe(Query::current()).expect("Unable to subscribe");
+/// let events: Vec<_> = subscription.event_stream().take(1).collect();
+///
+/// collection.delete().expect("Unable to delete the collection");
 /// # }
 /// ```
 #[derive(Debug)]
@@ -60,7 +65,7 @@ impl Collection {
         self.log.get_name()
     }
 
-    /// Drops the collection and removes the log and index files.
+    /// Deletes the collection and removes the log and index files.
     pub fn delete(&self) -> DatabaseResult<()> {
         self.log.remove()
     }

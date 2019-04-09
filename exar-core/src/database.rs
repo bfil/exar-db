@@ -20,6 +20,13 @@ use std::sync::{Arc, Mutex, Weak};
 /// let collection_name   = "test";
 /// let shared_collection = db.collection(collection_name).expect("Unable to retrieve collection");
 /// let mut collection    = shared_collection.lock().unwrap();
+///
+/// collection.publish(Event::new("data", vec!["tag1", "tag2"])).expect("Unable to publish event");
+///
+/// let subscription   = collection.subscribe(Query::current()).expect("Unable to subscribe");
+/// let events: Vec<_> = subscription.event_stream().take(1).collect();
+///
+/// collection.delete().expect("Unable to delete the collection");
 /// # }
 /// ```
 #[derive(Clone, Debug)]
@@ -34,8 +41,8 @@ impl Database {
         Database { config, collections: HashMap::new() }
     }
 
-    /// Returns an existing collection instance with the given name wrapped into an `Arc`/`Mutex`
-    /// or a `DatabaseError` if a failure occurs, it initializes a new collection if it does not exist yet.
+    /// Returns an existing collection or creates one with the given name wrapped into an `Arc`/`Mutex`
+    /// or a `DatabaseError` if a failure occurs.
     pub fn collection(&mut self, collection_name: &str) -> DatabaseResult<Arc<Mutex<Collection>>> {
         match self.collections.entry(collection_name.to_owned()) {
             Entry::Occupied(mut entry) =>
@@ -59,7 +66,7 @@ impl Database {
         Ok(Arc::new(Mutex::new(collection)))
     }
 
-    /// Drops the collection with the given name or returns an error if a failure occurs.
+    /// Deletes the collection with the given name or returns an error if a failure occurs.
     pub fn delete_collection(&mut self, collection_name: &str) -> DatabaseResult<()> {
         let collection = self.collection(collection_name)?;
         collection.lock().unwrap().delete()?;
@@ -67,7 +74,7 @@ impl Database {
         Ok(())
     }
 
-    /// Attempts to flush buffer data to disk for all active collections.
+    /// Attempts to flush buffered data to disk for all active collections.
     pub fn flush_collections(&self) {
         for collection in self.collections.values() {
             if let Some(collection) = collection.upgrade() {

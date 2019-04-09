@@ -69,6 +69,7 @@ pub struct SingleThreadedExecutor<S: Stop, T: Run + Send + 'static> {
 }
 
 impl<S: Stop, T: Run + Send + 'static> SingleThreadedExecutor<S, T> {
+    /// Creates a new single-threaded executor.
     pub fn new<M, FS, FR>(fs: FS, fr: FR) -> DatabaseResult<Self>
         where FS: Fn(Sender<M>) -> S, FR: Fn(Receiver<M>) -> DatabaseResult<T> {
         let (sender, receiver) = channel();
@@ -86,6 +87,7 @@ impl<S: Stop, T: Run + Send + 'static> SingleThreadedExecutor<S, T> {
         }
     }
 
+    /// Returns a reference to the sender.
     pub fn sender(&self) -> &S {
         &self.sender
     }
@@ -183,6 +185,7 @@ pub struct MultiThreadedExecutor<S: Stop, T: Run + Send + 'static> {
 }
 
 impl<S: Stop, T: Run + Send + 'static> MultiThreadedExecutor<S, T> {
+    /// Creates a new multi-threaded executor.
     pub fn new<M, FS, FR>(number_of_threads: u8, fs: FS, fr: FR) -> DatabaseResult<Self>
         where FS: Fn(Vec<Sender<M>>) -> S, FR: Fn(Receiver<M>) -> DatabaseResult<T> {
         let mut senders = vec![];
@@ -204,6 +207,7 @@ impl<S: Stop, T: Run + Send + 'static> MultiThreadedExecutor<S, T> {
         }
     }
 
+    /// Returns a reference to the sender.
     pub fn sender(&self) -> &S {
         &self.sender
     }

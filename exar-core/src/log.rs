@@ -194,10 +194,12 @@ impl Log {
         self.index_granularity
     }
 
+    /// Returns the line count for the log index file.
     pub fn line_count(&self) -> u64 {
         self.index.line_count()
     }
 
+    /// Returns the byte count for the log index file.
     pub fn byte_count(&self) -> u64 {
         self.index.byte_count()
     }

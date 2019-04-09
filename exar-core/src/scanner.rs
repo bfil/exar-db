@@ -38,7 +38,7 @@ pub struct Scanner {
 }
 
 impl Scanner {
-    /// Creates a new log scanner using the given `IndexedLineReader` and a `Publisher`.
+    /// Creates a new log scanner using the given `Log`, `Publisher` and `ScannerConfig`.
     pub fn new(log: &Log, publisher: &Publisher, config: &ScannerConfig) -> DatabaseResult<Self> {
         Ok(Scanner {
             executor: MultiThreadedExecutor::new(config.threads,
@@ -52,6 +52,7 @@ impl Scanner {
         })
     }
 
+    /// Returns a reference to the `ScannerSender`.
     pub fn sender(&self) -> &ScannerSender {
         self.executor.sender()
     }
@@ -63,14 +64,17 @@ pub struct ScannerSender {
 }
 
 impl ScannerSender {
+    /// Creates a new scanner sender to interact with the scanner threads.
     pub fn new(router: Router<ScannerMessage>) -> Self {
         ScannerSender { router }
     }
 
+    /// Registers a new event emitter with one of the publisher threads.
     pub fn register_event_emitter(&self, event_emitter: EventEmitter) -> DatabaseResult<()> {
         self.router.route_message(ScannerMessage::RegisterEventEmitter(event_emitter))
     }
 
+    /// Updates the scanner threads' line readers' index.
     pub fn update_index(&self, index: LinesIndex) -> DatabaseResult<()> {
         self.router.broadcast_message(ScannerMessage::UpdateIndex(index))
     }

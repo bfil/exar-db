@@ -23,7 +23,7 @@ use std::thread;
 /// let db = Database::new(DatabaseConfig::default());
 /// let config = ServerConfig::default();
 ///
-/// let mut server = Server::new(Arc::new(Mutex::new(db)), config).unwrap();
+/// let mut server = Server::new(Arc::new(Mutex::new(db)), config).expect("Unable to create server");
 /// server.listen();
 /// # }
 /// ```

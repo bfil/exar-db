@@ -14,10 +14,8 @@ use std::sync::{Arc, Mutex};
 /// use exar_server::*;
 /// use std::sync::{Arc, Mutex};
 ///
-/// let collection_name   = "test";
-/// let collection_config = CollectionConfig::default();
-/// let collection        = Collection::new(collection_name, &collection_config).unwrap();
-/// let connection        = Connection::new(Arc::new(Mutex::new(collection)));
+/// let collection = Collection::new("test", &CollectionConfig::default()).expect("Unable to create collection");
+/// let connection = Connection::new(Arc::new(Mutex::new(collection)));
 /// # }
 /// ```
 #[derive(Clone, Debug)]

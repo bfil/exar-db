@@ -58,7 +58,7 @@ mod tests {
             scanner = { threads = 1, routing_strategy = "Random" }
 
             [database.collections.test]
-            data = { path = "/other/path/to/logs", index_granularity = 10000 }
+            data = { path = "/other/path/to/logs", index_granularity = 10000, flush_mode = "FixedSize", buffer_size = 10240 }
             scanner = { threads = 3, routing_strategy = "RoundRobin" }
             publisher = { buffer_size = 10000 }
 
@@ -77,6 +77,8 @@ mod tests {
                 data: DataConfig {
                     path: "/path/to/logs".to_owned(),
                     index_granularity: 100000,
+                    flush_mode: FlushMode::Line,
+                    buffer_size: None
                 },
                 scanner: ScannerConfig {
                     routing_strategy: RoutingStrategy::Random,
@@ -98,7 +100,9 @@ mod tests {
         expected_config.database.collections.insert("test".to_owned(), PartialCollectionConfig {
             data: Some(PartialDataConfig {
                 path: Some("/other/path/to/logs".to_owned()),
-                index_granularity: Some(10000)
+                index_granularity: Some(10000),
+                flush_mode: Some(FlushMode::FixedSize),
+                buffer_size: Some(10 * 1024)
             }),
             scanner: Some(PartialScannerConfig {
                 routing_strategy: Some(RoutingStrategy::RoundRobin(0)),

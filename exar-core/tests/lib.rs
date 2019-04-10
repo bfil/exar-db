@@ -12,7 +12,12 @@ use std::collections::BTreeMap;
 #[test]
 fn integration_test() {
     let mut db = Database::new(DatabaseConfig {
-        data: DataConfig { path: temp_dir(), index_granularity: DEFAULT_INDEX_GRANULARITY },
+        data: DataConfig {
+            path: temp_dir(),
+            index_granularity: DEFAULT_INDEX_GRANULARITY,
+            flush_mode: FlushMode::FixedSize,
+            buffer_size: None
+        },
         scanner: ScannerConfig::default(),
         publisher: PublisherConfig::default(),
         collections: BTreeMap::new()

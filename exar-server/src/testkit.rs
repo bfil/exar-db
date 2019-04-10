@@ -12,7 +12,12 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 
 pub fn temp_data_config(index_granularity: u64) -> DataConfig {
-    DataConfig { path: temp_dir(), index_granularity }
+    DataConfig {
+        path: temp_dir(),
+        index_granularity,
+        flush_mode: FlushMode::FixedSize,
+        buffer_size: None
+    }
 }
 
 pub fn temp_database_config() -> DatabaseConfig {

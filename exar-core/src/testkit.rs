@@ -6,7 +6,12 @@ use std::collections::BTreeMap;
 use std::sync::mpsc::Receiver;
 
 pub fn temp_data_config(index_granularity: u64) -> DataConfig {
-    DataConfig { path: temp_dir(), index_granularity }
+    DataConfig {
+        path: temp_dir(),
+        index_granularity,
+        flush_mode: FlushMode::FixedSize,
+        buffer_size: None
+    }
 }
 
 pub fn temp_collection_config() -> CollectionConfig {

@@ -19,6 +19,8 @@ pub const DEFAULT_INDEX_GRANULARITY: u64 = 100000;
 ///     data: DataConfig {
 ///         path: "/path/to/logs".to_owned(),
 ///         index_granularity: 100000,
+///         flush_mode: FlushMode::default(),
+///         buffer_size: None
 ///     },
 ///     scanner: ScannerConfig {
 ///         routing_strategy: RoutingStrategy::default(),
@@ -66,7 +68,9 @@ impl DatabaseConfig {
                     data: match config.data {
                         Some(data_config) => DataConfig {
                             path: data_config.path.unwrap_or_else(|| self.data.path.to_owned()),
-                            index_granularity: data_config.index_granularity.unwrap_or(self.data.index_granularity)
+                            index_granularity: data_config.index_granularity.unwrap_or(self.data.index_granularity),
+                            flush_mode: data_config.flush_mode.unwrap_or_else(|| self.data.flush_mode.clone()),
+                            buffer_size: data_config.buffer_size.or(self.data.buffer_size)
                         },
                         None => self.data.clone()
                     },
@@ -105,7 +109,9 @@ impl DatabaseConfig {
 ///
 /// let config = DataConfig {
 ///     path: "".to_owned(),
-///     index_granularity: 100000
+///     index_granularity: 100000,
+///     flush_mode: FlushMode::default(),
+///     buffer_size: None
 /// };
 /// # }
 /// ```
@@ -115,14 +121,20 @@ pub struct DataConfig {
     /// Path to the data directory.
     pub path: String,
     /// Granularity of the log lines index (used by `IndexedLineReader`).
-    pub index_granularity: u64
+    pub index_granularity: u64,
+    /// Log writer flush mode.
+    pub flush_mode: FlushMode,
+    /// Log writer buffer size.
+    pub buffer_size: Option<usize>
 }
 
 impl Default for DataConfig {
     fn default() -> Self {
         DataConfig {
             path: "".to_owned(),
-            index_granularity: DEFAULT_INDEX_GRANULARITY
+            index_granularity: DEFAULT_INDEX_GRANULARITY,
+            flush_mode: FlushMode::Line,
+            buffer_size: None
         }
     }
 }
@@ -139,7 +151,9 @@ impl Default for DataConfig {
 ///
 /// let config = PartialDataConfig {
 ///     path: Some("test".to_owned()),
-///     index_granularity: Some(1000)
+///     index_granularity: Some(1000),
+///     flush_mode: Some(FlushMode::FixedSize),
+///     buffer_size: Some(10 * 1024)
 /// };
 /// # }
 /// ```
@@ -148,7 +162,11 @@ pub struct PartialDataConfig {
     /// Path to the data directory.
     pub path: Option<String>,
     /// Granularity of the log lines index (used by `IndexedLineReader`).
-    pub index_granularity: Option<u64>
+    pub index_granularity: Option<u64>,
+    /// Log writer flush mode.
+    pub flush_mode: Option<FlushMode>,
+    /// Log writer buffer size.
+    pub buffer_size: Option<usize>
 }
 
 /// Exar DB's scanners configuration.
@@ -270,7 +288,9 @@ pub struct PartialPublisherConfig {
 /// let config = CollectionConfig {
 ///     data: DataConfig {
 ///         path: "/path/to/logs".to_owned(),
-///         index_granularity: 100000
+///         index_granularity: 100000,
+///         flush_mode: FlushMode::default(),
+///         buffer_size: None
 ///     },
 ///     scanner: ScannerConfig {
 ///         routing_strategy: RoutingStrategy::default(),
@@ -318,6 +338,8 @@ impl Default for CollectionConfig {
 ///     data: Some(PartialDataConfig {
 ///         path: Some("/path/to/logs".to_owned()),
 ///         index_granularity: Some(100000),
+///         flush_mode: Some(FlushMode::FixedSize),
+///         buffer_size: Some(10 * 1024)
 ///     }),
 ///     scanner: Some(PartialScannerConfig {
 ///         routing_strategy: Some(RoutingStrategy::default()),
@@ -356,7 +378,9 @@ mod tests {
         db_config.collections.insert("test".to_owned(), PartialCollectionConfig {
             data: Some(PartialDataConfig {
                 path: Some("test".to_owned()),
-                index_granularity: Some(1000)
+                index_granularity: Some(1000),
+                flush_mode: Some(FlushMode::FixedSize),
+                buffer_size: Some(10 * 1024)
             }),
             scanner: Some(PartialScannerConfig {
                 routing_strategy: Some(RoutingStrategy::Random),
@@ -371,7 +395,9 @@ mod tests {
 
         assert_eq!(collection_config.data, DataConfig {
             path: "test".to_owned(),
-            index_granularity: 1000
+            index_granularity: 1000,
+            flush_mode: FlushMode::FixedSize,
+            buffer_size: Some(10 * 1024)
         });
         assert_eq!(collection_config.scanner, ScannerConfig {
             routing_strategy: RoutingStrategy::Random,

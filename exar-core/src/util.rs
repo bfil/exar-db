@@ -1,5 +1,5 @@
 use std::io::prelude::*;
-use std::io::{BufWriter, LineWriter, Result};
+use std::io::Result;
 
 /// A trait for writing a line into a stream.
 pub trait WriteLine {
@@ -8,13 +8,7 @@ pub trait WriteLine {
     fn write_line(&mut self, line: &str) -> Result<usize>;
 }
 
-impl<T: Write> WriteLine for BufWriter<T> {
-    fn write_line(&mut self, line: &str) -> Result<usize> {
-        self.write(format!("{}\n", line).as_bytes())
-    }
-}
-
-impl<T: Write> WriteLine for LineWriter<T> {
+impl<T: Write> WriteLine for T {
     fn write_line(&mut self, line: &str) -> Result<usize> {
         self.write(format!("{}\n", line).as_bytes())
     }

@@ -3,7 +3,7 @@ use super::*;
 use indexed_line_reader::*;
 
 use std::fs::*;
-use std::io::{BufReader, BufWriter, BufRead};
+use std::io::{BufReader, BufWriter, BufRead, LineWriter, Write, Result as IoResult};
 
 /// Exar DB's log file abstraction.
 ///
@@ -34,7 +34,9 @@ pub struct Log {
     path: String,
     name: String,
     index: LinesIndex,
-    index_granularity: u64
+    index_granularity: u64,
+    flush_mode: FlushMode,
+    buffer_size: Option<usize>
 }
 
 impl Log {
@@ -44,7 +46,9 @@ impl Log {
             path: config.path.to_owned(),
             name: name.to_owned(),
             index: LinesIndex::new(config.index_granularity),
-            index_granularity: config.index_granularity
+            index_granularity: config.index_granularity,
+            flush_mode: config.flush_mode.clone(),
+            buffer_size: config.buffer_size
         };
         log.restore_index()?;
         Ok(log)
@@ -81,11 +85,12 @@ impl Log {
     }
 
     /// Returns a buffered writer for the underlying log file or a `DatabaseError` if a failure occurs.
-    pub fn open_writer(&self) -> DatabaseResult<BufWriter<File>> {
-        self.open_file(OpenOptions::new().create(true).write(true).append(true)).map(|file| BufWriter::new(file))
+    pub fn open_writer(&self) -> DatabaseResult<LogWriter<File>> {
+        self.open_file(OpenOptions::new().create(true).write(true).append(true)).map(|file| LogWriter::new(file, &self.flush_mode, &self.buffer_size))
     }
 
-    /// Removes the underlying log file and its index or a `DatabaseError` if a failure occurs.
+    /// Removes the underlying log file and its index,
+    /// it returns a `DatabaseError` if a failure occurs while deleting the files.
     pub fn remove(&self) -> DatabaseResult<()> {
         match remove_file(self.get_path()) {
             Ok(())   => match remove_file(self.get_index_path()) {
@@ -210,6 +215,54 @@ impl Log {
     }
 }
 
+#[derive(Debug)]
+pub enum LogWriter<W: Write> {
+    BufWriter(BufWriter<W>),
+    LineWriter(LineWriter<W>)
+}
+
+impl<W: Write> LogWriter<W> {
+    pub fn new(inner: W, flush_mode: &FlushMode, buffer_size: &Option<usize>) -> Self {
+        match flush_mode {
+            FlushMode::FixedSize => LogWriter::BufWriter(match *buffer_size {
+                Some(buffer_size) => BufWriter::with_capacity(buffer_size, inner),
+                None              => BufWriter::new(inner)
+            }),
+            FlushMode::Line      => LogWriter::LineWriter(match *buffer_size {
+                Some(buffer_size) => LineWriter::with_capacity(buffer_size, inner),
+                None              => LineWriter::new(inner)
+            })
+        }
+    }
+}
+
+impl<W: Write> Write for LogWriter<W> {
+    fn write(&mut self, buf: &[u8]) -> IoResult<usize> {
+        match self {
+            LogWriter::BufWriter(writer)  => writer.write(buf),
+            LogWriter::LineWriter(writer) => writer.write(buf)
+        }
+    }
+    fn flush(&mut self) -> IoResult<()> {
+        match self {
+            LogWriter::BufWriter(writer)  => writer.flush(),
+            LogWriter::LineWriter(writer) => writer.flush()
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum FlushMode {
+    FixedSize,
+    Line
+}
+
+impl Default for FlushMode {
+    fn default() -> Self {
+        FlushMode::Line
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use testkit::*;
@@ -225,7 +278,9 @@ mod tests {
             path: path.to_owned(),
             name: collection_name.to_owned(),
             index: LinesIndex::new(DEFAULT_INDEX_GRANULARITY),
-            index_granularity: DEFAULT_INDEX_GRANULARITY
+            index_granularity: DEFAULT_INDEX_GRANULARITY,
+            flush_mode: FlushMode::FixedSize,
+            buffer_size: None
         };
 
         assert_eq!(log.get_path(), format!("{}/{}.log", path, collection_name));
@@ -235,7 +290,9 @@ mod tests {
             path: "".to_owned(),
             name: collection_name.to_owned(),
             index: LinesIndex::new(DEFAULT_INDEX_GRANULARITY),
-            index_granularity: DEFAULT_INDEX_GRANULARITY
+            index_granularity: DEFAULT_INDEX_GRANULARITY,
+            flush_mode: FlushMode::FixedSize,
+            buffer_size: None
         };
 
         assert_eq!(log_with_empty_path.get_path(), format!("{}.log", collection_name));
@@ -251,7 +308,12 @@ mod tests {
     fn test_log_and_index_management() {
         let collection_name = random_collection_name();
         let path            = temp_dir();
-        let data_config = DataConfig { path: path.to_owned(), index_granularity: 10 };
+        let data_config     = DataConfig {
+            path: path.to_owned(),
+            index_granularity: 10,
+            flush_mode: FlushMode::FixedSize,
+            buffer_size: None
+        };
 
         let mut log = Log::new(&collection_name, &data_config).expect("Unable to create log");
 
@@ -315,7 +377,12 @@ mod tests {
         log.restore_index().expect("Unable to restore persisted index");
         assert_eq!(log.index, expected_index);
 
-        let data_config = DataConfig { path: path.to_owned(), index_granularity: 100 };
+        let data_config = DataConfig {
+            path: path.to_owned(),
+            index_granularity: 100,
+            flush_mode: FlushMode::FixedSize,
+            buffer_size: None
+        };
         let mut log = Log::new(&collection_name, &data_config).expect("Unable to create log");
 
         log.restore_index().expect("Unable to restore persisted index");

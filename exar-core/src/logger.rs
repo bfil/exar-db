@@ -1,7 +1,7 @@
 use super::*;
 
+use std::io::Write;
 use std::fs::File;
-use std::io::{BufWriter, Write};
 
 /// Exar DB's event logger.
 ///
@@ -23,8 +23,8 @@ use std::io::{BufWriter, Write};
 /// ```
 #[derive(Debug)]
 pub struct Logger {
-    writer: BufWriter<File>,
     log: Log,
+    writer: LogWriter<File>,
     publisher_sender: PublisherSender,
     scanner_sender: ScannerSender,
     offset: u64,
@@ -35,8 +35,8 @@ impl Logger {
     /// Creates a new logger for the given `Log` or returns a `DatabaseError` if a failure occurs.
     pub fn new(log: &Log, publisher: &Publisher, scanner: &Scanner) -> DatabaseResult<Logger> {
         Ok(Logger {
-            writer: log.open_writer()?,
             log: log.clone(),
+            writer: log.open_writer()?,
             publisher_sender: publisher.sender().clone(),
             scanner_sender: scanner.sender().clone(),
             offset: log.line_count() + 1,
@@ -112,7 +112,6 @@ mod tests {
         let log             = Log::new(&collection_name, &data_config).expect("Unable to create log");
         let mut logger      = Logger::new(&log, &publisher, &scanner).expect("Unable to create logger");
 
-        assert_eq!(logger.writer.get_ref().metadata().unwrap().is_file(), true);
         assert_eq!(logger.offset, 1);
         assert_eq!(logger.bytes_written, 0);
 
@@ -122,8 +121,7 @@ mod tests {
 
         let log    = Log::new(&collection_name, &data_config).expect("Unable to create log");
         let logger = Logger::new(&log, &publisher, &scanner).expect("Unable to create logger");
-
-        assert_eq!(logger.writer.get_ref().metadata().unwrap().is_file(), true);
+        
         assert_eq!(logger.offset, 2);
         assert_eq!(logger.bytes_written, 31);
 

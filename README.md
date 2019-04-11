@@ -2,7 +2,7 @@
 
 An event store with streaming support, it uses flat-file based collections.
 
-## Modules
+## Modules
 
 The database is split into the following modules:
 

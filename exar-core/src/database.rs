@@ -26,7 +26,7 @@ use std::sync::{Arc, Mutex, Weak};
 /// let subscription   = collection.subscribe(Query::current()).expect("Unable to subscribe");
 /// let events: Vec<_> = subscription.event_stream().take(1).collect();
 ///
-/// collection.delete().expect("Unable to delete the collection");
+/// db.drop_collection(collection_name).expect("Unable to drop the collection");
 /// # }
 /// ```
 #[derive(Clone, Debug)]
@@ -66,11 +66,10 @@ impl Database {
         Ok(Arc::new(Mutex::new(collection)))
     }
 
-    /// Deletes the collection with the given name or returns an error if a failure occurs.
-    pub fn delete_collection(&mut self, collection_name: &str) -> DatabaseResult<()> {
+    /// Drops the collection with the given name or returns an error if a failure occurs.
+    pub fn drop_collection(&mut self, collection_name: &str) -> DatabaseResult<()> {
         let collection = self.collection(collection_name)?;
-        collection.lock().unwrap().delete()?;
-        self.collections.remove(collection_name);
+        (*collection.lock().unwrap()).truncate()?;
         Ok(())
     }
 
@@ -108,7 +107,7 @@ mod tests {
         let ref collection_name = random_collection_name();
         assert!(db.collection(collection_name).is_ok());
         assert!(db.collections.contains_key(collection_name));
-        assert!(db.delete_collection(collection_name).is_ok());
+        assert!(db.drop_collection(collection_name).is_ok());
     }
 
     #[test]
@@ -118,7 +117,7 @@ mod tests {
 
         assert!(db.collection(collection_name).is_err());
         assert!(!db.collections.contains_key(collection_name));
-        assert!(db.delete_collection(collection_name).is_err());
+        assert!(db.drop_collection(collection_name).is_err());
     }
 
     #[test]
@@ -135,9 +134,9 @@ mod tests {
         assert!(db.collections.contains_key(collection_name));
         assert_eq!(db.collections.len(), 1);
 
-        assert!(db.delete_collection(collection_name).is_ok());
-        assert!(!db.collections.contains_key(collection_name));
-        assert_eq!(db.collections.len(), 0);
+        assert!(db.drop_collection(collection_name).is_ok());
+        assert!(db.collections.contains_key(collection_name));
+        assert_eq!(db.collections.len(), 1);
 
         let collection = db.collection(collection_name).expect("Unable to get database collection");
 

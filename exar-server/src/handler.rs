@@ -21,10 +21,13 @@ impl Handler {
     /// Creates a connection handler using the given TCP stream, database and credentials,
     /// or a `DatabaseError` if a failure occurs.
     pub fn new(stream: TcpStream, db: Arc<Mutex<Database>>, credentials: Credentials) -> DatabaseResult<Handler> {
-        TcpMessageStream::new(stream).and_then(|stream| {
-            let state = Arc::new(Mutex::new(State::Idle(db)));
-            Ok(Handler { credentials, stream, state })
-        })
+        let stream = TcpMessageStream::new(stream)?;
+        let state  = if credentials.username.is_some() && credentials.password.is_some() {
+                         Arc::new(Mutex::new(State::AuthenticationRequired(db)))
+                     } else {
+                         Arc::new(Mutex::new(State::Connected(db)))
+                     };
+        Ok(Handler { credentials, stream, state })
     }
 
     /// Runs the connection handler which processes one incoming TCP message at a time.
@@ -40,8 +43,8 @@ impl Handler {
             };
         }
         match *self.state.lock().unwrap() {
-            State::Subscribed(_, ref unsubscribe_handle) => unsubscribe_handle.unsubscribe(),
-            _                                            => Ok(())
+            State::Subscribed(_, _, ref unsubscribe_handle) => unsubscribe_handle.unsubscribe(),
+            _                                               => Ok(())
         }
     }
 
@@ -49,54 +52,61 @@ impl Handler {
         *self.state.lock().unwrap() = state;
     }
 
-    fn requires_authentication(&self) -> bool {
-        self.credentials.username.is_some() && self.credentials.password.is_some()
-    }
-
-    fn verify_authentication(&self, username: Option<String>, password: Option<String>) -> bool {
-        if self.requires_authentication() {
-            if username.is_some() && password.is_some() {
-                self.credentials.username == username && self.credentials.password == password
-            } else { false }
-        } else { true }
+    fn verify_authentication(&self, username: String, password: String) -> bool {
+        self.credentials.username == Some(username) && self.credentials.password == Some(password)
     }
 
     fn handle_message(&mut self, message: TcpMessage) -> DatabaseResult<()> {
         let state = self.state.lock().unwrap().clone();
         match (message, state) {
-            (TcpMessage::Connect(collection_name, given_username, given_password), State::Idle(db)) => {
+            (TcpMessage::Authenticate(given_username, given_password), State::AuthenticationRequired(db)) => {
                 if self.verify_authentication(given_username, given_password) {
-                    match db.lock().unwrap().collection(&collection_name) {
-                        Ok(collection) => {
-                            let connection = Connection::new(collection);
-                            self.update_state(State::Connected(connection));
-                            self.stream.write_message(TcpMessage::Connected)
-                        },
-                        Err(err) => Err(err)
-                    }
+                    self.update_state(State::Connected(db));
+                    self.stream.write_message(TcpMessage::Authenticated)
                 } else {
                     Err(DatabaseError::AuthenticationError)
                 }
             },
-            (TcpMessage::Publish(event), State::Connected(connection)) => {
+            (TcpMessage::Select(collection_name), State::Connected(db)) => {
+                match db.lock().unwrap().collection(&collection_name) {
+                    Ok(collection) => {
+                        let connection = Connection::new(collection);
+                        self.update_state(State::CollectionSelected(db.clone(), connection));
+                        self.stream.write_message(TcpMessage::Selected)
+                    },
+                    Err(err) => Err(err)
+                }
+            },
+            (TcpMessage::Select(collection_name), State::CollectionSelected(db, _)) => {
+                match db.lock().unwrap().collection(&collection_name) {
+                    Ok(collection) => {
+                        let connection = Connection::new(collection);
+                        self.update_state(State::CollectionSelected(db.clone(), connection));
+                        self.stream.write_message(TcpMessage::Selected)
+                    },
+                    Err(err) => Err(err)
+                }
+            },
+            (TcpMessage::Publish(event), State::CollectionSelected(_, connection)) => {
                 let event_id = connection.publish(event)?;
                 self.stream.write_message(TcpMessage::Published(event_id))
             },
-            (TcpMessage::Subscribe(live, offset, limit, tag), State::Connected(connection)) => {
+            (TcpMessage::Subscribe(live, offset, limit, tag), State::CollectionSelected(db, connection)) => {
                 let subscription = connection.subscribe(Query::new(live, offset, limit, tag))?;
                 let (event_stream, unsubscribe_handle) = subscription.into_event_stream_and_unsubscribe_handle();
                 self.stream.write_message(TcpMessage::Subscribed)?;
                 if live {
+                    let cloned_db         = db.clone();
                     let cloned_state      = self.state.clone();
                     let cloned_connection = connection.clone();
-                    self.update_state(State::Subscribed(connection, unsubscribe_handle));
+                    self.update_state(State::Subscribed(db, connection, unsubscribe_handle));
                     let mut stream        = self.stream.try_clone()?;
                     thread::spawn(move || {
                         for event in event_stream {
                             let send_result = stream.write_message(TcpMessage::Event(event));
                             if send_result.is_err() { return send_result }
                         }
-                        *cloned_state.lock().unwrap() = State::Connected(cloned_connection);
+                        *cloned_state.lock().unwrap() = State::CollectionSelected(cloned_db, cloned_connection);
                         stream.write_message(TcpMessage::EndOfEventStream)
                     });
                     Ok(())
@@ -108,9 +118,18 @@ impl Handler {
                     self.stream.write_message(TcpMessage::EndOfEventStream)
                 }
             },
-            (TcpMessage::Unsubscribe, State::Subscribed(_, unsubscribe_handle)) => {
+            (TcpMessage::Drop(collection_name), State::Connected(db)) => {
+                db.lock().unwrap().drop_collection(&collection_name)?;
+                self.stream.write_message(TcpMessage::Dropped)
+            },
+            (TcpMessage::Drop(collection_name), State::CollectionSelected(db, _)) => {
+                db.lock().unwrap().drop_collection(&collection_name)?;
+                self.stream.write_message(TcpMessage::Dropped)
+            },
+            (TcpMessage::Unsubscribe, State::Subscribed(_, _, unsubscribe_handle)) => {
                 unsubscribe_handle.unsubscribe()
             },
+            (_, State::AuthenticationRequired(_)) => Err(DatabaseError::AuthenticationError),
             _ => Err(DatabaseError::IoError(ErrorKind::InvalidData, "unexpected TCP message".to_owned()))
         }
     }
@@ -123,20 +142,23 @@ impl Handler {
 /// A list specifying categories of connection state.
 #[derive(Clone)]
 pub enum State {
-    /// The connection is idle and awaiting a `Connect` message.
-    Idle(Arc<Mutex<Database>>),
+    /// The connection requires authentication.
+    AuthenticationRequired(Arc<Mutex<Database>>),
     /// The connection has been established.
-    Connected(Connection),
+    Connected(Arc<Mutex<Database>>),
+    /// The connection has been established and a collection has been selected.
+    CollectionSelected(Arc<Mutex<Database>>, Connection),
     /// The connection is subscribed to an event stream.
-    Subscribed(Connection, UnsubscribeHandle)
+    Subscribed(Arc<Mutex<Database>>, Connection, UnsubscribeHandle)
 }
 
 impl ToString for State {
     fn to_string(&self) -> String {
         match *self {
-            State::Idle(_)          => "Idle".to_owned(),
-            State::Connected(_)     => "Connected".to_owned(),
-            State::Subscribed(_, _) => "Subscribed".to_owned()
+            State::AuthenticationRequired(_) => "AuthenticationRequired".to_owned(),
+            State::Connected(_)              => "Connected".to_owned(),
+            State::CollectionSelected(_, _)  => "CollectionSelected".to_owned(),
+            State::Subscribed(_, _, _)       => "Subscribed".to_owned()
         }
     }
 }
@@ -155,8 +177,8 @@ mod tests {
         let handler    = create_handler(addr, Credentials::empty());
         let mut client = create_client(addr);
 
-        assert!(client.write_message(TcpMessage::Connect(collection_name.to_owned(), None, None)).is_ok());
-        assert_eq!(client.read_message(), Ok(TcpMessage::Connected));
+        assert!(client.write_message(TcpMessage::Select(collection_name.to_owned())).is_ok());
+        assert_eq!(client.read_message(), Ok(TcpMessage::Selected));
 
         drop(client);
 
@@ -172,11 +194,33 @@ mod tests {
         let handler    = create_handler(addr, credentials.clone());
         let mut client = create_client(addr);
 
-        assert!(client.write_message(TcpMessage::Connect(collection_name.to_owned(), None, None)).is_ok());
+        assert!(client.write_message(TcpMessage::Authenticate("username".to_owned(), "wrong_password".to_owned())).is_ok());
         assert_eq!(client.read_message(), Ok(TcpMessage::Error(DatabaseError::AuthenticationError)));
 
-        assert!(client.write_message(TcpMessage::Connect(collection_name.to_owned(), credentials.username, credentials.password)).is_ok());
-        assert_eq!(client.read_message(), Ok(TcpMessage::Connected));
+        assert!(client.write_message(TcpMessage::Authenticate("username".to_owned(), "password".to_owned())).is_ok());
+        assert_eq!(client.read_message(), Ok(TcpMessage::Authenticated));
+
+        assert!(client.write_message(TcpMessage::Select(collection_name.to_owned())).is_ok());
+        assert_eq!(client.read_message(), Ok(TcpMessage::Selected));
+
+        drop(client);
+
+        handler.join().expect("Unable to join server thread");
+    }
+
+    #[test]
+    fn test_select_and_drop() {
+        let addr            = find_available_addr();
+        let collection_name = random_collection_name();
+
+        let handler    = create_handler(addr, Credentials::empty());
+        let mut client = create_client(addr);
+
+        assert!(client.write_message(TcpMessage::Select(collection_name.to_owned())).is_ok());
+        assert_eq!(client.read_message(), Ok(TcpMessage::Selected));
+
+        assert!(client.write_message(TcpMessage::Drop(collection_name.to_owned())).is_ok());
+        assert_eq!(client.read_message(), Ok(TcpMessage::Dropped));
 
         drop(client);
 
@@ -191,8 +235,8 @@ mod tests {
         let handler    = create_handler(addr, Credentials::empty());
         let mut client = create_client(addr);
 
-        assert!(client.write_message(TcpMessage::Connect(collection_name.to_owned(), None, None)).is_ok());
-        assert_eq!(client.read_message(), Ok(TcpMessage::Connected));
+        assert!(client.write_message(TcpMessage::Select(collection_name.to_owned())).is_ok());
+        assert_eq!(client.read_message(), Ok(TcpMessage::Selected));
 
         let event = Event::new("data", vec!["tag1", "tag2"]).with_timestamp(1234567890);
 
@@ -218,8 +262,8 @@ mod tests {
         let handler    = create_handler(addr, Credentials::empty());
         let mut client = create_client(addr);
 
-        assert!(client.write_message(TcpMessage::Connect(collection_name.to_owned(), None, None)).is_ok());
-        assert_eq!(client.read_message(), Ok(TcpMessage::Connected));
+        assert!(client.write_message(TcpMessage::Select(collection_name.to_owned())).is_ok());
+        assert_eq!(client.read_message(), Ok(TcpMessage::Selected));
 
         let event = Event::new("data", vec!["tag1", "tag2"]).with_timestamp(1234567890);
 

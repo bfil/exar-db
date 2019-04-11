@@ -3,8 +3,8 @@ import {TcpMessage, TcpMessageEncoder, TcpMessageDecoder} from 'exar/net';
 export class Connection {
     host: string;
     port: number;
-    username: string;
-    password: string;
+    username: string | undefined;
+    password: string | undefined;
     collection: string;
 
     constructor(collection: string, host: string = 'localhost', port: number = 38580, username?: string, password?: string) {

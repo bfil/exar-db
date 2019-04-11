@@ -110,7 +110,7 @@ mod tests {
         let log_stream    = LogMessageStream::new(&log_file_name).expect("Unable to create log stream");
         let mut stream    = TcpMessageStream::new(log_stream).expect("Unable to create message stream");
 
-        let message = TcpMessage::Connect("collection".to_string(), None, None);
+        let message = TcpMessage::Select("collection".to_string());
 
         assert!(stream.write_message(message.clone()).is_ok());
         assert_eq!(stream.read_message(), Ok(message.clone()));

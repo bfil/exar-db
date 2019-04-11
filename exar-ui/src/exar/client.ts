@@ -1,5 +1,5 @@
 import {Connection, Event, Query} from 'exar/model';
-import {Connect, Connected, Publish, Published, Subscribe, DatabaseError, TcpMessage, Unsubscribe} from 'exar/net';
+import {Authenticate, Authenticated, Select, Selected, Publish, Published, Subscribe, DatabaseError, TcpMessage, Unsubscribe} from 'exar/net';
 
 import * as Rx from 'rx';
 
@@ -60,9 +60,11 @@ export class ExarClient {
     connect(connectionInfo: Connection) {
         this.socket = navigator.TCPSocket.open(connectionInfo.host, connectionInfo.port);
         this.createSocketObservable();
-        return this.request(
-            new Connect(connectionInfo.collection, connectionInfo.username, connectionInfo.password),
-            Connected.fromTabSeparatedString, true);
+        if(connectionInfo.username && connectionInfo.password) {
+            return this.request(new Authenticate(connectionInfo.username, connectionInfo.password),
+                                Authenticated.fromTabSeparatedString, true)
+                       .then(_ => this.request(new Select(connectionInfo.collection), Selected.fromTabSeparatedString));
+        } else return this.request(new Select(connectionInfo.collection), Selected.fromTabSeparatedString, true);
     }
 
     onDisconnect(onDisconnect: () => any) {

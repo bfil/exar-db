@@ -44,5 +44,5 @@ fn integration_test() {
 
     drop(collection);
 
-    assert!(db.delete_collection(collection_name).is_ok());
+    assert!(db.drop_collection(collection_name).is_ok());
 }

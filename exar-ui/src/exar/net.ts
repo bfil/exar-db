@@ -16,43 +16,68 @@ export interface TcpMessage {
     toTabSeparatedString(): string;
 }
 
-export class Connect implements TcpMessage {
+export class Authenticate implements TcpMessage {
 
-    private collection: string;
     private username: string;
     private password: string;
 
-    constructor(collection: string, username?: string, password?: string) {
-        this.collection = collection;
+    constructor(username: string, password: string) {
         this.username = username;
         this.password = password;
     }
 
     toTabSeparatedString() {
-       return TcpMessageEncoder.toTabSeparatedString('Connect',
-           this.collection,
-           this.username,
-           this.password);
+       return TcpMessageEncoder.toTabSeparatedString('Authenticate', this.username, this.password);
     }
 
     static fromTabSeparatedString(data: string) {
-        let messageParts = TcpMessageDecoder.parseTabSeparatedString(data, 4);
-        let collection = messageParts[1];
-        let username = messageParts[2];
-        let password = messageParts[3];
-        return new Connect(collection, username, password);
+        let messageParts = TcpMessageDecoder.parseTabSeparatedString(data, 3);
+        let username = messageParts[1];
+        let password = messageParts[2];
+        return new Authenticate(username, password);
     }
 }
 
-export class Connected implements TcpMessage {
+export class Authenticated implements TcpMessage {
 
     toTabSeparatedString() {
-       return TcpMessageEncoder.toTabSeparatedString('Connected');
+       return TcpMessageEncoder.toTabSeparatedString('Authenticated');
     }
 
     static fromTabSeparatedString(data: string) {
         let messageParts = TcpMessageDecoder.parseTabSeparatedString(data, 1);
-        return new Connected();
+        return new Authenticated();
+    }
+}
+
+export class Select implements TcpMessage {
+
+    private collection: string;
+
+    constructor(collection: string) {
+        this.collection = collection;
+    }
+
+    toTabSeparatedString() {
+       return TcpMessageEncoder.toTabSeparatedString('Select', this.collection);
+    }
+
+    static fromTabSeparatedString(data: string) {
+        let messageParts = TcpMessageDecoder.parseTabSeparatedString(data, 2);
+        let collection = messageParts[1];
+        return new Select(collection);
+    }
+}
+
+export class Selected implements TcpMessage {
+
+    toTabSeparatedString() {
+       return TcpMessageEncoder.toTabSeparatedString('Selected');
+    }
+
+    static fromTabSeparatedString(data: string) {
+        let messageParts = TcpMessageDecoder.parseTabSeparatedString(data, 1);
+        return new Selected();
     }
 }
 
@@ -163,6 +188,37 @@ export class EndOfEventStream implements TcpMessage {
         return new EndOfEventStream();
     }
 
+}
+
+export class Drop implements TcpMessage {
+
+    private collection: string;
+
+    constructor(collection: string) {
+        this.collection = collection;
+    }
+
+    toTabSeparatedString() {
+       return TcpMessageEncoder.toTabSeparatedString('Drop', this.collection);
+    }
+
+    static fromTabSeparatedString(data: string) {
+        let messageParts = TcpMessageDecoder.parseTabSeparatedString(data, 2);
+        let collection = messageParts[1];
+        return new Drop(collection);
+    }
+}
+
+export class Dropped implements TcpMessage {
+
+    toTabSeparatedString() {
+       return TcpMessageEncoder.toTabSeparatedString('Dropped');
+    }
+
+    static fromTabSeparatedString(data: string) {
+        let messageParts = TcpMessageDecoder.parseTabSeparatedString(data, 1);
+        return new Dropped();
+    }
 }
 
 export class DatabaseError implements TcpMessage {

@@ -9,7 +9,7 @@
 //! use exar_client::*;
 //!
 //! let addr   = "127.0.0.1:38580";
-//! let client = Client::connect(addr, "test", Some("username"), Some("password")).unwrap();
+//! let client = Client::connect(addr, "collection", Some("username"), Some("password")).unwrap();
 //! # }
 //! ```
 //! ## Publishing events
@@ -22,7 +22,7 @@
 //! use exar_client::*;
 //!
 //! let addr       = "127.0.0.1:38580";
-//! let mut client = Client::connect(addr, "test", Some("username"), Some("password")).expect("Unable to connect");
+//! let mut client = Client::connect(addr, "collection", Some("username"), Some("password")).expect("Unable to connect");
 //!
 //! let event = Event::new("payload", vec!["tag1", "tag2"]);
 //! match client.publish(event) {
@@ -41,13 +41,29 @@
 //! use exar_client::*;
 //!
 //! let addr       = "127.0.0.1:38580";
-//! let mut client = Client::connect(addr, "test", Some("username"), Some("password")).expect("Unable to connect");
+//! let mut client = Client::connect(addr, "collection", Some("username"), Some("password")).expect("Unable to connect");
 //!
 //! let query        = Query::live().offset(0).limit(10).by_tag("tag1");
 //! let event_stream = client.subscribe(query).expect("Unable to subscribe");
 //! for event in event_stream {
 //!     println!("Received event: {}", event);
 //! }
+//! # }
+//! ```
+//! ## Selecting and dropping collections
+//! ```no_run
+//! extern crate exar;
+//! extern crate exar_client;
+//!
+//! # fn main() {
+//! use exar::*;
+//! use exar_client::*;
+//!
+//! let addr       = "127.0.0.1:38580";
+//! let mut client = Client::connect(addr, "collection", Some("username"), Some("password")).expect("Unable to connect");
+//!
+//! client.select_collection("another_collection").expect("Unable to select collection");
+//! client.drop_collection("collection").expect("Unable to drop collection");
 //! # }
 //! ```
 
@@ -73,20 +89,38 @@ pub struct Client {
 }
 
 impl Client {
-    /// Connects to the given address and collection, optionally using the credentials provided,
+    /// Connects to the given address and collection, optionally authenticating using the credentials provided,
     /// it returns a `Client` or a `DatabaseError` if a failure occurs.
     pub fn connect<A: ToSocketAddrs>(address: A, collection_name: &str, username: Option<&str>, password: Option<&str>) -> DatabaseResult<Client> {
         let stream = TcpStream::connect(address).map_err(DatabaseError::from_io_error)?;
-        let mut stream = TcpMessageStream::new(stream)?;
-        let username = username.map(|u| u.to_owned());
-        let password = password.map(|p| p.to_owned());
-        let connection_message = TcpMessage::Connect(collection_name.to_owned(), username, password);
-        stream.write_message(connection_message)?;
-        match stream.read_message() {
-            Ok(TcpMessage::Connected)    => Ok(Client { stream }),
-            Ok(TcpMessage::Error(error)) => Err(error),
-            Ok(_)                        => Err(DatabaseError::ConnectionError),
-            Err(err)                     => Err(err)
+        let mut client = Client { stream: TcpMessageStream::new(stream)? };
+        match (username, password) {
+            (Some(username), Some(password)) => client.authenticate(username, password)?,
+            _                                => ()
+        }
+        client.select_collection(collection_name)?;
+        Ok(client)
+    }
+
+    fn authenticate(&mut self, username: &str, password: &str) -> DatabaseResult<()> {
+        self.stream.write_message(TcpMessage::Authenticate(username.to_owned(), password.to_owned()))?;
+        match self.stream.read_message() {
+            Ok(TcpMessage::Authenticated) => Ok(()),
+            Ok(TcpMessage::Error(error))  => Err(error),
+            Ok(_)                         => Err(DatabaseError::ConnectionError),
+            Err(err)                      => Err(err)
+        }
+    }
+
+    /// Selects the given collection
+    /// it returns a `Client` or a `DatabaseError` if a failure occurs.
+    pub fn select_collection(&mut self, collection_name: &str) -> DatabaseResult<()> {
+        self.stream.write_message(TcpMessage::Select(collection_name.to_owned()))?;
+        match self.stream.read_message() {
+            Ok(TcpMessage::Selected)      => Ok(()),
+            Ok(TcpMessage::Error(error))  => Err(error),
+            Ok(_)                         => Err(DatabaseError::ConnectionError),
+            Err(err)                      => Err(err)
         }
     }
 
@@ -135,10 +169,22 @@ impl Client {
         }
     }
 
-    /// Unsubscribed from the event stream
-    /// or a `DatabaseError` if a failure occurs.
+    /// Unsubscribes from the event stream
+    /// or returns a `DatabaseError` if a failure occurs.
     pub fn unsubscribe(&mut self) -> DatabaseResult<()> {
         self.stream.write_message(TcpMessage::Unsubscribe)
+    }
+
+    /// Drops the currently selected collection
+    /// or returns a `DatabaseError` if a failure occurs.
+    pub fn drop_collection(&mut self, collection_name: &str) -> DatabaseResult<()> {
+        self.stream.write_message(TcpMessage::Drop(collection_name.to_owned()))?;
+        match self.stream.read_message() {
+            Ok(TcpMessage::Dropped)      => Ok(()),
+            Ok(TcpMessage::Error(error)) => Err(error),
+            Ok(_)                        => Err(DatabaseError::IoError(ErrorKind::InvalidData, "unexpected TCP message".to_owned())),
+            Err(err)                     => Err(err)
+        }
     }
 
     /// Closes the connection.
@@ -156,11 +202,19 @@ mod tests {
         let addr = find_available_addr();
 
         stub_server(addr.clone(), vec![
-            StreamAction::Read(TcpMessage::Connect("collection".to_owned(), None, None)),
-            StreamAction::Write(TcpMessage::Connected),
+            StreamAction::Read(TcpMessage::Select("collection".to_owned())),
+            StreamAction::Write(TcpMessage::Selected)
         ]);
 
         assert!(Client::connect(addr, "collection", None, None).is_ok());
+    }
+
+    #[test]
+    fn test_connect_failure() {
+        let addr = find_available_addr();
+
+        let connection_refused_error = DatabaseError::IoError(ErrorKind::ConnectionRefused, "Connection refused (os error 61)".to_owned());
+        assert_eq!(Client::connect(addr, "collection", None, None).err(), Some(connection_refused_error));
     }
 
     #[test]
@@ -168,25 +222,56 @@ mod tests {
         let addr = find_available_addr();
 
         stub_server(addr.clone(), vec![
-            StreamAction::Read(TcpMessage::Connect(
-                "collection".to_owned(), Some("username".to_owned()), Some("password".to_owned()
-            ))),
-            StreamAction::Write(TcpMessage::Connected),
+            StreamAction::Read(TcpMessage::Authenticate("username".to_owned(), "password".to_owned())),
+            StreamAction::Write(TcpMessage::Authenticated),
+            StreamAction::Read(TcpMessage::Select("collection".to_owned())),
+            StreamAction::Write(TcpMessage::Selected)
         ]);
 
         assert!(Client::connect(addr, "collection", Some("username"), Some("password")).is_ok());
     }
 
     #[test]
-    fn test_connect_failure() {
+    fn test_connect_with_authentication_failure() {
+        let addr                     = find_available_addr();
+        let connection_refused_error = DatabaseError::IoError(ErrorKind::ConnectionRefused, "Connection refused (os error 61)".to_owned());
+
+        stub_server(addr.clone(), vec![
+            StreamAction::Read(TcpMessage::Authenticate("username".to_owned(), "password".to_owned())),
+            StreamAction::Write(TcpMessage::Error(connection_refused_error.clone()))
+        ]);
+
+        assert_eq!(Client::connect(addr, "collection", Some("username"), Some("password")).err(), Some(connection_refused_error));
+    }
+
+    #[test]
+    fn test_select_collection() {
         let addr = find_available_addr();
 
         stub_server(addr.clone(), vec![
-            StreamAction::Read(TcpMessage::Connect("collection".to_owned(), None, None)),
+            StreamAction::Read(TcpMessage::Select("collection".to_owned())),
+            StreamAction::Write(TcpMessage::Selected),
+            StreamAction::Read(TcpMessage::Select("another_collection".to_owned())),
+            StreamAction::Write(TcpMessage::Selected)
+        ]);
+
+        let mut client = Client::connect(addr, "collection", None, None).expect("Unable to connect");
+        assert_eq!(client.select_collection("another_collection"), Ok(()));
+    }
+
+    #[test]
+    fn test_select_collection_failure() {
+        let addr = find_available_addr();
+
+        stub_server(addr.clone(), vec![
+            StreamAction::Read(TcpMessage::Select("collection".to_owned())),
+            StreamAction::Write(TcpMessage::Selected),
+            StreamAction::Read(TcpMessage::Select("another_collection".to_owned())),
             StreamAction::Write(TcpMessage::Error(DatabaseError::ConnectionError))
         ]);
 
-        assert_eq!(Client::connect(addr, "collection", None, None).err(), Some(DatabaseError::ConnectionError));
+        let mut client = Client::connect(addr, "collection", None, None).expect("Unable to connect");
+        assert_eq!(client.select_collection("another_collection"), Err(DatabaseError::ConnectionError));
     }
 
     #[test]
@@ -196,8 +281,8 @@ mod tests {
         let event = Event::new("data", vec!["tag1", "tag2"]).with_timestamp(1234567890);
 
         stub_server(addr.clone(), vec![
-            StreamAction::Read(TcpMessage::Connect("collection".to_owned(), None, None)),
-            StreamAction::Write(TcpMessage::Connected),
+            StreamAction::Read(TcpMessage::Select("collection".to_owned())),
+            StreamAction::Write(TcpMessage::Selected),
             StreamAction::Read(TcpMessage::Publish(event.clone())),
             StreamAction::Write(TcpMessage::Published(1))
         ]);
@@ -214,8 +299,8 @@ mod tests {
         let validation_error = ValidationError::new("validation error");
 
         stub_server(addr.clone(), vec![
-            StreamAction::Read(TcpMessage::Connect("collection".to_owned(), None, None)),
-            StreamAction::Write(TcpMessage::Connected),
+            StreamAction::Read(TcpMessage::Select("collection".to_owned())),
+            StreamAction::Write(TcpMessage::Selected),
             StreamAction::Read(TcpMessage::Publish(event.clone())),
             StreamAction::Write(TcpMessage::Error(DatabaseError::ValidationError(validation_error.clone())))
         ]);
@@ -231,8 +316,8 @@ mod tests {
         let event = Event::new("data", vec!["tag1", "tag2"]).with_timestamp(1234567890);
 
         stub_server(addr.clone(), vec![
-            StreamAction::Read(TcpMessage::Connect("collection".to_owned(), None, None)),
-            StreamAction::Write(TcpMessage::Connected),
+            StreamAction::Read(TcpMessage::Select("collection".to_owned())),
+            StreamAction::Write(TcpMessage::Selected),
             StreamAction::Read(TcpMessage::Subscribe(true, 0, None, None)),
             StreamAction::Write(TcpMessage::Subscribed),
             StreamAction::Write(TcpMessage::Event(event.clone().with_id(1))),
@@ -252,8 +337,8 @@ mod tests {
         let addr = find_available_addr();
 
         stub_server(addr.clone(), vec![
-            StreamAction::Read(TcpMessage::Connect("collection".to_owned(), None, None)),
-            StreamAction::Write(TcpMessage::Connected),
+            StreamAction::Read(TcpMessage::Select("collection".to_owned())),
+            StreamAction::Write(TcpMessage::Selected),
             StreamAction::Read(TcpMessage::Subscribe(true, 0, None, None)),
             StreamAction::Write(TcpMessage::Error(DatabaseError::SubscriptionError))
         ]);
@@ -269,8 +354,8 @@ mod tests {
         let event = Event::new("data", vec!["tag1", "tag2"]).with_timestamp(1234567890);
 
         stub_server(addr.clone(), vec![
-            StreamAction::Read(TcpMessage::Connect("collection".to_owned(), None, None)),
-            StreamAction::Write(TcpMessage::Connected),
+            StreamAction::Read(TcpMessage::Select("collection".to_owned())),
+            StreamAction::Write(TcpMessage::Selected),
             StreamAction::Read(TcpMessage::Subscribe(true, 0, None, None)),
             StreamAction::Write(TcpMessage::Subscribed),
             StreamAction::Write(TcpMessage::Event(event.clone().with_id(1))),
@@ -287,5 +372,35 @@ mod tests {
         assert!(client.unsubscribe().is_ok());
 
         assert_eq!(event_stream.next(), None);
+    }
+
+    #[test]
+    fn test_drop_collection() {
+        let addr = find_available_addr();
+
+        stub_server(addr.clone(), vec![
+            StreamAction::Read(TcpMessage::Select("collection".to_owned())),
+            StreamAction::Write(TcpMessage::Selected),
+            StreamAction::Read(TcpMessage::Drop("another_collection".to_owned())),
+            StreamAction::Write(TcpMessage::Dropped),
+        ]);
+
+        let mut client = Client::connect(addr, "collection", None, None).expect("Unable to connect");
+        assert_eq!(client.drop_collection("another_collection"), Ok(()));
+    }
+
+    #[test]
+    fn test_drop_collection_failure() {
+        let addr = find_available_addr();
+
+        stub_server(addr.clone(), vec![
+            StreamAction::Read(TcpMessage::Select("collection".to_owned())),
+            StreamAction::Write(TcpMessage::Selected),
+            StreamAction::Read(TcpMessage::Drop("another_collection".to_owned())),
+            StreamAction::Write(TcpMessage::Error(DatabaseError::ConnectionError))
+        ]);
+
+        let mut client = Client::connect(addr, "collection", None, None).expect("Unable to connect");
+        assert_eq!(client.drop_collection("another_collection"), Err(DatabaseError::ConnectionError));
     }
 }

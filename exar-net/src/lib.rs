@@ -5,31 +5,52 @@
 //! The protocol is text-based and uses line-separated messages,
 //! each message consists of tab-separated values.
 //!
-//! ### Connect
-//! Message used to initialize a connection to Exar DB.
+//! ### Authenticate
+//! Message used to authenticate to Exar DB.
 //!
 //! ```text
-//! Connect    collection    [username]    [password]
+//! Authenticate    username    password
 //! ```
 //!
-//! - The 1st field is the string `Connect`.
+//! - The 1st field is the string `Authenticate`.
+//! - The 2nd field is the authentication username.
+//! - The 3rd field is the authentication password.
+//!
+//! ### Authenticated
+//! Message used to acknowledge a successful authentication.
+//!
+//! *If the Exar DB server requires authentication,
+//! this must be the first interaction in order to be allowed any other operation*.
+//!
+//! ```text
+//! Authenticated
+//! ```
+//!
+//! - A single field containing the string `Authenticated`.
+//!
+//! ### Select
+//! Message used to select an Exar DB collection.
+//!
+//! ```text
+//! Select    collection
+//! ```
+//!
+//! - The 1st field is the string `Select`.
 //! - The 2nd field is the collection name.
-//! - The 3rd field is the authentication username (optional).
-//! - The 4th field is the authentication password (optional).
 //!
-//! ### Connected
-//! Message used to acknowledge a successful connection.
+//! ### Selected
+//! Message used to acknowledge a successful collection selection.
 //!
 //! ```text
-//! Connected
+//! Selected
 //! ```
 //!
-//! - A single field containing the string `Connected`.
+//! - A single field containing the string `Selected`.
 //!
 //! ### Publish
 //! Message used to publish an event into a collection.
 //!
-//! *It can be used only after a successful connection has been established*.
+//! *It can only be used after a collection has been selected*.
 //!
 //! ```text
 //! Publish    tag1 tag2    timestamp    event_data
@@ -53,7 +74,7 @@
 //! ### Subscribe
 //! Message used to subscribe to an event stream.
 //!
-//! *It can be used only after a successful connection has been established*.
+//! *It can only be used after a collection has been selected*.
 //!
 //! ```text
 //! Subscribe    live    offset    limit    [tag1]
@@ -108,6 +129,25 @@
 //! ```
 //!
 //! - A single field containing the string `EndOfEventStream`.
+//!
+//! ### Drop
+//! Messaged used to drop an Exar DB collection.
+//!
+//! ```text
+//! Drop    collection
+//! ```
+//!
+//! - The 1st field is the string `Drop`.
+//! - The 2nd field is the collection name.
+//!
+//! ### Dropped
+//! Message used to acknowledge a successful collection drop.
+//!
+//! ```text
+//! Dropped
+//! ```
+//!
+//! - A single field containing the string `Dropped`.
 //!
 //! ### Error
 //! Message containing an error.

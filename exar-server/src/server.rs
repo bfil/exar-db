@@ -135,9 +135,8 @@ mod tests {
 
         let mut client = create_client(addr);
 
-        let connect_without_credentials = TcpMessage::Connect(collection_name.to_owned(), None, None);
-        assert!(client.write_message(connect_without_credentials).is_ok());
-        assert_eq!(client.read_message(), Ok(TcpMessage::Connected));
+        assert!(client.write_message(TcpMessage::Select(collection_name.to_owned())).is_ok());
+        assert_eq!(client.read_message(), Ok(TcpMessage::Selected));
     }
 
     #[test]
@@ -154,12 +153,13 @@ mod tests {
 
         let mut client = create_client(addr);
 
-        let connect_without_credentials = TcpMessage::Connect(collection_name.to_owned(), None, None);
-        assert!(client.write_message(connect_without_credentials).is_ok());
+        assert!(client.write_message(TcpMessage::Select(collection_name.to_owned())).is_ok());
         assert_eq!(client.read_message(), Ok(TcpMessage::Error(DatabaseError::AuthenticationError)));
 
-        let connect_with_credentials = TcpMessage::Connect(collection_name.to_owned(), Some("username".to_owned()), Some("password".to_owned()));
-        assert!(client.write_message(connect_with_credentials).is_ok());
-        assert_eq!(client.read_message(), Ok(TcpMessage::Connected));
+        assert!(client.write_message(TcpMessage::Authenticate("username".to_owned(), "password".to_owned())).is_ok());
+        assert_eq!(client.read_message(), Ok(TcpMessage::Authenticated));
+
+        assert!(client.write_message(TcpMessage::Select(collection_name.to_owned())).is_ok());
+        assert_eq!(client.read_message(), Ok(TcpMessage::Selected));
     }
 }

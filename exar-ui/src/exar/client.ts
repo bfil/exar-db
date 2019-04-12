@@ -1,5 +1,12 @@
 import {Connection, Event, Query} from 'exar/model';
-import {Authenticate, Authenticated, Select, Selected, Publish, Published, Subscribe, DatabaseError, TcpMessage, Unsubscribe} from 'exar/net';
+import {
+    Authenticate, Authenticated,
+    Select, Selected,
+    Publish, Published,
+    Subscribe, Unsubscribe,
+    Drop, Dropped,
+    DatabaseError, TcpMessage
+} from 'exar/net';
 
 import * as Rx from 'rx';
 
@@ -98,6 +105,14 @@ export class ExarClient {
 
     unsubscribe() {
         return this.send(new Unsubscribe());
+    }
+
+    selectCollection(collectionName: string) {
+        return this.request(new Select(collectionName), Selected.fromTabSeparatedString);
+    }
+
+    dropCollection(collectionName: string) {
+        return this.request(new Drop(collectionName), Dropped.fromTabSeparatedString);
     }
 
 }

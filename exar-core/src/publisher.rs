@@ -5,7 +5,7 @@ use std::sync::mpsc::{Receiver, Sender};
 
 /// Exar DB's events' publisher.
 ///
-/// It manages event emitters and continuously published
+/// It manages event emitters and continuously publishes
 /// new events to the subscriptions depending on the event emitters' query parameters.
 ///
 /// # Examples

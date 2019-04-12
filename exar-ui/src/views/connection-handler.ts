@@ -15,6 +15,7 @@ export class ConnectionHandler {
     savedConnections: SavedConnection[];
     @bindable connection: SavedConnection;
     @bindable collection: string;
+    @bindable selectedCollection: string;
 
     data: string;
     tags: string;
@@ -45,15 +46,17 @@ export class ConnectionHandler {
         if(this.exarClient) this.disconnect();
     }
 
-    connect(isReconnection: boolean = false) {
+    connect() {
         this.exarClient.connect(this.initializeConnection(this.collection, this.connection))
-            .then(connected => {
+            .then(_ => {
                 this.connected = true;
-                if(!isReconnection) this.logTcpMessage(connected);
+                this.selectedCollection = this.collection;
+                this.logMessage("Connected");
             }, this.onError.bind(this));
         this.exarClient.onDisconnect(() => {
             this.disconnecting = false;
             this.connected = false;
+            this.selectedCollection = undefined;
             this.logMessage(`Disconnected`, false);
         });
     }
@@ -99,6 +102,23 @@ export class ConnectionHandler {
         }
     }
 
+    selectCollection() {
+        this.exarClient.selectCollection(this.collection).then(
+            selected => {
+                this.selectedCollection = this.collection;
+                this.logTcpMessage(selected);
+            },
+            this.onError.bind(this)
+        )
+    }
+
+    dropCollection() {
+        this.exarClient.dropCollection(this.collection).then(
+            dropped => this.logTcpMessage(dropped),
+            this.onError.bind(this)
+        )
+    }
+
     selectConnection(connection: SavedConnection) {
         this.connection = connection;
     }
@@ -108,7 +128,7 @@ export class ConnectionHandler {
         this.unsubscribe();
     }
 
-    logMessage(message: string, isError: boolean) {
+    logMessage(message: string, isError: boolean = false) {
         this.messages.push({
             payload: message,
             className: isError ? 'text-danger' : ''

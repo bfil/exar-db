@@ -122,7 +122,7 @@ impl<S: Stop, T: Run + Send + 'static> Drop for SingleThreadedExecutor<S, T> {
 
 /// A multi-threaded executor.
 ///
-/// It runs a background thread that can be interacted with via messaging to run custom tasks.
+/// It runs background threads that can be interacted with via messaging to run custom tasks.
 ///
 /// # Examples
 /// ```no_run

@@ -16,7 +16,7 @@
     </ul>
     <div class="tab-content">
         <div repeat.for="tab of tabs" role="tabpanel" class="tab-pane" id="${'tab-content-' + $index}">
-            <connection-handler connection.two-way="tab.connection" collection.two-way="tab.collection"></connection-handler>
+            <connection-handler connection.two-way="tab.connection" selected-collection.two-way="tab.collection"></connection-handler>
         </div>
     </div>
 </template>

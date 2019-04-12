@@ -31,9 +31,26 @@
         </form>
         <div show.bind="connected">
             <div>
-                Connected to <b>${collection}</b>&nbsp;
-                <button class="btn btn-default" click.delegate="disconnect()"
-                        disabled.bind="disconnecting">Disconnect</button>
+                <div class="row">
+                    <div class="col col-sm-8">
+                        Connected to <b>${selectedCollection}</b>&nbsp;
+                        <button class="btn btn-default" click.delegate="disconnect()"
+                                disabled.bind="disconnecting">Disconnect</button>
+                    </div>
+                    <div class="col col-sm-4">
+                        <form class="form-inline pull-right">
+                            <div class="input-group">
+                                <input type="text" class="form-control" value.bind="collection" placeholder="Collection">
+                                <span class="input-group-btn">
+                                    <button type="submit" class="btn btn-default" click.delegate="selectCollection()" disabled.bind="!collection">Select</button>
+                                </span>
+                                <span class="input-group-btn">
+                                    <button type="button" class="btn btn-default" click.delegate="dropCollection()" disabled.bind="!collection">Drop</button>
+                                </span>
+                            </div>
+                        </form>
+                    </div>
+                </div>
             </div>
             <hr>
             <form class="form-inline">

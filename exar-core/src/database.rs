@@ -21,7 +21,7 @@ use std::sync::{Arc, Mutex, Weak};
 /// let shared_collection = db.collection(collection_name).expect("Unable to retrieve collection");
 /// let mut collection    = shared_collection.lock().unwrap();
 ///
-/// collection.publish(Event::new("data", vec!["tag1", "tag2"])).expect("Unable to publish event");
+/// collection.publish(Event::new("data", vec![Tag::new("tag1"), Tag::new("tag2")])).expect("Unable to publish event");
 ///
 /// let subscription   = collection.subscribe(Query::current()).expect("Unable to subscribe");
 /// let events: Vec<_> = subscription.event_stream().take(1).collect();
@@ -152,7 +152,7 @@ mod tests {
     fn test_flush_collections() {
         let mut db                   = temp_database();
         let ref collection_name      = random_collection_name();
-        let event                    = Event::new("data", vec!["tag1", "tag2"]);
+        let event                    = Event::new("data", vec![Tag::new("tag1"), Tag::new("tag2")]);
         let collection               = db.collection(collection_name).expect("Unable to get database collection");
         let mut collection           = collection.lock().unwrap();
         let collection_log_file_path = format!("{}/{}.log", db.config.data.path, collection_name);

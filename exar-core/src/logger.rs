@@ -15,7 +15,7 @@ use std::fs::File;
 /// let log       = Log::new("test", &DataConfig::default()).expect("Unable to create log");
 /// let publisher = Publisher::new(&PublisherConfig::default()).expect("Unable to create publisher");
 /// let scanner   = Scanner::new(&log, &publisher, &ScannerConfig::default()).expect("Unable to create scanner");
-/// let event     = Event::new("data", vec!["tag1", "tag2"]);
+/// let event     = Event::new("data", vec![Tag::new("tag1"), Tag::new("tag2")]);
 ///
 /// let mut logger = Logger::new(&log, &publisher, &scanner).expect("Unable to create logger");
 /// let event_id   = logger.log(event).expect("Unable to log event");
@@ -97,7 +97,7 @@ mod tests {
         let log       = temp_log(10);
         let publisher = Publisher::new(&PublisherConfig::default()).expect("Unable to create publisher");
         let scanner   = Scanner::new(&log, &publisher, &ScannerConfig::default()).expect("Unable to create scanner");
-        let event     = Event::new("data", vec!["tag1", "tag2"]);
+        let event     = Event::new("data", vec![Tag::new("tag1"), Tag::new("tag2")]);
         (log, publisher, scanner, event)
     }
 
@@ -154,7 +154,7 @@ mod tests {
 
         assert_eq!(event.id, 1);
         assert_eq!(event.data, "data");
-        assert_eq!(event.tags, vec!["tag1", "tag2"]);
+        assert_eq!(event.tags, vec![Tag::new("tag1"), Tag::new("tag2")]);
         assert!(event.timestamp > 0);
 
         let line = lines.next().expect("Unable to read next line")
@@ -164,7 +164,7 @@ mod tests {
 
         assert_eq!(event.id, 2);
         assert_eq!(event.data, "data");
-        assert_eq!(event.tags, vec!["tag1", "tag2"]);
+        assert_eq!(event.tags, vec![Tag::new("tag1"), Tag::new("tag2")]);
         assert!(event.timestamp > 0);
 
         assert!(lines.next().is_none());

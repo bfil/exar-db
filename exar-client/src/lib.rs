@@ -24,7 +24,7 @@
 //! let addr       = "127.0.0.1:38580";
 //! let mut client = Client::connect(addr, "collection", Some("username"), Some("password")).expect("Unable to connect");
 //!
-//! let event = Event::new("payload", vec!["tag1", "tag2"]);
+//! let event = Event::new("payload", vec![Tag::new("tag1"), Tag::new("tag2")]);
 //! match client.publish(event) {
 //!     Ok(event_id) => println!("Published event with ID: {}", event_id),
 //!     Err(err)     => panic!("Unable to publish event: {}", err)
@@ -43,7 +43,7 @@
 //! let addr       = "127.0.0.1:38580";
 //! let mut client = Client::connect(addr, "collection", Some("username"), Some("password")).expect("Unable to connect");
 //!
-//! let query        = Query::live().offset(0).limit(10).by_tag("tag1");
+//! let query        = Query::live().offset(0).limit(10).by_tag(Tag::new("tag1"));
 //! let event_stream = client.subscribe(query).expect("Unable to subscribe");
 //! for event in event_stream {
 //!     println!("Received event: {}", event);
@@ -278,7 +278,7 @@ mod tests {
     fn test_publish() {
         let addr = find_available_addr();
 
-        let event = Event::new("data", vec!["tag1", "tag2"]).with_timestamp(1234567890);
+        let event = Event::new("data", vec![Tag::new("tag1"), Tag::new("tag2")]).with_timestamp(1234567890);
 
         stub_server(addr.clone(), vec![
             StreamAction::Read(TcpMessage::Select("collection".to_owned())),
@@ -295,7 +295,7 @@ mod tests {
     fn test_publish_failure() {
         let addr = find_available_addr();
 
-        let event = Event::new("data", vec!["tag1", "tag2"]).with_timestamp(1234567890);
+        let event = Event::new("data", vec![Tag::new("tag1"), Tag::new("tag2")]).with_timestamp(1234567890);
         let validation_error = ValidationError::new("validation error");
 
         stub_server(addr.clone(), vec![
@@ -313,7 +313,7 @@ mod tests {
     fn test_subscribe() {
         let addr = find_available_addr();
 
-        let event = Event::new("data", vec!["tag1", "tag2"]).with_timestamp(1234567890);
+        let event = Event::new("data", vec![Tag::new("tag1"), Tag::new("tag2")]).with_timestamp(1234567890);
 
         stub_server(addr.clone(), vec![
             StreamAction::Read(TcpMessage::Select("collection".to_owned())),
@@ -351,7 +351,7 @@ mod tests {
     fn test_unsubscribe() {
         let addr = find_available_addr();
 
-        let event = Event::new("data", vec!["tag1", "tag2"]).with_timestamp(1234567890);
+        let event = Event::new("data", vec![Tag::new("tag1"), Tag::new("tag2")]).with_timestamp(1234567890);
 
         stub_server(addr.clone(), vec![
             StreamAction::Read(TcpMessage::Select("collection".to_owned())),

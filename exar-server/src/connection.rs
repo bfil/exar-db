@@ -57,7 +57,7 @@ mod tests {
         let ref collection_name = random_collection_name();
         let collection          = db.collection(collection_name).expect("Unable to get collection");
         let connection          = Connection::new(collection);
-        let test_event          = Event::new("data", vec!["tag1", "tag2"]);
+        let test_event          = Event::new("data", vec![Tag::new("tag1"), Tag::new("tag2")]);
 
         assert_eq!(connection.publish(test_event.clone()), Ok(1));
 

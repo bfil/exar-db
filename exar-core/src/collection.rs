@@ -16,7 +16,7 @@ use std::sync::mpsc::channel;
 ///
 /// let mut collection = Collection::new("test", &CollectionConfig::default()).expect("Unable to create the collection");
 ///
-/// collection.publish(Event::new("data", vec!["tag1", "tag2"])).expect("Unable to publish event");
+/// collection.publish(Event::new("data", vec![Tag::new("tag1"), Tag::new("tag2")])).expect("Unable to publish event");
 ///
 /// let subscription   = collection.subscribe(Query::current()).expect("Unable to subscribe");
 /// let events: Vec<_> = subscription.event_stream().take(1).collect();
@@ -114,7 +114,7 @@ mod tests {
     #[test]
     fn test_publish_and_subscribe() {
         let mut collection = temp_collection();
-        let test_event     = Event::new("data", vec!["tag1", "tag2"]);
+        let test_event     = Event::new("data", vec![Tag::new("tag1"), Tag::new("tag2")]);
 
         assert_eq!(collection.publish(test_event.clone()), Ok(1));
 
@@ -129,7 +129,7 @@ mod tests {
     #[test]
     fn test_truncate() {
         let mut collection = temp_collection();
-        let test_event     = Event::new("data", vec!["tag1", "tag2"]);
+        let test_event     = Event::new("data", vec![Tag::new("tag1"), Tag::new("tag2")]);
 
         assert_eq!(collection.publish(test_event.clone()), Ok(1));
 

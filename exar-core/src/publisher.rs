@@ -17,7 +17,7 @@ use std::sync::mpsc::{Receiver, Sender};
 /// use std::sync::mpsc::channel;
 ///
 /// let publisher = Publisher::new(&PublisherConfig::default()).expect("Unable to create publisher");
-/// let event     = Event::new("data", vec!["tag1", "tag2"]);
+/// let event     = Event::new("data", vec![Tag::new("tag1"), Tag::new("tag2")]);
 ///
 /// let (sender, receiver) = channel();
 /// let event_emitter      = EventEmitter::new(sender, Query::live());
@@ -135,7 +135,7 @@ impl Run for PublisherThread {
                         for event_emitter in self.event_emitters.iter_mut() {
                             let _ = event_emitter.emit(event.clone());
                         }
-                        self.event_emitters.retain(|s| s.is_active())
+                        self.event_emitters.retain(|ee| ee.is_active())
                     },
                     PublisherMessage::Stop => break 'main
                 }
@@ -170,8 +170,8 @@ mod tests {
     fn test_publisher() {
         let publisher        = Publisher::new(&PublisherConfig::default()).expect("Unable to create publisher");
         let publisher_sender = publisher.sender();
-        let first_event      = Event::new("data", vec!["tag1", "tag2"]).with_id(1);
-        let second_event     = Event::new("data", vec!["tag1", "tag2"]).with_id(2);
+        let first_event      = Event::new("data", vec![Tag::new("tag1"), Tag::new("tag2")]).with_id(1);
+        let second_event     = Event::new("data", vec![Tag::new("tag1"), Tag::new("tag2")]).with_id(2);
 
         let (sender, receiver) = channel();
         let event_emitter      = EventEmitter::new(sender, Query::live());
@@ -192,9 +192,9 @@ mod tests {
         let publisher_config   = PublisherConfig { buffer_size: 1 };
         let (sender, receiver) = channel();
         let publisher_thread   = PublisherThread::new(receiver, &publisher_config);
-        let first_event        = Event::new("data", vec!["tag1", "tag2"]).with_id(1);
-        let second_event       = Event::new("data", vec!["tag1", "tag2"]).with_id(2);
-        let third_event        = Event::new("data", vec!["tag1", "tag2"]).with_id(3);
+        let first_event        = Event::new("data", vec![Tag::new("tag1"), Tag::new("tag2")]).with_id(1);
+        let second_event       = Event::new("data", vec![Tag::new("tag1"), Tag::new("tag2")]).with_id(2);
+        let third_event        = Event::new("data", vec![Tag::new("tag1"), Tag::new("tag2")]).with_id(3);
 
         assert_eq!(publisher_thread.events_buffer, vec![]);
         assert_eq!(publisher_thread.event_emitters.len(), 0);

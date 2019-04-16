@@ -27,7 +27,7 @@
 //! let shared_collection = db.collection(collection_name).expect("Unable to retrieve collection");
 //! let mut collection    = shared_collection.lock().unwrap();
 //!
-//! match collection.publish(Event::new("payload", vec!["tag1", "tag2"])) {
+//! match collection.publish(Event::new("payload", vec![Tag::new("tag1"), Tag::new("tag2")])) {
 //!     Ok(event_id) => println!("Published event with ID: {}", event_id),
 //!     Err(err)     => panic!("Unable to publish event: {}", err)
 //! };
@@ -47,7 +47,7 @@
 //! let shared_collection = db.collection(collection_name).expect("Unable to retrieve collection");
 //! let mut collection    = shared_collection.lock().unwrap();
 //!
-//! let query        = Query::live().offset(0).limit(10).by_tag("tag1");
+//! let query        = Query::live().offset(0).limit(10).by_tag(Tag::new("tag1"));
 //! let subscription = collection.subscribe(query).expect("Unable to subscribe");
 //! for event in subscription.event_stream() {
 //!     println!("Received event: {}", event);

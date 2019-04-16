@@ -14,7 +14,7 @@ use std::sync::mpsc::{Receiver, Sender, TryRecvError};
 ///
 /// let (sender, receiver) = channel();
 ///
-/// let event = Event::new("data", vec!["tag1", "tag2"]);
+/// let event = Event::new("data", vec![Tag::new("tag1"), Tag::new("tag2")]);
 ///
 /// sender.send(EventStreamMessage::Event(event)).expect("Unable to send event stream message");
 ///
@@ -85,7 +85,7 @@ impl Iterator for &Subscription {
 /// let (sender, receiver) = channel();
 /// let mut event_stream   = EventStream::new(receiver);
 ///
-/// let event                = Event::new("data", vec!["tag1", "tag2"]);
+/// let event                = Event::new("data", vec![Tag::new("tag1"), Tag::new("tag2")]);
 /// let event_stream_message = EventStreamMessage::Event(event);
 ///
 /// sender.send(event_stream_message);
@@ -172,7 +172,7 @@ impl UnsubscribeHandle {
 /// use std::sync::mpsc::channel;
 ///
 /// let (sender, receiver) = channel();
-/// let event = Event::new("data", vec!["tag1", "tag2"]).with_id(1);
+/// let event = Event::new("data", vec![Tag::new("tag1"), Tag::new("tag2")]).with_id(1);
 ///
 /// let mut event_emitter = EventEmitter::new(sender, Query::current());
 /// event_emitter.emit(event).expect("Unable to emit event");
@@ -261,7 +261,7 @@ impl Drop for EventEmitter {
 /// # fn main() {
 /// use exar::*;
 ///
-/// let event                = Event::new("data", vec!["tag1", "tag2"]);
+/// let event                = Event::new("data", vec![Tag::new("tag1"), Tag::new("tag2")]);
 /// let event_stream_message = EventStreamMessage::Event(event);
 /// let event_stream_end     = EventStreamMessage::End;
 /// # }
@@ -293,7 +293,7 @@ mod tests {
     fn test_subscription() {
         let (sender, receiver) = channel();
 
-        let event = Event::new("data", vec!["tag1", "tag2"]);
+        let event = Event::new("data", vec![Tag::new("tag1"), Tag::new("tag2")]);
 
         sender.send(EventStreamMessage::Event(event.clone())).expect("Unable to send event stream message");
 
@@ -313,7 +313,7 @@ mod tests {
 
     #[test]
     fn test_event_stream() {
-        let event = Event::new("data", vec![""]);
+        let event = Event::new("data", vec![Tag::new("tag1"), Tag::new("tag2")]);
 
         let (sender, receiver) = channel();
 
@@ -334,8 +334,8 @@ mod tests {
     #[test]
     fn test_event_emitter() {
         let (sender, receiver) = channel();
-        let first_event        = Event::new("data", vec!["tag1", "tag2"]).with_id(1);
-        let second_event       = Event::new("data", vec!["tag1", "tag2"]).with_id(2);
+        let first_event        = Event::new("data", vec![Tag::new("tag1"), Tag::new("tag2")]).with_id(1);
+        let second_event       = Event::new("data", vec![Tag::new("tag1"), Tag::new("tag2")]).with_id(2);
         let mut event_emitter  = EventEmitter::new(sender, Query::current());
 
         assert_eq!(event_emitter.emit(first_event.clone()), Ok(true));
@@ -353,8 +353,8 @@ mod tests {
     #[test]
     fn test_event_emitter_end_of_event_stream() {
         let (sender, receiver) = channel();
-        let first_event        = Event::new("data", vec!["tag1", "tag2"]).with_id(1);
-        let second_event       = Event::new("data", vec!["tag1", "tag2"]).with_id(2);
+        let first_event        = Event::new("data", vec![Tag::new("tag1"), Tag::new("tag2")]).with_id(1);
+        let second_event       = Event::new("data", vec![Tag::new("tag1"), Tag::new("tag2")]).with_id(2);
         let mut event_emitter  = EventEmitter::new(sender, Query::current().limit(1));
 
         assert_eq!(event_emitter.emit(first_event.clone()), Ok(true));
@@ -370,8 +370,8 @@ mod tests {
     #[test]
     fn test_event_emitter_receiver_drop() {
         let (sender, receiver) = channel();
-        let first_event        = Event::new("data", vec!["tag1", "tag2"]).with_id(1);
-        let second_event       = Event::new("data", vec!["tag1", "tag2"]).with_id(2);
+        let first_event        = Event::new("data", vec![Tag::new("tag1"), Tag::new("tag2")]).with_id(1);
+        let second_event       = Event::new("data", vec![Tag::new("tag1"), Tag::new("tag2")]).with_id(2);
         let mut event_emitter  = EventEmitter::new(sender, Query::current());
 
         assert_eq!(event_emitter.emit(first_event.clone()), Ok(true));

@@ -20,7 +20,7 @@ use std::sync::mpsc::Receiver;
 ///
 /// let log       = Log::new("test", &DataConfig::default()).expect("Unable to create log");
 /// let publisher = Publisher::new(&PublisherConfig::default()).expect("Unable to create publisher");
-/// let event     = Event::new("data", vec!["tag1", "tag2"]);
+/// let event     = Event::new("data", vec![Tag::new("tag1"), Tag::new("tag2")]);
 ///
 /// let line_reader = log.open_line_reader().expect("Unable to open line reader");
 /// let mut scanner = Scanner::new(&log, &publisher, &ScannerConfig::default()).expect("Unable to create scanner");
@@ -111,7 +111,7 @@ impl ScannerThread {
     }
 
     fn event_emitters_intervals(&self) -> Vec<Interval<u64>> {
-        self.event_emitters.iter().map(|s| s.interval()).collect()
+        self.event_emitters.iter().map(|ee| ee.interval()).collect()
     }
 
     fn scan(&mut self) -> DatabaseResult<()> {
@@ -125,7 +125,7 @@ impl ScannerThread {
                                     for event_emitter in self.event_emitters.iter_mut() {
                                         let _ = event_emitter.emit(event.clone());
                                     }
-                                    if interval.end == event.id || self.event_emitters.iter().all(|s| !s.is_active()) {
+                                    if interval.end == event.id || self.event_emitters.iter().all(|ee| !ee.is_active()) {
                                         break;
                                     }
                                 },
@@ -244,7 +244,7 @@ mod tests {
         let scanner        = Scanner::new(&log, &publisher, &config).expect("Unable to create scanner");
         let mut logger     = Logger::new(&log, &publisher, &scanner).expect("Unable to create logger");
         let line_reader    = log.open_line_reader().expect("Unable to open line reader");
-        let event          = Event::new("data", vec!["tag1", "tag2"]);
+        let event          = Event::new("data", vec![Tag::new("tag1"), Tag::new("tag2")]);
         let sleep_duration = Duration::from_millis(10);
 
         assert!(logger.log(event).is_ok());

@@ -22,7 +22,7 @@ pub enum TcpMessage {
     /// Message used to acknowledge a successfully published event.
     Published(u64),
     /// Message used to subscribe to an event stream.
-    Subscribe(bool, u64, Option<u64>, Option<String>),
+    Subscribe(bool, u64, Option<u64>, Option<Tag>),
     /// Message used to acknowledge a successful subscription.
     Subscribed,
     /// Message used to unsubscribe from an event stream.
@@ -45,6 +45,7 @@ impl ToTabSeparatedString for TcpMessage {
             TcpMessage::Drop(ref collection_name)                => tab_separated!("Drop", collection_name),
             TcpMessage::Dropped                                  => tab_separated!("Dropped"),
             TcpMessage::Publish(Event { ref data, ref tags, ref timestamp, .. }) => {
+                let tags: Vec<String> = tags.iter().map(|t| t.to_string()).collect();
                 tab_separated!("Publish", tags.join(" "), timestamp, data)
             },
             TcpMessage::Published(ref event_id)        => tab_separated!("Published", event_id),
@@ -94,7 +95,7 @@ impl FromTabSeparatedStr for TcpMessage {
                 let tags: String         = parser.parse_next()?;
                 let timestamp            = parser.parse_next()?;
                 let data: String         = parser.parse_next()?;
-                let tags: Vec<_>         = tags.split(' ').collect();
+                let tags: Vec<Tag>       = tags.split(' ').map(|x| x.parse()).collect::<Result<Vec<Tag>, ParseError>>()?;
                 Ok(TcpMessage::Publish(Event::new(&data, tags).with_timestamp(timestamp)))
             },
             "Published" => {
@@ -106,11 +107,17 @@ impl FromTabSeparatedStr for TcpMessage {
                 let mut parser           = TabSeparatedParser::new(4, &message_data);
                 let live                 = parser.parse_next()?;
                 let offset               = parser.parse_next()?;
-                let mut limit            = parser.parse_next().ok();
-                if limit.unwrap_or(0) == 0 {
-                    limit = None
-                }
-                let tag                  = parser.parse_next().ok();
+                let limit                = match parser.parse_next() {
+                                               Ok(limit) if limit > 0           => Some(limit),
+                                               Ok(_)                            => None,
+                                               Err(ParseError::MissingField(_)) => None,
+                                               Err(error)                       => return Err(error)
+                                           };
+                let tag                  = match parser.parse_next() {
+                                               Ok(tag)                          => Some(tag),
+                                               Err(ParseError::MissingField(_)) => None,
+                                               Err(error)                       => return Err(error)
+                                           };
                 Ok(TcpMessage::Subscribe(live, offset, limit, tag))
             },
             "Subscribed"  => Ok(TcpMessage::Subscribed),
@@ -217,7 +224,7 @@ mod tests {
 
     #[test]
     fn test_publish() {
-        let event = Event::new("data", vec!["tag1", "tag2"]).with_timestamp(1234567890);
+        let event = Event::new("data", vec![Tag::new("tag1"), Tag::new("tag2")]).with_timestamp(1234567890);
         let message = TcpMessage::Publish(event.clone());
         let string = "Publish\ttag1 tag2\t1234567890\tdata";
         assert_encoded_eq!(message, string);
@@ -236,7 +243,7 @@ mod tests {
 
     #[test]
     fn test_subscribe() {
-        let message = TcpMessage::Subscribe(true, 0, Some(100), Some("tag1".to_owned()));
+        let message = TcpMessage::Subscribe(true, 0, Some(100), Some(Tag::new("tag1")));
         let string = "Subscribe\ttrue\t0\t100\ttag1";
         assert_encoded_eq!(message, string);
         assert_decoded_eq!(string, message.clone());
@@ -248,11 +255,29 @@ mod tests {
         assert_decoded_eq!(string, message.clone());
         assert_eq!(format!("{}", message), "Subscribe(true, 0, 100)");
 
-        let message = TcpMessage::Subscribe(true, 0, None, Some("tag1".to_owned()));
+        let message = TcpMessage::Subscribe(true, 0, None, Some(Tag::new("tag1")));
         let string = "Subscribe\ttrue\t0\t0\ttag1";
         assert_encoded_eq!(message, string);
         assert_decoded_eq!(string, message.clone());
         assert_eq!(format!("{}", message), "Subscribe(true, 0, 0, tag1)");
+
+        let message = TcpMessage::Subscribe(true, 0, None, Some(Tag::new("tag1").named("name")));
+        let string = "Subscribe\ttrue\t0\t0\tname=tag1";
+        assert_encoded_eq!(message, string);
+        assert_decoded_eq!(string, message.clone());
+        assert_eq!(format!("{}", message), "Subscribe(true, 0, 0, name=tag1)");
+
+        let message = TcpMessage::Subscribe(true, 0, None, Some(Tag::new("tag1").with_version(1)));
+        let string = "Subscribe\ttrue\t0\t0\ttag1:1";
+        assert_encoded_eq!(message, string);
+        assert_decoded_eq!(string, message.clone());
+        assert_eq!(format!("{}", message), "Subscribe(true, 0, 0, tag1:1)");
+
+        let message = TcpMessage::Subscribe(true, 0, None, Some(Tag::new("tag1").named("name").with_version(1)));
+        let string = "Subscribe\ttrue\t0\t0\tname=tag1:1";
+        assert_encoded_eq!(message, string);
+        assert_decoded_eq!(string, message.clone());
+        assert_eq!(format!("{}", message), "Subscribe(true, 0, 0, name=tag1:1)");
 
         let message = TcpMessage::Subscribe(true, 0, None, None);
         let string = "Subscribe\ttrue\t0";
@@ -281,7 +306,7 @@ mod tests {
 
     #[test]
     fn test_event() {
-        let event = Event::new("data", vec!["tag1", "tag2"]).with_id(1).with_timestamp(1234567890);
+        let event = Event::new("data", vec![Tag::new("tag1"), Tag::new("tag2")]).with_id(1).with_timestamp(1234567890);
         let message = TcpMessage::Event(event.clone());
         let string = "Event\t1\t1234567890\ttag1 tag2\tdata";
         assert_encoded_eq!(message, string);

@@ -27,7 +27,7 @@ fn integration_test() {
     let shared_collection = db.collection(collection_name).expect("Unable to retrieve collection");
     let mut collection    = shared_collection.lock().unwrap();
 
-    let test_event = Event::new("data", vec!["tag1", "tag2"]);
+    let test_event = Event::new("data", vec![Tag::new("tag1"), Tag::new("tag2")]);
     assert!(collection.publish(test_event.clone()).is_ok());
 
     let query                    = Query::current();

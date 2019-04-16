@@ -238,7 +238,7 @@ mod tests {
         assert!(client.write_message(TcpMessage::Select(collection_name.to_owned())).is_ok());
         assert_eq!(client.read_message(), Ok(TcpMessage::Selected));
 
-        let event = Event::new("data", vec!["tag1", "tag2"]).with_timestamp(1234567890);
+        let event = Event::new("data", vec![Tag::new("tag1"), Tag::new("tag2")]).with_timestamp(1234567890);
 
         assert!(client.write_message(TcpMessage::Publish(event.clone())).is_ok());
         assert_eq!(client.read_message(), Ok(TcpMessage::Published(1)));
@@ -265,7 +265,7 @@ mod tests {
         assert!(client.write_message(TcpMessage::Select(collection_name.to_owned())).is_ok());
         assert_eq!(client.read_message(), Ok(TcpMessage::Selected));
 
-        let event = Event::new("data", vec!["tag1", "tag2"]).with_timestamp(1234567890);
+        let event = Event::new("data", vec![Tag::new("tag1"), Tag::new("tag2")]).with_timestamp(1234567890);
 
         assert!(client.write_message(TcpMessage::Publish(event.clone())).is_ok());
         assert_eq!(client.read_message(), Ok(TcpMessage::Published(1)));

@@ -75,7 +75,8 @@ export class ConnectionHandler {
     }
 
     subscribe() {
-        let query = new Query(this.liveStream, parseInt(this.offset), parseInt(this.limit), this.tag);
+        let tag   = this.tag && this.tag !== '' ? this.tag : undefined;
+        let query = new Query(this.liveStream, parseInt(this.offset), parseInt(this.limit), tag);
         this.exarClient.subscribe(query).then(
             eventStream => {
                 this.logMessage('Subscribed', false);

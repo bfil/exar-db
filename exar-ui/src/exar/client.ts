@@ -79,7 +79,7 @@ export class ExarClient {
     }
 
     disconnect() {
-        this.socket.close();
+        if(this.socket) this.socket.close();
     }
 
     publish(event: Event) {

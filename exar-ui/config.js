@@ -284,8 +284,7 @@ System.config({
       "buffer": "github:jspm/nodelibs-buffer@0.1.1",
       "constants": "github:jspm/nodelibs-constants@0.1.0",
       "crypto": "github:jspm/nodelibs-crypto@0.1.0",
-      "randombytes": "npm:randombytes@2.1.0",
-      "systemjs-json": "github:systemjs/plugin-json@0.1.2"
+      "randombytes": "npm:randombytes@2.1.0"
     },
     "npm:browserify-sign@4.0.4": {
       "bn.js": "npm:bn.js@4.11.8",
@@ -313,8 +312,7 @@ System.config({
       "inherits": "npm:inherits@2.0.3",
       "safe-buffer": "npm:safe-buffer@5.1.2",
       "stream": "github:jspm/nodelibs-stream@0.1.0",
-      "string_decoder": "github:jspm/nodelibs-string_decoder@0.1.0",
-      "systemjs-json": "github:systemjs/plugin-json@0.1.2"
+      "string_decoder": "github:jspm/nodelibs-string_decoder@0.1.0"
     },
     "npm:cli@0.6.6": {
       "exit": "npm:exit@0.1.2",
@@ -402,8 +400,7 @@ System.config({
       "pbkdf2": "npm:pbkdf2@3.0.17",
       "public-encrypt": "npm:public-encrypt@4.0.3",
       "randombytes": "npm:randombytes@2.1.0",
-      "randomfill": "npm:randomfill@1.0.4",
-      "systemjs-json": "github:systemjs/plugin-json@0.1.2"
+      "randomfill": "npm:randomfill@1.0.4"
     },
     "npm:des.js@1.0.0": {
       "buffer": "github:jspm/nodelibs-buffer@0.1.1",
@@ -664,8 +661,7 @@ System.config({
     },
     "npm:miller-rabin@4.0.1": {
       "bn.js": "npm:bn.js@4.11.8",
-      "brorand": "npm:brorand@1.1.0",
-      "systemjs-json": "github:systemjs/plugin-json@0.1.2"
+      "brorand": "npm:brorand@1.1.0"
     },
     "npm:minimatch@0.3.0": {
       "lru-cache": "npm:lru-cache@2.7.3",

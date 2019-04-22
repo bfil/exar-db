@@ -242,7 +242,11 @@ export class DatabaseError implements TcpMessage {
             return `${this.type}: missing field at position ${this.data}`;
         } else if(this.type === 'AuthenticationError') {
             return `${this.type}: missing or invalid credentials`;
-        } return `${this.type}: ${this.data}`;
+        } else if(this.data) {
+          return `${this.type}: ${this.data}`;
+        } else {
+          return `${this.type}`;
+        }
     }
 
     static fromTabSeparatedString(data: string) {
